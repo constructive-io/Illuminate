@@ -1,6 +1,6 @@
 {
   "name": "@wavegrid/canvas",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
   "description": "Artist-facing creative canvas for painting with light on the 7×7 grid",
   "main": "index.js",

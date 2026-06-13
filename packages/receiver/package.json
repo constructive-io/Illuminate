@@ -1,6 +1,6 @@
 {
   "name": "wavegrid",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
   "description": "Receiver brain — resilient state engine with independent low-pass filter, 3D sine wave fallback, and OSC bridge",
   "main": "index.js",
