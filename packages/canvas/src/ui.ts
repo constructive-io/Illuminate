@@ -334,6 +334,7 @@ export function getCanvasHTML(): string {
       <div class="mode-tab" data-mode="brush">Brush</div>
       <div class="mode-tab" data-mode="energy">Energy</div>
       <div class="mode-tab" data-mode="scenes">Scenes</div>
+      <div class="mode-tab" data-mode="animations">Animations</div>
       <div class="mode-tab" data-mode="motion">Motion</div>
       <div class="mode-tab" data-mode="drops">Drops</div>
       <div class="mode-tab" data-mode="symmetry">Symmetry</div>
@@ -397,6 +398,11 @@ export function getCanvasHTML(): string {
       <!-- Scenes -->
       <div class="tool-panel" id="panel-scenes">
         <div class="scene-palette" id="scene-palette"></div>
+      </div>
+
+      <!-- Animations -->
+      <div class="tool-panel" id="panel-animations">
+        <div class="scene-palette" id="animation-palette"></div>
       </div>
 
       <!-- Motion -->
@@ -466,6 +472,7 @@ let currentBright = 80;
 let brushSize = 1;
 let brushFalloff = false;
 let activeScene = 'civic';
+let activeAnimation = null;
 let symmetry = { h: false, v: false, radial: false, kaleidoscope: false };
 
 // Motion painter state
@@ -994,13 +1001,54 @@ for (const [key, scene] of Object.entries(SCENES)) {
   swatch.style.background = gradient;
   swatch.innerHTML = '<div class="scene-swatch-label">' + scene.label + '</div>';
   swatch.addEventListener('click', () => {
-    document.querySelectorAll('.scene-swatch').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('#scene-palette .scene-swatch').forEach(s => s.classList.remove('active'));
     swatch.classList.add('active');
     activeScene = key;
+    activeAnimation = null;
+    if (animPalette) animPalette.querySelectorAll('.scene-swatch').forEach(s => s.classList.remove('active'));
     document.getElementById('scene-label').textContent = scene.label;
     send({ type: 'scene', name: key });
   });
   scenePalette.appendChild(swatch);
+}
+
+// ═══════════════════════════════════════════════════
+// Animation Palette
+// ═══════════════════════════════════════════════════
+const ANIMATIONS = {
+  wave:      { label: 'Wave',      colors: ['#1a5acc', '#3af5e8', '#1a5acc'] },
+  breathe:   { label: 'Breathe',   colors: ['#1a3a7a', '#4a7cff', '#1a3a7a'] },
+  rainbow:   { label: 'Rainbow',   colors: ['#e33', '#f90', '#ee0', '#3a5', '#35e', '#a3e'] },
+  pacman:    { label: 'Pac-Man',   colors: ['#111', '#fc0', '#111'] },
+  spiral:    { label: 'Spiral',    colors: ['#e33', '#3ae', '#e3a', '#3ea'] },
+  rain:      { label: 'Rain',      colors: ['#0a1525', '#2a6acc', '#0a1525'] },
+  heartbeat: { label: 'Heartbeat', colors: ['#200', '#e22', '#200'] },
+};
+
+const animPalette = document.getElementById('animation-palette');
+for (const [key, anim] of Object.entries(ANIMATIONS)) {
+  const swatch = document.createElement('div');
+  swatch.className = 'scene-swatch';
+  const gradient = anim.colors.length > 1
+    ? 'linear-gradient(135deg, ' + anim.colors.join(', ') + ')'
+    : anim.colors[0];
+  swatch.style.background = gradient;
+  swatch.innerHTML = '<div class="scene-swatch-label">' + anim.label + '</div>';
+  swatch.addEventListener('click', () => {
+    animPalette.querySelectorAll('.scene-swatch').forEach(s => s.classList.remove('active'));
+    if (activeAnimation === key) {
+      // Tap again to stop
+      activeAnimation = null;
+      send({ type: 'animation', name: 'stop' });
+      document.getElementById('scene-label').textContent = 'Stopped';
+    } else {
+      swatch.classList.add('active');
+      activeAnimation = key;
+      document.getElementById('scene-label').textContent = anim.label;
+      send({ type: 'animation', name: key });
+    }
+  });
+  animPalette.appendChild(swatch);
 }
 
 // ═══════════════════════════════════════════════════
