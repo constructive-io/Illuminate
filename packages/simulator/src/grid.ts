@@ -65,15 +65,30 @@ function angleDelta(from: number, to: number): number {
   return d;
 }
 
-export function setCannonTarget(grid: CannonTarget[], index: number, h?: number, s?: number, b?: number) {
+/**
+ * Set target for a single cannon.
+ * attack (0–1): how much of the new value to apply.
+ *   1.0 = full (instant snap to new target)
+ *   0.1 = soft (target blends 10% toward new value)
+ */
+export function setCannonTarget(grid: CannonTarget[], index: number, h?: number, s?: number, b?: number, attack: number = 1.0) {
   const c = grid[index];
-  if (h !== undefined) c.targetH = h;
-  if (s !== undefined) c.targetS = s;
-  if (b !== undefined) c.targetB = b;
+  if (attack >= 1.0) {
+    if (h !== undefined) c.targetH = h;
+    if (s !== undefined) c.targetS = s;
+    if (b !== undefined) c.targetB = b;
+  } else {
+    if (h !== undefined) {
+      const dh = angleDelta(c.targetH, h);
+      c.targetH = (c.targetH + dh * attack + 360) % 360;
+    }
+    if (s !== undefined) c.targetS = c.targetS + (s - c.targetS) * attack;
+    if (b !== undefined) c.targetB = c.targetB + (b - c.targetB) * attack;
+  }
 }
 
-export function setAllTargets(grid: CannonTarget[], h?: number, s?: number, b?: number) {
+export function setAllTargets(grid: CannonTarget[], h?: number, s?: number, b?: number, attack: number = 1.0) {
   for (let i = 0; i < grid.length; i++) {
-    setCannonTarget(grid, i, h, s, b);
+    setCannonTarget(grid, i, h, s, b, attack);
   }
 }

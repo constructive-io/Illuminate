@@ -10,6 +10,7 @@ const TICK_MS = 1000 / 60; // 60fps interpolation
 
 const grid = createGrid();
 let currentAlpha = DEFAULT_ALPHA;
+let currentAttack = 1.0;
 
 const server = http.createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -55,11 +56,12 @@ function handleMessage(msg: any) {
       msg.index,
       msg.h ?? undefined,
       msg.s ?? undefined,
-      msg.b ?? undefined
+      msg.b ?? undefined,
+      currentAttack
     );
     break;
   case 'master_brightness':
-    setAllTargets(grid, undefined, undefined, msg.value * 100);
+    setAllTargets(grid, undefined, undefined, msg.value * 100, currentAttack);
     break;
   case 'scene':
     if (msg.name && scenes[msg.name]) {
@@ -75,7 +77,8 @@ function handleMessage(msg: any) {
             idx,
             msg.h ?? undefined,
             msg.s ?? undefined,
-            msg.b ?? undefined
+            msg.b ?? undefined,
+            currentAttack
           );
         }
       }
@@ -84,6 +87,11 @@ function handleMessage(msg: any) {
   case 'smoothness':
     if (typeof msg.value === 'number') {
       currentAlpha = msg.value;
+    }
+    break;
+  case 'attack':
+    if (typeof msg.value === 'number') {
+      currentAttack = msg.value;
     }
     break;
   }

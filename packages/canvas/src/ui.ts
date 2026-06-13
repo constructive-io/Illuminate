@@ -58,19 +58,26 @@ export function getCanvasHTML(): string {
       box-shadow: 0 0 12px var(--glow); cursor: pointer;
     }
     .energy-val { font-size: 12px; color: var(--text2); min-width: 32px; text-align: right; }
-    .smooth-wrap {
-      display: flex; align-items: center; gap: 8px;
+    .global-controls {
+      display: flex; align-items: center; gap: 16px;
     }
-    .smooth-icon { font-size: 14px; opacity: 0.5; }
-    .smooth-slider {
-      width: 100px; height: 4px; -webkit-appearance: none; appearance: none;
+    .ctrl-wrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ctrl-icon { font-size: 12px; opacity: 0.5; }
+    .ctrl-label { font-size: 9px; color: var(--text2); letter-spacing: 0.05em; text-transform: uppercase; }
+    .ctrl-slider {
+      width: 80px; height: 4px; -webkit-appearance: none; appearance: none;
       background: linear-gradient(to right, var(--accent), #1a1a2a);
       border-radius: 2px; outline: none;
     }
-    .smooth-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 18px; height: 18px;
+    .ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
       border-radius: 50%; background: var(--text);
-      box-shadow: 0 0 8px rgba(255,255,255,0.2); cursor: pointer;
+      box-shadow: 0 0 6px rgba(255,255,255,0.2); cursor: pointer;
+    }
+    .ctrl-slider.attack {
+      background: linear-gradient(to right, #1a1a2a, var(--accent));
     }
 
     /* ─── Sculpture Canvas ─── */
@@ -302,9 +309,15 @@ export function getCanvasHTML(): string {
       <input type="range" class="energy-slider" id="energy" min="0" max="100" value="80">
       <span class="energy-val" id="energy-val">80</span>
     </div>
-    <div class="smooth-wrap">
-      <span class="smooth-icon">〰</span>
-      <input type="range" class="smooth-slider" id="smoothness" min="0" max="100" value="50">
+    <div class="global-controls">
+      <div class="ctrl-wrap">
+        <span class="ctrl-label">Smooth</span>
+        <input type="range" class="ctrl-slider" id="smoothness" min="0" max="100" value="50">
+      </div>
+      <div class="ctrl-wrap">
+        <span class="ctrl-label">Attack</span>
+        <input type="range" class="ctrl-slider attack" id="attack" min="0" max="100" value="100">
+      </div>
     </div>
   </div>
 
@@ -937,12 +950,24 @@ document.getElementById('energy-full').addEventListener('input', function() {
 // Smoothness control (global low-pass filter amount)
 // ═══════════════════════════════════════════════════
 document.getElementById('smoothness').addEventListener('input', function() {
-  // Slider 0–100 maps to alpha 1.0 (instant) → 0.01 (ultra-smooth)
-  // Exponential curve so the middle range (40–60%) feels like the sweet spot
+  // Slider 0–100 maps to alpha 1.0 (instant) → 0.002 (glacially smooth)
+  // Exponential curve: 10^(-2.7 * pct) gives wide usable range
+  // pct=0 → alpha=1.0 (no filter, instant)
+  // pct=0.5 → alpha≈0.045 (smooth, ~2s transitions)
+  // pct=1.0 → alpha≈0.002 (ultra-smooth, ~8-10s transitions)
   const pct = parseInt(this.value) / 100;
-  const alpha = Math.pow(10, -2 * pct) * (1 - 0.01) + 0.01;
-  // Clamp: pct=0 → alpha≈1.0 (no filter), pct=1 → alpha≈0.01 (very smooth)
-  send({ type: 'smoothness', value: Math.max(0.01, Math.min(1.0, alpha)) });
+  const alpha = Math.pow(10, -2.7 * pct);
+  send({ type: 'smoothness', value: Math.max(0.002, Math.min(1.0, alpha)) });
+});
+
+document.getElementById('attack').addEventListener('input', function() {
+  // Slider 0–100 maps to attack 0.05 (soft) → 1.0 (full/instant)
+  // Controls how much of a new input overrides the current target per event
+  // Low attack = new inputs blend in gradually (soft onset)
+  // High attack = new inputs snap immediately to full target
+  const pct = parseInt(this.value) / 100;
+  const attack = 0.05 + pct * 0.95;
+  send({ type: 'attack', value: attack });
 });
 
 // ═══════════════════════════════════════════════════
