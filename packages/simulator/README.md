@@ -1,4 +1,14 @@
-# @illuminate/simulator
+# @wavegrid/simulator
+
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+<p align="center" width="100%">
+  <a href="https://github.com/constructive-io/Illuminate/actions/workflows/ci.yml">
+    <img height="20" src="https://github.com/constructive-io/Illuminate/actions/workflows/ci.yml/badge.svg" />
+  </a>
+</p>
 
 7×7 RGB grid simulator for the Illuminate project. Renders 49 virtual laser cannons with smooth interpolated transitions (low-pass filtered) — no abrupt color or brightness changes.
 

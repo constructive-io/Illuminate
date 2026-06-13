@@ -12,7 +12,7 @@
 
 ## Overview
 
-**Illuminate** is a 7×7 laser grid controller for Civic Center Plaza — 49 Laser Space Cannons on a Global Truss F34 array. This workspace contains the web-based simulation UI and (eventually) the OSC bridge for controlling BEYOND.
+**Illuminate** is a 7×7 laser grid controller for a 49 Laser Space Cannons on a Global Truss F34 array. This workspace contains the web-based simulation UI and the OSC bridge for controlling BEYOND.
 
 ## Getting Started
 
