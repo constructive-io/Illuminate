@@ -1,5 +1,5 @@
+import { CallbackOutput, ConsoleOutput, WebSocketInput } from '../src/adapters';
 import { Receiver } from '../src/receiver';
-import { createStubBridge } from '../src/osc';
 
 describe('Receiver', () => {
   it('should create with default config', () => {
@@ -17,16 +17,24 @@ describe('Receiver', () => {
     expect(state[0]).toHaveProperty('b');
   });
 
-  it('should accept custom config', () => {
-    const bridge = createStubBridge();
+  it('should accept custom adapters', () => {
+    const received: unknown[] = [];
+    const input = new WebSocketInput({ url: 'ws://example.com:9999' });
+    const output = new CallbackOutput((grid) => { received.push(grid); });
     const r = new Receiver({
-      simulatorUrl: 'ws://example.com:9999',
+      input,
+      output,
       alpha: 0.03,
-      fallbackDelay: 5000,
-      bridge
+      fallbackDelay: 5000
     });
     expect(r.status).toBe('reconnecting');
     const state = r.getOutputState();
     expect(state).toHaveLength(49);
+  });
+
+  it('should accept ConsoleOutput adapter', () => {
+    const output = new ConsoleOutput({ logEveryNFrames: 120 });
+    const r = new Receiver({ output });
+    expect(r.status).toBe('reconnecting');
   });
 });
