@@ -1,6 +1,7 @@
 import http from 'http';
 import { WebSocket,WebSocketServer } from 'ws';
 
+import { animations } from './animations';
 import {createGrid, DEFAULT_ALPHA, setAllTargets, setCannonTarget, tickGrid } from './grid';
 import { applyScene, scenes } from './scenes';
 import { getHTML } from './ui';
@@ -11,6 +12,8 @@ const TICK_MS = 1000 / 60; // 60fps interpolation
 const grid = createGrid();
 let currentAlpha = DEFAULT_ALPHA;
 let currentAttack = 1.0;
+let currentAnimation: string | null = null;
+let animationTick = 0;
 
 const server = http.createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -65,7 +68,16 @@ function handleMessage(msg: any) {
     break;
   case 'scene':
     if (msg.name && scenes[msg.name]) {
+      currentAnimation = null;
       applyScene(grid, msg.name);
+    }
+    break;
+  case 'animation':
+    if (msg.name && animations[msg.name]) {
+      currentAnimation = msg.name;
+      animationTick = 0;
+    } else if (msg.name === 'stop') {
+      currentAnimation = null;
     }
     break;
   case 'selection':
@@ -99,6 +111,10 @@ function handleMessage(msg: any) {
 
 // Animation loop: tick interpolation and broadcast
 setInterval(() => {
+  if (currentAnimation && animations[currentAnimation]) {
+    animations[currentAnimation](grid, animationTick, currentAttack);
+    animationTick++;
+  }
   const changed = tickGrid(grid, currentAlpha);
   if (changed) {
     broadcastState();
