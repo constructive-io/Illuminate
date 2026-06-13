@@ -23,6 +23,7 @@
     "dev:sim": "pnpm --filter @wavegrid/simulator run dev",
     "dev:canvas": "pnpm --filter @wavegrid/canvas run dev",
     "dev:receiver": "pnpm --filter wavegrid run dev",
+    "dev:relay": "pnpm --filter @wavegrid/relay run dev",
     "deps": "pnpm up -r -i -L"
   },
   "devDependencies": {
