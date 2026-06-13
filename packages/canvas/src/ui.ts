@@ -55,6 +55,20 @@ export function getCanvasHTML(): string {
       box-shadow: 0 0 12px var(--glow); cursor: pointer;
     }
     .energy-val { font-size: 12px; color: var(--text2); min-width: 32px; text-align: right; }
+    .smooth-wrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .smooth-icon { font-size: 14px; opacity: 0.5; }
+    .smooth-slider {
+      width: 100px; height: 4px; -webkit-appearance: none; appearance: none;
+      background: linear-gradient(to right, var(--accent), #1a1a2a);
+      border-radius: 2px; outline: none;
+    }
+    .smooth-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: var(--text);
+      box-shadow: 0 0 8px rgba(255,255,255,0.2); cursor: pointer;
+    }
 
     /* ─── Sculpture Canvas ─── */
     .sculpture-wrap {
@@ -284,6 +298,10 @@ export function getCanvasHTML(): string {
       <span class="energy-icon">◐</span>
       <input type="range" class="energy-slider" id="energy" min="0" max="100" value="80">
       <span class="energy-val" id="energy-val">80</span>
+    </div>
+    <div class="smooth-wrap">
+      <span class="smooth-icon">〰</span>
+      <input type="range" class="smooth-slider" id="smoothness" min="0" max="100" value="50">
     </div>
   </div>
 
@@ -910,6 +928,18 @@ document.getElementById('energy-full').addEventListener('input', function() {
   document.getElementById('energy').value = this.value;
   document.getElementById('energy-val').textContent = this.value;
   send({ type: 'master_brightness', value: parseInt(this.value) / 100 });
+});
+
+// ═══════════════════════════════════════════════════
+// Smoothness control (global low-pass filter amount)
+// ═══════════════════════════════════════════════════
+document.getElementById('smoothness').addEventListener('input', function() {
+  // Slider 0–100 maps to alpha 1.0 (instant) → 0.01 (ultra-smooth)
+  // Exponential curve so the middle range (40–60%) feels like the sweet spot
+  const pct = parseInt(this.value) / 100;
+  const alpha = Math.pow(10, -2 * pct) * (1 - 0.01) + 0.01;
+  // Clamp: pct=0 → alpha≈1.0 (no filter), pct=1 → alpha≈0.01 (very smooth)
+  send({ type: 'smoothness', value: Math.max(0.01, Math.min(1.0, alpha)) });
 });
 
 // ═══════════════════════════════════════════════════

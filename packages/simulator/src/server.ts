@@ -1,7 +1,7 @@
 import http from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocket,WebSocketServer } from 'ws';
 
-import { createGrid, tickGrid, setCannonTarget, setAllTargets, CannonTarget } from './grid';
+import {createGrid, DEFAULT_ALPHA, setAllTargets, setCannonTarget, tickGrid } from './grid';
 import { applyScene, scenes } from './scenes';
 import { getHTML } from './ui';
 
@@ -9,6 +9,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const TICK_MS = 1000 / 60; // 60fps interpolation
 
 const grid = createGrid();
+let currentAlpha = DEFAULT_ALPHA;
 
 const server = http.createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -80,12 +81,17 @@ function handleMessage(msg: any) {
       }
     }
     break;
+  case 'smoothness':
+    if (typeof msg.value === 'number') {
+      currentAlpha = msg.value;
+    }
+    break;
   }
 }
 
 // Animation loop: tick interpolation and broadcast
 setInterval(() => {
-  const changed = tickGrid(grid);
+  const changed = tickGrid(grid, currentAlpha);
   if (changed) {
     broadcastState();
   }
@@ -102,4 +108,4 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('');
 });
 
-export { server, grid };
+export { grid,server };
