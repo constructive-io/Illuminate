@@ -5,7 +5,7 @@
  * adapters via environment variables, then start the receiver.
  */
 
-import { ConsoleOutput, MultiOutput, WebSocketInput, WebSocketOutput } from './adapters';
+import { ConsoleOutput, MultiOutput, OutputAdapter, WebSocketInput, WebSocketOutput } from './adapters';
 import { Receiver } from './receiver';
 
 const SIMULATOR_URL = process.env.SIMULATOR_URL || 'ws://localhost:3000';
@@ -17,7 +17,7 @@ const WS_OUTPUT_PORT = process.env.WS_OUTPUT_PORT ? parseInt(process.env.WS_OUTP
 const input = new WebSocketInput({ url: SIMULATOR_URL });
 
 // ─── Output adapter(s) ───
-const outputs = [new ConsoleOutput()];
+const outputs: OutputAdapter[] = [new ConsoleOutput()];
 
 let wsOutput: WebSocketOutput | null = null;
 if (WS_OUTPUT_PORT) {
