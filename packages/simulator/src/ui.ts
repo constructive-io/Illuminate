@@ -7,6 +7,7 @@ export function getHTML(): string {
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <title>Illuminate · 7×7 Simulator</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
