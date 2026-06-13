@@ -36,6 +36,9 @@ export function getCanvasHTML(): string {
       padding: 12px 20px; flex-shrink: 0;
       background: var(--surface); border-bottom: 1px solid var(--border);
     }
+    .scene-label-wrap {
+      min-width: 120px; flex-shrink: 0;
+    }
     .scene-label {
       font-size: 13px; font-weight: 500; color: var(--text2);
       letter-spacing: 0.04em;
@@ -290,7 +293,7 @@ export function getCanvasHTML(): string {
 
   <!-- ─── Top Bar ─── -->
   <div class="top-bar">
-    <div style="display:flex;align-items:center;gap:8px">
+    <div class="scene-label-wrap" style="display:flex;align-items:center;gap:8px">
       <div class="status-dot" id="status-dot"></div>
       <span class="scene-label" id="scene-label">Civic Blue</span>
     </div>
