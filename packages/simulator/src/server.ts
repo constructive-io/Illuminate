@@ -2,7 +2,8 @@ import http from 'http';
 import { WebSocket,WebSocketServer } from 'ws';
 
 import { animations } from './animations';
-import {createGrid, DEFAULT_ALPHA, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, setAllTargets, setCannonTarget, tickGrid } from './grid';
+import type { BlendMode, CannonState } from './grid';
+import {compositeLayer, createGrid, DEFAULT_ALPHA, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, setAllTargets, setCannonTarget, tickGrid } from './grid';
 import { applyScene, scenes } from './scenes';
 import { getHTML } from './ui';
 
@@ -16,6 +17,8 @@ let currentAlpha = DEFAULT_ALPHA;
 let currentAttack = 1.0;
 let currentAnimation: string | null = null;
 let animationTick = 0;
+let audioLayer: CannonState[] | null = null;
+let audioBlend: BlendMode = 'replace';
 
 // constructive.io brand mark — served as the favicon
 const FAVICON_SVG = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,9 +38,16 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server });
 
 function broadcastState() {
+  const output = audioLayer
+    ? compositeLayer(grid, audioLayer, audioBlend)
+    : grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+  broadcastComposite(output);
+}
+
+function broadcastComposite(output: CannonState[]) {
   const payload = JSON.stringify({
     type: 'state',
-    grid: grid.map(c => ({ h: c.h, s: c.s, b: c.b }))
+    grid: output
   });
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
@@ -108,6 +118,15 @@ function handleMessage(msg: any) {
       }
     }
     break;
+  case 'audio_layer':
+    if (Array.isArray(msg.grid)) {
+      audioLayer = msg.grid;
+      audioBlend = msg.blend || 'replace';
+    }
+    break;
+  case 'audio_layer_clear':
+    audioLayer = null;
+    break;
   case 'smoothness':
     if (typeof msg.value === 'number') {
       currentAlpha = msg.value;
@@ -128,8 +147,11 @@ setInterval(() => {
     animationTick++;
   }
   const changed = tickGrid(grid, currentAlpha);
-  if (changed) {
-    broadcastState();
+  if (changed || audioLayer) {
+    const output = audioLayer
+      ? compositeLayer(grid, audioLayer, audioBlend)
+      : grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+    broadcastComposite(output);
   }
 }, TICK_MS);
 

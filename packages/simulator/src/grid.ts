@@ -96,3 +96,36 @@ export function setAllTargets(grid: CannonTarget[], h?: number, s?: number, b?: 
     setCannonTarget(grid, i, h, s, b, attack);
   }
 }
+
+export type BlendMode = 'replace' | 'multiply' | 'additive';
+
+/**
+ * Composite an audio overlay onto the base grid.
+ * Returns a new array — does NOT mutate the base grid.
+ */
+export function compositeLayer(
+  base: CannonState[],
+  overlay: CannonState[],
+  blend: BlendMode
+): CannonState[] {
+  return base.map((c, i) => {
+    const o = overlay[i];
+    if (!o) return { h: c.h, s: c.s, b: c.b };
+    switch (blend) {
+    case 'multiply':
+      return {
+        h: (c.h + o.h * 0.3) % 360,
+        s: Math.min(100, c.s * (0.5 + o.b / 200)),
+        b: Math.min(100, c.b * (o.b / 80))
+      };
+    case 'additive':
+      return {
+        h: (c.h + o.h * 0.2) % 360,
+        s: Math.min(100, Math.max(c.s, o.s)),
+        b: Math.min(100, c.b + o.b * 0.4)
+      };
+    default: // replace
+      return { h: o.h, s: o.s, b: o.b };
+    }
+  });
+}

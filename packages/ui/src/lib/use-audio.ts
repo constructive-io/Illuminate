@@ -43,7 +43,7 @@ export interface AudioEngine {
 export function useAudio(
   numCannons: number,
   gridColumns: number,
-  grid: CannonColor[],
+  _grid: CannonColor[],
   send: (msg: Record<string, unknown>) => void
 ): AudioEngine {
   const [audioState, setAudioState] = useState<AudioEngineState>({
@@ -68,7 +68,6 @@ export function useAudio(
   const offsetRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dropsRef = useRef<Drop[]>([]);
-  const gridRef = useRef<CannonColor[]>(grid);
   const sendRef = useRef(send);
   const modeRef = useRef(mode);
   const blendRef = useRef(blend);
@@ -78,7 +77,6 @@ export function useAudio(
   const numCannonsRef = useRef(numCannons);
   const gridColumnsRef = useRef(gridColumns);
 
-  useEffect(() => { gridRef.current = grid; }, [grid]);
   useEffect(() => { sendRef.current = send; }, [send]);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { blendRef.current = blend; }, [blend]);
@@ -87,31 +85,6 @@ export function useAudio(
   useEffect(() => { loopRef.current = loop; }, [loop]);
   useEffect(() => { numCannonsRef.current = numCannons; }, [numCannons]);
   useEffect(() => { gridColumnsRef.current = gridColumns; }, [gridColumns]);
-
-  const applyBlend = useCallback((
-    index: number,
-    audioH: number,
-    audioS: number,
-    audioB: number
-  ) => {
-    const cur = gridRef.current[index] || { h: 0, s: 0, b: 0 };
-    const b = blendRef.current;
-    const s = sendRef.current;
-
-    if (b === 'replace') {
-      s({ type: 'cannon', index, h: audioH, s: audioS, b: audioB });
-    } else if (b === 'multiply') {
-      const h = (cur.h + audioH * 0.3) % 360;
-      const sat = Math.min(100, cur.s * (0.5 + audioB / 200));
-      const bright = Math.min(100, cur.b * (audioB / 80));
-      s({ type: 'cannon', index, h, s: sat, b: bright });
-    } else {
-      const h = (cur.h + audioH * 0.2) % 360;
-      const sat = Math.min(100, Math.max(cur.s, audioS));
-      const bright = Math.min(100, cur.b + audioB * 0.4);
-      s({ type: 'cannon', index, h, s: sat, b: bright });
-    }
-  }, []);
 
   const processFrame = useCallback(() => {
     if (!analyserRef.current) return;
@@ -150,6 +123,12 @@ export function useAudio(
     const m = modeRef.current;
     const spread = sineSpreadRef.current;
 
+    // Build the audio layer — raw audio-derived colors for each cannon
+    const layer: Array<{ h: number; s: number; b: number }> = Array.from(
+      { length: nc },
+      () => ({ h: 0, s: 0, b: 0 })
+    );
+
     if (m === 'spectrum') {
       for (let col = 0; col < gc; col++) {
         const bandStart = Math.floor((col / gc) * bufLen);
@@ -173,10 +152,11 @@ export function useAudio(
               const nIdx = row * gc + nCol;
               if (nIdx >= nc) continue;
               const falloff = Math.cos((Math.PI / 2) * Math.abs(dc));
-              applyBlend(nIdx, hue, 85, bright * falloff * 0.4);
+              const nb = bright * falloff * 0.4;
+              layer[nIdx] = { h: hue, s: 85, b: Math.max(layer[nIdx].b, nb) };
             }
           }
-          applyBlend(idx, hue, 85, bright);
+          layer[idx] = { h: hue, s: 85, b: bright };
         }
       }
     } else if (m === 'energy') {
@@ -189,7 +169,7 @@ export function useAudio(
       lowEnergy = (lowEnergy / lowBins) / 255;
       const hue = lowEnergy * 240;
       const bright = 20 + totalEnergy * sens * 80;
-      for (let i = 0; i < nc; i++) applyBlend(i, hue, 80, bright);
+      for (let i = 0; i < nc; i++) layer[i] = { h: hue, s: 80, b: bright };
     } else if (m === 'beat') {
       let totalEnergy = 0;
       for (let i = 0; i < bufLen; i++) totalEnergy += dataArray[i];
@@ -209,7 +189,7 @@ export function useAudio(
           if (idx >= nc) continue;
           const hue = isBeat ? col * 30 : 220;
           const bright = isBeat ? 70 + bandVal * 30 : 10 + bandVal * 20;
-          applyBlend(idx, hue % 360, 90, bright);
+          layer[idx] = { h: hue % 360, s: 90, b: bright };
         }
       }
     } else if (m === 'drops') {
@@ -261,12 +241,19 @@ export function useAudio(
 
       for (let i = 0; i < nc; i++) {
         if (counts[i] > 0) {
-          applyBlend(i, (hues[i] / counts[i] + 360) % 360, 90, Math.min(100, contrib[i]));
-        } else if (blendRef.current === 'replace') {
-          applyBlend(i, 220, 0, 3);
+          layer[i] = { h: (hues[i] / counts[i] + 360) % 360, s: 90, b: Math.min(100, contrib[i]) };
+        } else {
+          layer[i] = { h: 220, s: 0, b: 3 };
         }
       }
     }
+
+    // Send the full audio layer to the Simulator for server-side compositing
+    sendRef.current({
+      type: 'audio_layer',
+      blend: blendRef.current,
+      grid: layer
+    });
 
     if (audioContextRef.current) {
       const elapsed = audioContextRef.current.currentTime - startTimeRef.current + offsetRef.current;
@@ -278,7 +265,7 @@ export function useAudio(
     }
 
     animFrameRef.current = requestAnimationFrame(processFrame);
-  }, [applyBlend]);
+  }, []);
 
   const stopPlayback = useCallback(() => {
     if (sourceRef.current) {
@@ -294,6 +281,8 @@ export function useAudio(
     }
     dropsRef.current = [];
     offsetRef.current = 0;
+    // Clear the audio overlay on the Simulator so base grid shows through
+    sendRef.current({ type: 'audio_layer_clear' });
     setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
   }, []);
 
@@ -330,6 +319,7 @@ export function useAudio(
         // Restart from beginning
         startPlaybackAt(0);
       } else {
+        sendRef.current({ type: 'audio_layer_clear' });
         setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
         if (animFrameRef.current) {
           cancelAnimationFrame(animFrameRef.current);
