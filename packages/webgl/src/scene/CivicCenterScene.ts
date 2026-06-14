@@ -11,6 +11,7 @@ import { createTrees } from './Trees';
 import { createCivicBuildings } from './CivicBuildings';
 import { getCameraPresets, type CameraPreset } from '../ui/CameraPresets';
 import { createHumanSilhouettes } from './Silhouettes';
+import { createBenFigure, updateBenIPad } from './BenFigure';
 
 const FT = 0.3048;
 
@@ -41,10 +42,15 @@ export class CivicCenterScene {
   private sunLight: THREE.DirectionalLight;
   private animFrameId = 0;
   private debugGroup: THREE.Group | null = null;
+  private benIpadScreen: THREE.Mesh | null = null;
+  /** Ben's world-space position (for camera presets) */
+  readonly benPosition: THREE.Vector3;
 
   constructor(options: SceneOptions) {
     this.config = options.config || DEFAULT_CONFIG;
-    this.presets = getCameraPresets(this.config.footprintFt);
+    // presets are finalized after Ben is placed (see below)
+    this.presets = [];
+    this.benPosition = new THREE.Vector3();
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -70,17 +76,13 @@ export class CivicCenterScene {
       0.1,
       2000
     );
-    // Default: drone oblique
-    const preset = this.presets[4];
-    this.camera.position.copy(preset.position);
+    // Camera position set after presets are built (see below)
 
     // Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.copy(preset.target);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.maxPolarAngle = Math.PI * 0.95;
-    this.controls.update();
 
     // Lighting
     this.ambientLight = new THREE.AmbientLight(0x334466, 0.3);
@@ -97,9 +99,9 @@ export class CivicCenterScene {
     this.scene.add(this.sunLight);
 
     // Build scene elements
-    // City Hall — positioned behind (negative Z) the installation
+    // City Hall — positioned behind (negative Z) the installation, ~150 ft back
     this.cityHall = createCityHall('night');
-    this.cityHall.position.set(0, 0, -100 * FT);
+    this.cityHall.position.set(0, 0, -150 * FT);
     this.scene.add(this.cityHall);
 
     // Plaza
@@ -121,6 +123,20 @@ export class CivicCenterScene {
     // Human silhouettes for scale
     const humans = createHumanSilhouettes(this.config);
     this.scene.add(humans);
+
+    // Ben — figure holding iPad with 7×7 grid easter egg
+    const ben = createBenFigure(this.config);
+    this.scene.add(ben.group);
+    this.benIpadScreen = ben.ipadScreen;
+    this.benPosition.copy(ben.position);
+
+    // Now build camera presets with Ben's position
+    this.presets = getCameraPresets(this.config.footprintFt, this.benPosition);
+    // Set default camera: drone oblique (index 4)
+    const defaultPreset = this.presets[4];
+    this.camera.position.copy(defaultPreset.position);
+    this.controls.target.copy(defaultPreset.target);
+    this.controls.update();
 
     // Truss
     const truss = createTrussGrid(this.config);
@@ -164,6 +180,10 @@ export class CivicCenterScene {
     this.laserArray.update(state.beams, state.globalBrightness);
     if (this.fog.density !== state.haze * 0.008) {
       this.fog.density = state.haze * 0.008;
+    }
+    // Update Ben's iPad screen to mirror the beam colors
+    if (this.benIpadScreen) {
+      updateBenIPad(this.benIpadScreen, state.beams);
     }
   }
 

@@ -3,7 +3,6 @@ import { CivicCenterScene } from './scene/CivicCenterScene';
 import { StateController } from './control/StateController';
 import { MessageReceiver } from './control/MessageReceiver';
 import { DEFAULT_CONFIG, type TimeOfDay } from './installation/BeamState';
-import { getCameraPresets } from './ui/CameraPresets';
 
 const SIMULATOR_URL = 'ws://localhost:3000';
 
@@ -24,7 +23,7 @@ controller.onChange(state => scene.updateState(state));
 scene.start();
 
 // ── UI ──
-const presets = getCameraPresets(config.footprintFt);
+const presets = scene.presets;
 
 // Connection status
 const statusDot = document.getElementById('status-dot')!;
@@ -40,6 +39,7 @@ presets.forEach((p, i) => {
   btn.className = 'btn';
   btn.textContent = p.name;
   btn.onclick = () => scene.goToPreset(i);
+  if (p.name.startsWith('Ben')) btn.classList.add('ben-preset');
   presetContainer.appendChild(btn);
 });
 
