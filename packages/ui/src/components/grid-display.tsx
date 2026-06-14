@@ -4,9 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { CannonColor } from '@/lib/use-socket';
 
-import type { SymmetryState } from './symmetry-tab';
-
-export type GridMode = 'paint' | 'gradient' | 'energy' | 'drops' | 'motion' | 'symmetry' | 'scenes' | 'animations' | 'audio';
+export type GridMode = 'paint' | 'gradient' | 'energy' | 'drops' | 'motion' | 'scenes' | 'animations' | 'audio';
 
 interface GridDisplayProps {
   grid: CannonColor[];
@@ -17,7 +15,7 @@ interface GridDisplayProps {
   mode: GridMode;
   brushSize: number;
   softEdge: boolean;
-  symmetry: SymmetryState;
+  motionPath?: number[];
   onCannon: (index: number, h: number, s: number, b: number) => void;
   onDrop?: (index: number) => void;
   onMotionPoint?: (index: number) => void;
@@ -48,7 +46,7 @@ export function GridDisplay({
   mode,
   brushSize,
   softEdge,
-  symmetry,
+  motionPath,
   onCannon,
   onDrop,
   onMotionPoint,
@@ -137,7 +135,50 @@ export function GridDisplay({
         ctx.fill();
       }
     }
-  }, [grid, columns]);
+
+    // Motion path overlay
+    if (motionPath && motionPath.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(74, 124, 255, 0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      for (let i = 0; i < motionPath.length; i++) {
+        const pidx = motionPath[i];
+        const prow = Math.floor(pidx / columns);
+        const pcol = pidx % columns;
+        const px = gridOffset + pcol * cellSize + cellSize / 2;
+        const py = gridOffset + prow * cellSize + cellSize / 2;
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+
+      // Draw dots at each point
+      for (let i = 0; i < motionPath.length; i++) {
+        const pidx = motionPath[i];
+        const prow = Math.floor(pidx / columns);
+        const pcol = pidx % columns;
+        const px = gridOffset + pcol * cellSize + cellSize / 2;
+        const py = gridOffset + prow * cellSize + cellSize / 2;
+        const isFirst = i === 0;
+        const isLast = i === motionPath.length - 1;
+        const dotR = isFirst || isLast ? 5 : 3;
+        ctx.beginPath();
+        ctx.arc(px, py, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = isFirst ? '#4a7cff' : isLast ? '#ff4a4a' : 'rgba(74, 124, 255, 0.5)';
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }, [grid, columns, motionPath]);
 
   const cannonAtXY = useCallback((clientX: number, clientY: number): number => {
     const canvas = canvasRef.current;
@@ -174,36 +215,13 @@ export function GridDisplay({
       }
     }
 
-    const mirrored: { idx: number; falloff: number }[] = [];
-    for (const item of result) {
-      mirrored.push(item);
-      const r = Math.floor(item.idx / columns);
-      const c = item.idx % columns;
-      if (symmetry.h) mirrored.push({ idx: r * columns + (columns - 1 - c), falloff: item.falloff });
-      if (symmetry.v) mirrored.push({ idx: (rows - 1 - r) * columns + c, falloff: item.falloff });
-      if (symmetry.h && symmetry.v) mirrored.push({ idx: (rows - 1 - r) * columns + (columns - 1 - c), falloff: item.falloff });
-      if (symmetry.radial) {
-        mirrored.push({ idx: c * columns + (columns - 1 - r), falloff: item.falloff });
-        mirrored.push({ idx: (columns - 1 - c) * columns + r, falloff: item.falloff });
-      }
-      if (symmetry.kaleidoscope) {
-        mirrored.push({ idx: r * columns + (columns - 1 - c), falloff: item.falloff });
-        mirrored.push({ idx: (rows - 1 - r) * columns + c, falloff: item.falloff });
-        mirrored.push({ idx: (rows - 1 - r) * columns + (columns - 1 - c), falloff: item.falloff });
-        mirrored.push({ idx: c * columns + r, falloff: item.falloff });
-        mirrored.push({ idx: c * columns + (columns - 1 - r), falloff: item.falloff });
-        mirrored.push({ idx: (columns - 1 - c) * columns + r, falloff: item.falloff });
-        mirrored.push({ idx: (columns - 1 - c) * columns + (columns - 1 - r), falloff: item.falloff });
-      }
-    }
-
     const seen = new Set<number>();
-    return mirrored.filter((m) => {
+    return result.filter((m) => {
       if (m.idx < 0 || m.idx >= grid.length || seen.has(m.idx)) return false;
       seen.add(m.idx);
       return true;
     });
-  }, [columns, rows, brushSize, softEdge, symmetry, grid.length]);
+  }, [columns, rows, brushSize, softEdge, grid.length]);
 
   const handleStart = useCallback((e: React.PointerEvent) => {
     paintingRef.current = true;
@@ -227,7 +245,7 @@ export function GridDisplay({
       return;
     }
 
-    if (idx >= 0 && (mode === 'paint' || mode === 'symmetry')) {
+    if (idx >= 0 && mode === 'paint') {
       const affected = getAffectedCannons(idx);
       for (const a of affected) {
         onCannon(a.idx, currentHue, currentSat, currentBright * a.falloff);
@@ -259,7 +277,7 @@ export function GridDisplay({
       return;
     }
 
-    if (mode === 'paint' || mode === 'symmetry') {
+    if (mode === 'paint') {
       const affected = getAffectedCannons(idx);
       for (const a of affected) {
         onCannon(a.idx, currentHue, currentSat, currentBright * a.falloff);
