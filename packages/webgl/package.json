@@ -1,0 +1,24 @@
+{
+  "name": "@wavegrid/webgl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebGL 3D viewer for the 7×7 laser installation at SF Civic Center",
+  "scripts": {
+    "dev": "vite --port 3004",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 3004",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "three": "^0.170.0",
+    "postprocessing": "^6.36.7"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.4",
+    "@types/jest": "^29.5.14"
+  }
+}
