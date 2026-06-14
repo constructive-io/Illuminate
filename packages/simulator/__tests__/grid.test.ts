@@ -1,4 +1,4 @@
-import { createGrid, tickGrid, setCannonTarget, setAllTargets, NUM_CANNONS } from '../src/grid';
+import { compositeLayer, createGrid, tickGrid, setCannonTarget, setAllTargets, NUM_CANNONS } from '../src/grid';
 
 describe('grid', () => {
   it('should create a grid of 49 cannons', () => {
@@ -69,5 +69,73 @@ describe('grid', () => {
     setCannonTarget(grid, 0, 0, 0, 0);
     const changed = tickGrid(grid);
     expect(changed).toBe(true);
+  });
+});
+
+describe('compositeLayer', () => {
+  const base = [
+    { h: 220, s: 80, b: 60 },
+    { h: 120, s: 90, b: 80 },
+    { h: 0, s: 50, b: 40 }
+  ];
+
+  it('should replace base with overlay in replace mode', () => {
+    const overlay = [
+      { h: 0, s: 100, b: 100 },
+      { h: 30, s: 50, b: 50 },
+      { h: 180, s: 70, b: 70 }
+    ];
+    const result = compositeLayer(base, overlay, 'replace');
+    expect(result[0]).toEqual({ h: 0, s: 100, b: 100 });
+    expect(result[1]).toEqual({ h: 30, s: 50, b: 50 });
+    expect(result[2]).toEqual({ h: 180, s: 70, b: 70 });
+  });
+
+  it('should modulate base in multiply mode', () => {
+    const overlay = [
+      { h: 100, s: 80, b: 80 },
+      { h: 100, s: 80, b: 80 },
+      { h: 100, s: 80, b: 80 }
+    ];
+    const result = compositeLayer(base, overlay, 'multiply');
+    // Brightness should be base.b * (overlay.b / 80) = 60 * 1 = 60
+    expect(result[0].b).toBeCloseTo(60, 0);
+    // Hue should shift: (base.h + overlay.h * 0.3) % 360
+    expect(result[0].h).toBeCloseTo((220 + 100 * 0.3) % 360, 0);
+  });
+
+  it('should add overlay in additive mode', () => {
+    const overlay = [
+      { h: 40, s: 90, b: 30 },
+      { h: 40, s: 90, b: 30 },
+      { h: 40, s: 90, b: 30 }
+    ];
+    const result = compositeLayer(base, overlay, 'additive');
+    // Brightness should be base.b + overlay.b * 0.4
+    expect(result[0].b).toBeCloseTo(60 + 30 * 0.4, 0);
+    // Saturation should be max(base.s, overlay.s)
+    expect(result[0].s).toBe(90);
+  });
+
+  it('should not mutate the base grid', () => {
+    const baseCopy = base.map(c => ({ ...c }));
+    const overlay = [
+      { h: 0, s: 100, b: 100 },
+      { h: 0, s: 100, b: 100 },
+      { h: 0, s: 100, b: 100 }
+    ];
+    compositeLayer(baseCopy, overlay, 'replace');
+    expect(baseCopy[0].h).toBe(220);
+    expect(baseCopy[0].b).toBe(60);
+  });
+
+  it('should handle missing overlay entries gracefully', () => {
+    const shortOverlay = [{ h: 0, s: 100, b: 100 }];
+    const result = compositeLayer(base, shortOverlay, 'replace');
+    // First entry replaced
+    expect(result[0]).toEqual({ h: 0, s: 100, b: 100 });
+    // Others passthrough from base
+    expect(result[1]).toEqual({ h: 120, s: 90, b: 80 });
+    expect(result[2]).toEqual({ h: 0, s: 50, b: 40 });
   });
 });
