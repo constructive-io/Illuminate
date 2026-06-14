@@ -5,6 +5,8 @@ import { getCanvasHTML } from './ui';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const SIMULATOR_URL = process.env.SIMULATOR_URL || 'ws://localhost:3000';
+const NUM_CANNONS = process.env.NUM_CANNONS ? parseInt(process.env.NUM_CANNONS, 10) : 49;
+const GRID_COLUMNS = process.env.GRID_COLUMNS ? parseInt(process.env.GRID_COLUMNS, 10) : 7;
 
 // constructive.io brand mark — served as the favicon
 const FAVICON_SVG = `<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -18,7 +20,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(getCanvasHTML());
+  res.end(getCanvasHTML(NUM_CANNONS, GRID_COLUMNS));
 });
 
 const wss = new WebSocketServer({ server });
@@ -77,12 +79,13 @@ wss.on('connection', (ws) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('  ╭──────────────────────────────────────╮');
-  console.log('  │   Illuminate · Canvas                 │');
+  console.log('  │   Wavegrid · Canvas                   │');
   console.log('  │   painting the sky with light         │');
   console.log('  ╰──────────────────────────────────────╯');
   console.log('');
   console.log(`  → http://localhost:${PORT}`);
   console.log(`  → Simulator: ${SIMULATOR_URL}`);
+  console.log(`  → Grid: ${NUM_CANNONS} cannons (${GRID_COLUMNS} columns)`);
   console.log('');
   connectToSimulator();
 });

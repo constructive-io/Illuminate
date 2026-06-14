@@ -1,9 +1,10 @@
 import { animations } from './animations';
 import { scenes } from './scenes';
 
-export function getHTML(): string {
+export function getHTML(numCannons: number = 49, gridColumns: number = 7): string {
   const sceneNames = Object.keys(scenes);
   const animationNames = Object.keys(animations);
+  const gridRows = Math.ceil(numCannons / gridColumns);
 
   return `<!DOCTYPE html>
 <html>
@@ -101,7 +102,7 @@ export function getHTML(): string {
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(${gridColumns}, 1fr);
       gap: 4px;
       max-width: 420px;
     }
@@ -170,7 +171,7 @@ export function getHTML(): string {
 <body>
 
 <h1>Wavegrid · Master Controller</h1>
-<div class="subtitle">7×7 Civic Center Plaza · 49 cannons</div>
+<div class="subtitle">${gridColumns}×${gridRows} Grid · ${numCannons} cannons</div>
 
 <div class="columns">
 <div class="col-left">
@@ -274,7 +275,8 @@ export function getHTML(): string {
 <div class="status" id="status">Connecting...</div>
 
 <script>
-const NUM = 49;
+const NUM = ${numCannons};
+const COLS = ${gridColumns};
 const ws = new WebSocket('ws://' + location.host);
 const status = document.getElementById('status');
 const selected = new Set();
@@ -288,7 +290,7 @@ let idleTimeout = 0;
 let idleSeconds = 0;
 let lastInputTime = Date.now();
 
-ws.onopen = () => { status.textContent = 'Connected · 49 cannons · master controller'; };
+ws.onopen = () => { status.textContent = 'Connected · ' + NUM + ' cannons · master controller'; };
 ws.onclose = () => { status.textContent = 'Disconnected — reload page'; };
 
 ws.onmessage = (e) => {
@@ -330,22 +332,23 @@ for (let i = 0; i < NUM; i++) {
 
 // Build row/col buttons
 const rcEl = document.getElementById('rc-btns');
-for (let r = 0; r < 7; r++) {
+const ROWS = Math.ceil(NUM / COLS);
+for (let r = 0; r < ROWS; r++) {
   const btn = document.createElement('button');
   btn.className = 'rc-btn';
   btn.textContent = 'R' + (r + 1);
   btn.addEventListener('click', () => {
-    for (let c = 0; c < 7; c++) selectOn(r * 7 + c);
+    for (let c = 0; c < COLS; c++) { const idx = r * COLS + c; if (idx < NUM) selectOn(idx); }
     updatePanel();
   });
   rcEl.appendChild(btn);
 }
-for (let c = 0; c < 7; c++) {
+for (let c = 0; c < COLS; c++) {
   const btn = document.createElement('button');
   btn.className = 'rc-btn';
   btn.textContent = 'C' + (c + 1);
   btn.addEventListener('click', () => {
-    for (let r = 0; r < 7; r++) selectOn(r * 7 + c);
+    for (let r = 0; r < ROWS; r++) { const idx = r * COLS + c; if (idx < NUM) selectOn(idx); }
     updatePanel();
   });
   rcEl.appendChild(btn);

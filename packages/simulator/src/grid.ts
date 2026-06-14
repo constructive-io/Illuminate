@@ -10,8 +10,12 @@ export interface CannonTarget extends CannonState {
   targetB: number;
 }
 
-export const NUM_CANNONS = 49;
-export const GRID_SIZE = 7;
+export const DEFAULT_NUM_CANNONS = 49;
+export const DEFAULT_GRID_COLUMNS = 7;
+
+// Legacy aliases for backwards compatibility
+export const NUM_CANNONS = DEFAULT_NUM_CANNONS;
+export const GRID_SIZE = DEFAULT_GRID_COLUMNS;
 
 /**
  * Smoothing factor per tick (0–1).
@@ -20,8 +24,8 @@ export const GRID_SIZE = 7;
  */
 export const DEFAULT_ALPHA = 0.08;
 
-export function createGrid(): CannonTarget[] {
-  return Array.from({ length: NUM_CANNONS }, () => ({
+export function createGrid(numCannons: number = DEFAULT_NUM_CANNONS): CannonTarget[] {
+  return Array.from({ length: numCannons }, () => ({
     h: 220,
     s: 90,
     b: 80,

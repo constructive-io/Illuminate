@@ -2,14 +2,16 @@ import http from 'http';
 import { WebSocket,WebSocketServer } from 'ws';
 
 import { animations } from './animations';
-import {createGrid, DEFAULT_ALPHA, setAllTargets, setCannonTarget, tickGrid } from './grid';
+import {createGrid, DEFAULT_ALPHA, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, setAllTargets, setCannonTarget, tickGrid } from './grid';
 import { applyScene, scenes } from './scenes';
 import { getHTML } from './ui';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TICK_MS = 1000 / 60; // 60fps interpolation
+const NUM_CANNONS = process.env.NUM_CANNONS ? parseInt(process.env.NUM_CANNONS, 10) : DEFAULT_NUM_CANNONS;
+const GRID_COLUMNS = process.env.GRID_COLUMNS ? parseInt(process.env.GRID_COLUMNS, 10) : DEFAULT_GRID_COLUMNS;
 
-const grid = createGrid();
+const grid = createGrid(NUM_CANNONS);
 let currentAlpha = DEFAULT_ALPHA;
 let currentAttack = 1.0;
 let currentAnimation: string | null = null;
@@ -27,7 +29,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(getHTML());
+  res.end(getHTML(NUM_CANNONS, GRID_COLUMNS));
 });
 
 const wss = new WebSocketServer({ server });
@@ -79,7 +81,7 @@ function handleMessage(msg: any) {
   case 'scene':
     if (msg.name && scenes[msg.name]) {
       currentAnimation = null;
-      applyScene(grid, msg.name);
+      applyScene(grid, msg.name, GRID_COLUMNS);
     }
     break;
   case 'animation':
@@ -122,7 +124,7 @@ function handleMessage(msg: any) {
 // Animation loop: tick interpolation and broadcast
 setInterval(() => {
   if (currentAnimation && animations[currentAnimation]) {
-    animations[currentAnimation](grid, animationTick, currentAttack);
+    animations[currentAnimation](grid, animationTick, currentAttack, GRID_COLUMNS);
     animationTick++;
   }
   const changed = tickGrid(grid, currentAlpha);
@@ -131,14 +133,17 @@ setInterval(() => {
   }
 }, TICK_MS);
 
+const GRID_ROWS = Math.ceil(NUM_CANNONS / GRID_COLUMNS);
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
-  console.log('║   Illuminate · 7×7 Grid Simulator       ║');
-  console.log('║   49 virtual cannons ready               ║');
+  console.log(`║   Wavegrid · ${GRID_COLUMNS}×${GRID_ROWS} Grid Simulator${' '.repeat(Math.max(0, 16 - String(GRID_COLUMNS).length - String(GRID_ROWS).length))}║`);
+  console.log(`║   ${NUM_CANNONS} virtual cannons ready${' '.repeat(Math.max(0, 21 - String(NUM_CANNONS).length))}║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
   console.log(`  → http://localhost:${PORT}`);
+  console.log(`  → Grid: ${NUM_CANNONS} cannons (${GRID_COLUMNS} columns)`);
   console.log('');
 });
 

@@ -1,4 +1,4 @@
-export function getCanvasHTML(): string {
+export function getCanvasHTML(numCannons: number = 49, gridColumns: number = 7): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -462,8 +462,8 @@ export function getCanvasHTML(): string {
 // ═══════════════════════════════════════════════════
 // State
 // ═══════════════════════════════════════════════════
-const NUM = 49;
-const GRID = 7;
+const NUM = ${numCannons};
+const GRID = ${gridColumns};
 const grid = Array.from({length: NUM}, () => ({ h: 220, s: 90, b: 80 }));
 
 let currentMode = 'paint';
