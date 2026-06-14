@@ -25,36 +25,66 @@ export function createBenFigure(config: InstallationConfig): {
   const benZ = half + 12 * FT;
 
   const height = 5.8 * FT;
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a2e,
-    roughness: 0.8,
-    metalness: 0.1
+
+  // Yellow outfit — inspired by the real Ben
+  const yellowMat = new THREE.MeshStandardMaterial({
+    color: 0xe8b800,
+    roughness: 0.7,
+    metalness: 0.05
   });
   const skinMat = new THREE.MeshStandardMaterial({
     color: 0xd4a574,
     roughness: 0.7,
     metalness: 0
   });
+  const blondHairMat = new THREE.MeshStandardMaterial({
+    color: 0xc8a86e,
+    roughness: 0.9,
+    metalness: 0
+  });
+  const scarfMat = new THREE.MeshStandardMaterial({
+    color: 0xdaa520,
+    roughness: 0.6,
+    metalness: 0
+  });
 
-  // Legs
+  // Legs (yellow pants)
   for (const side of [-0.09, 0.09]) {
     const leg = new THREE.Mesh(
       new THREE.CylinderGeometry(0.06, 0.07, height * 0.42, 6),
-      bodyMat
+      yellowMat
     );
     leg.position.set(benX + side, height * 0.21, benZ);
     leg.castShadow = true;
     group.add(leg);
   }
 
-  // Torso
+  // Torso (yellow shirt)
   const torso = new THREE.Mesh(
     new THREE.CylinderGeometry(0.18, 0.16, height * 0.35, 8),
-    bodyMat
+    yellowMat
   );
   torso.position.set(benX, height * 0.6, benZ);
   torso.castShadow = true;
   group.add(torso);
+
+  // Yellow scarf around neck
+  const scarf = new THREE.Mesh(
+    new THREE.TorusGeometry(0.12, 0.035, 6, 12),
+    scarfMat
+  );
+  scarf.position.set(benX, height * 0.76, benZ);
+  scarf.rotation.x = Math.PI / 2;
+  group.add(scarf);
+
+  // Scarf tail hanging down
+  const scarfTail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.02, height * 0.12, 5),
+    scarfMat
+  );
+  scarfTail.position.set(benX + 0.08, height * 0.7, benZ + 0.05);
+  scarfTail.rotation.z = 0.2;
+  group.add(scarfTail);
 
   // Head
   const head = new THREE.Mesh(
@@ -65,8 +95,28 @@ export function createBenFigure(config: InstallationConfig): {
   head.castShadow = true;
   group.add(head);
 
-  // Arms — angled forward to hold the iPad
-  const armMat = bodyMat;
+  // Blond hair — flowing, slightly longer
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(height * 0.09, 8, 6),
+    blondHairMat
+  );
+  hair.position.set(benX, height * 0.91, benZ + 0.01);
+  hair.scale.set(1, 0.85, 1.15);
+  group.add(hair);
+
+  // Hair sides (longer blond hair flowing down)
+  for (const side of [-1, 1]) {
+    const hairSide = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.015, height * 0.08, 5),
+      blondHairMat
+    );
+    hairSide.position.set(benX + side * 0.06, height * 0.84, benZ + 0.02);
+    hairSide.rotation.z = side * 0.15;
+    group.add(hairSide);
+  }
+
+  // Arms — angled forward to hold the iPad (yellow sleeves)
+  const armMat = yellowMat;
   // Right arm
   const rightArm = new THREE.Mesh(
     new THREE.CylinderGeometry(0.04, 0.035, height * 0.3, 5),
