@@ -29,6 +29,7 @@ function formatTime(s: number): string {
 
 export function AudioTab({ audio }: AudioTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const seekRafRef = useRef(0);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -39,6 +40,14 @@ export function AudioTab({ audio }: AudioTabProps) {
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) audio.loadFile(file);
+  }, [audio]);
+
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    cancelAnimationFrame(seekRafRef.current);
+    seekRafRef.current = requestAnimationFrame(() => {
+      audio.seek(val);
+    });
   }, [audio]);
 
   return (
@@ -79,26 +88,50 @@ export function AudioTab({ audio }: AudioTabProps) {
 
       {/* Transport */}
       {audio.state.fileName && (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={audio.state.playing ? audio.stop : audio.play}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-            style={{
-              background: audio.state.playing ? 'rgba(221,68,68,0.2)' : 'rgba(74,124,255,0.2)',
-              color: audio.state.playing ? '#d44' : '#4a7cff',
-              border: `1px solid ${audio.state.playing ? 'rgba(221,68,68,0.4)' : 'rgba(74,124,255,0.4)'}`
-            }}
-          >
-            {audio.state.playing ? '■ Stop' : '▶ Play'}
-          </button>
-          <span className="text-xs font-mono" style={{ color: '#888898' }}>
-            {formatTime(audio.state.currentTime)} / {formatTime(audio.state.duration)}
-          </span>
-          {audio.state.bpm && (
-            <span className="text-xs font-mono ml-auto" style={{ color: '#4a7cff' }}>
-              ~{audio.state.bpm} BPM
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={audio.state.playing ? audio.stop : audio.play}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: audio.state.playing ? 'rgba(221,68,68,0.2)' : 'rgba(74,124,255,0.2)',
+                color: audio.state.playing ? '#d44' : '#4a7cff',
+                border: `1px solid ${audio.state.playing ? 'rgba(221,68,68,0.4)' : 'rgba(74,124,255,0.4)'}`
+              }}
+            >
+              {audio.state.playing ? '■ Stop' : '▶ Play'}
+            </button>
+            <button
+              onClick={() => audio.setLoop(!audio.loop)}
+              className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: audio.loop ? 'rgba(74,124,255,0.15)' : '#12121a',
+                color: audio.loop ? '#4a7cff' : '#888898',
+                border: `1px solid ${audio.loop ? '#4a7cff' : '#1a1a25'}`
+              }}
+            >
+              {audio.loop ? '⟳ Loop' : '⟳'}
+            </button>
+            <span className="text-xs font-mono" style={{ color: '#888898' }}>
+              {formatTime(audio.state.currentTime)} / {formatTime(audio.state.duration)}
             </span>
-          )}
+            {audio.state.bpm && (
+              <span className="text-xs font-mono ml-auto" style={{ color: '#4a7cff' }}>
+                ~{audio.state.bpm} BPM
+              </span>
+            )}
+          </div>
+
+          {/* Timeline scrub slider */}
+          <input
+            type="range"
+            className="w-full"
+            min={0}
+            max={Math.floor(audio.state.duration)}
+            value={Math.floor(audio.state.currentTime)}
+            onChange={handleSeek}
+            style={{ touchAction: 'none' }}
+          />
         </div>
       )}
 

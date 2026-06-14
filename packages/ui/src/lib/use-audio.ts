@@ -27,13 +27,16 @@ export interface AudioEngine {
   blend: BlendMode;
   sensitivity: number;
   sineSpread: boolean;
+  loop: boolean;
   setMode: (m: AudioMode) => void;
   setBlend: (b: BlendMode) => void;
   setSensitivity: (s: number) => void;
   setSineSpread: (v: boolean) => void;
+  setLoop: (v: boolean) => void;
   loadFile: (file: File) => Promise<void>;
   play: () => void;
   stop: () => void;
+  seek: (time: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -54,6 +57,7 @@ export function useAudio(
   const [blend, setBlend] = useState<BlendMode>('replace');
   const [sensitivity, setSensitivity] = useState(70);
   const [sineSpread, setSineSpread] = useState(true);
+  const [loop, setLoop] = useState(true);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -61,6 +65,7 @@ export function useAudio(
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const animFrameRef = useRef<number>(0);
   const startTimeRef = useRef(0);
+  const offsetRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dropsRef = useRef<Drop[]>([]);
   const gridRef = useRef<CannonColor[]>(grid);
@@ -69,6 +74,7 @@ export function useAudio(
   const blendRef = useRef(blend);
   const sensitivityRef = useRef(sensitivity);
   const sineSpreadRef = useRef(sineSpread);
+  const loopRef = useRef(loop);
   const numCannonsRef = useRef(numCannons);
   const gridColumnsRef = useRef(gridColumns);
 
@@ -78,6 +84,7 @@ export function useAudio(
   useEffect(() => { blendRef.current = blend; }, [blend]);
   useEffect(() => { sensitivityRef.current = sensitivity; }, [sensitivity]);
   useEffect(() => { sineSpreadRef.current = sineSpread; }, [sineSpread]);
+  useEffect(() => { loopRef.current = loop; }, [loop]);
   useEffect(() => { numCannonsRef.current = numCannons; }, [numCannons]);
   useEffect(() => { gridColumnsRef.current = gridColumns; }, [gridColumns]);
 
@@ -262,9 +269,11 @@ export function useAudio(
     }
 
     if (audioContextRef.current) {
+      const elapsed = audioContextRef.current.currentTime - startTimeRef.current + offsetRef.current;
+      const dur = audioBufferRef.current?.duration || 1;
       setAudioState((s) => ({
         ...s,
-        currentTime: audioContextRef.current!.currentTime - startTimeRef.current
+        currentTime: Math.min(elapsed, dur)
       }));
     }
 
@@ -273,7 +282,10 @@ export function useAudio(
 
   const stopPlayback = useCallback(() => {
     if (sourceRef.current) {
-      try { sourceRef.current.stop(); } catch { /* already stopped */ }
+      try {
+        sourceRef.current.onended = null;
+        sourceRef.current.stop();
+      } catch { /* already stopped */ }
       sourceRef.current = null;
     }
     if (animFrameRef.current) {
@@ -281,12 +293,25 @@ export function useAudio(
       animFrameRef.current = 0;
     }
     dropsRef.current = [];
+    offsetRef.current = 0;
     setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
   }, []);
 
-  const startPlayback = useCallback(() => {
+  const startPlaybackAt = useCallback((offset: number) => {
     if (!audioBufferRef.current || !audioContextRef.current) return;
-    stopPlayback();
+
+    // Stop any existing source without clearing state
+    if (sourceRef.current) {
+      try {
+        sourceRef.current.onended = null;
+        sourceRef.current.stop();
+      } catch { /* already stopped */ }
+      sourceRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
 
     const ctx = audioContextRef.current;
     const source = ctx.createBufferSource();
@@ -297,20 +322,43 @@ export function useAudio(
     analyser.connect(ctx.destination);
     analyserRef.current = analyser;
     sourceRef.current = source;
+    offsetRef.current = offset;
     startTimeRef.current = ctx.currentTime;
 
     source.onended = () => {
-      setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = 0;
+      if (loopRef.current && audioBufferRef.current) {
+        // Restart from beginning
+        startPlaybackAt(0);
+      } else {
+        setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = 0;
+        }
       }
     };
 
-    source.start();
-    setAudioState((s) => ({ ...s, playing: true, currentTime: 0 }));
+    const dur = audioBufferRef.current.duration;
+    const clampedOffset = Math.min(offset, dur - 0.01);
+    source.start(0, clampedOffset, dur - clampedOffset);
+    setAudioState((s) => ({ ...s, playing: true, currentTime: clampedOffset }));
     animFrameRef.current = requestAnimationFrame(processFrame);
-  }, [stopPlayback, processFrame]);
+  }, [processFrame]);
+
+  const startPlayback = useCallback(() => {
+    startPlaybackAt(0);
+  }, [startPlaybackAt]);
+
+  const seek = useCallback((time: number) => {
+    if (!audioBufferRef.current) return;
+    const wasPlaying = !!sourceRef.current;
+    if (wasPlaying) {
+      startPlaybackAt(time);
+    } else {
+      offsetRef.current = time;
+      setAudioState((s) => ({ ...s, currentTime: time }));
+    }
+  }, [startPlaybackAt]);
 
   const detectBPM = useCallback((buffer: AudioBuffer): number | null => {
     const data = buffer.getChannelData(0);
@@ -363,13 +411,16 @@ export function useAudio(
     blend,
     sensitivity,
     sineSpread,
+    loop,
     setMode,
     setBlend,
     setSensitivity,
     setSineSpread,
+    setLoop,
     loadFile,
     play: startPlayback,
     stop: stopPlayback,
+    seek,
     canvasRef
   };
 }

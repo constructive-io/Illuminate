@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { AudioTab } from '@/components/audio-tab';
 import { ColorWheel } from '@/components/color-wheel';
@@ -10,8 +10,6 @@ import type { GridMode } from '@/components/grid-display';
 import { GridDisplay } from '@/components/grid-display';
 import { MotionControls, useMotion } from '@/components/motion-tab';
 import { AnimationPalette, ScenePalette } from '@/components/palette';
-import type { SymmetryState } from '@/components/symmetry-tab';
-import { SymmetryControls } from '@/components/symmetry-tab';
 import { useAudio } from '@/lib/use-audio';
 import { useSocket } from '@/lib/use-socket';
 
@@ -25,7 +23,6 @@ const tabs: { key: GridMode; label: string }[] = [
   { key: 'energy', label: 'Energy' },
   { key: 'drops', label: 'Drops' },
   { key: 'motion', label: 'Motion' },
-  { key: 'symmetry', label: 'Symmetry' },
   { key: 'scenes', label: 'Scenes' },
   { key: 'animations', label: 'Animations' },
   { key: 'audio', label: 'Audio' }
@@ -43,9 +40,18 @@ export default function Home() {
   const [smoothness, setSmoothness] = useState(50);
   const [attack, setAttack] = useState(80);
   const [masterBright, setMasterBright] = useState(100);
+
+  // rAF-throttled slider helper — prevents React reflow on every pointermove
+  const rafRef = useRef(0);
+  const throttledSlider = useCallback((handler: (v: number) => void) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = Number(e.target.value);
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => handler(val));
+    };
+  }, []);
   const [activeScene, setActiveScene] = useState<string | null>(null);
   const [activeAnim, setActiveAnim] = useState<string | null>(null);
-  const [symmetry, setSymmetry] = useState<SymmetryState>({ h: false, v: false, radial: false, kaleidoscope: false });
   const [energyValue, setEnergyValue] = useState(80);
   const [dropsConfig, setDropsConfig] = useState({
     spectrumStart: 0,
@@ -188,7 +194,7 @@ export default function Home() {
               min={0}
               max={100}
               value={masterBright}
-              onChange={(e) => handleMasterBright(Number(e.target.value))}
+              onChange={throttledSlider(handleMasterBright)}
             />
             <span className="text-xs font-mono" style={{ color: '#888898', minWidth: 28, textAlign: 'right' }}>
               {masterBright}
@@ -196,7 +202,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: '#888898', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 9 }}>
-              Smooth
+              Fade
             </span>
             <input
               type="range"
@@ -204,8 +210,11 @@ export default function Home() {
               min={0}
               max={100}
               value={smoothness}
-              onChange={(e) => handleSmooth(Number(e.target.value))}
+              onChange={throttledSlider(handleSmooth)}
             />
+            <span className="text-xs font-mono" style={{ color: '#888898', minWidth: 28, textAlign: 'right' }}>
+              {smoothness}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: '#888898', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 9 }}>
@@ -217,8 +226,11 @@ export default function Home() {
               min={0}
               max={100}
               value={attack}
-              onChange={(e) => handleAttack(Number(e.target.value))}
+              onChange={throttledSlider(handleAttack)}
             />
+            <span className="text-xs font-mono" style={{ color: '#888898', minWidth: 28, textAlign: 'right' }}>
+              {attack}
+            </span>
           </div>
         </div>
       </header>
@@ -234,7 +246,7 @@ export default function Home() {
           mode={tab}
           brushSize={brushSize}
           softEdge={softEdge}
-          symmetry={symmetry}
+          motionPath={motion.state.path}
           onCannon={handleCannon}
           onDrop={addDrop}
           onMotionPoint={motion.recordPoint}
@@ -341,10 +353,6 @@ export default function Home() {
               onClear={motion.clear}
               onSpeed={motion.setSpeed}
             />
-          )}
-
-          {tab === 'symmetry' && (
-            <SymmetryControls symmetry={symmetry} onChange={setSymmetry} />
           )}
 
           {tab === 'scenes' && (

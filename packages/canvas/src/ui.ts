@@ -239,19 +239,6 @@ export function getCanvasHTML(numCannons: number = 49, gridColumns: number = 7):
       display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2);
     }
 
-    /* ─── Symmetry Tools ─── */
-    .symmetry-tools {
-      display: flex; gap: 6px;
-    }
-    .sym-btn {
-      width: 48px; height: 48px; border-radius: 12px; font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text2); cursor: pointer; transition: all 0.2s;
-    }
-    .sym-btn:hover { border-color: var(--text2); }
-    .sym-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(74,124,255,0.1); }
-
     /* ─── Drops Mode ─── */
     .drops-controls {
       display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
@@ -337,7 +324,7 @@ export function getCanvasHTML(numCannons: number = 49, gridColumns: number = 7):
       <div class="mode-tab" data-mode="animations">Animations</div>
       <div class="mode-tab" data-mode="motion">Motion</div>
       <div class="mode-tab" data-mode="drops">Drops</div>
-      <div class="mode-tab" data-mode="symmetry">Symmetry</div>
+
     </div>
     <div class="tool-area">
 
@@ -434,15 +421,7 @@ export function getCanvasHTML(numCannons: number = 49, gridColumns: number = 7):
         </div>
       </div>
 
-      <!-- Symmetry -->
-      <div class="tool-panel" id="panel-symmetry">
-        <div class="symmetry-tools">
-          <div class="sym-btn" data-sym="h" title="Mirror left/right">↔</div>
-          <div class="sym-btn" data-sym="v" title="Mirror top/bottom">↕</div>
-          <div class="sym-btn" data-sym="radial" title="Radial symmetry">✦</div>
-          <div class="sym-btn" data-sym="kaleidoscope" title="Kaleidoscope">❋</div>
-        </div>
-      </div>
+
     </div>
   </div>
 </div>
@@ -463,7 +442,7 @@ let brushSize = 1;
 let brushFalloff = false;
 let activeScene = 'civic';
 let activeAnimation = null;
-let symmetry = { h: false, v: false, radial: false, kaleidoscope: false };
+
 
 // Motion painter state
 let motionPath = [];
@@ -653,34 +632,9 @@ function getAffectedCannons(centerIdx) {
     }
   }
 
-  // Symmetry: mirror all affected cannons
-  const mirrored = [];
-  for (const { idx, falloff } of result) {
-    mirrored.push({ idx, falloff });
-    const r = Math.floor(idx / GRID), c = idx % GRID;
-    if (symmetry.h) mirrored.push({ idx: r * GRID + (GRID - 1 - c), falloff });
-    if (symmetry.v) mirrored.push({ idx: (GRID - 1 - r) * GRID + c, falloff });
-    if (symmetry.h && symmetry.v) mirrored.push({ idx: (GRID - 1 - r) * GRID + (GRID - 1 - c), falloff });
-    if (symmetry.radial) {
-      // 4-fold rotational
-      mirrored.push({ idx: c * GRID + (GRID - 1 - r), falloff });
-      mirrored.push({ idx: (GRID - 1 - c) * GRID + r, falloff });
-    }
-    if (symmetry.kaleidoscope) {
-      // 8-fold
-      mirrored.push({ idx: r * GRID + (GRID - 1 - c), falloff });
-      mirrored.push({ idx: (GRID - 1 - r) * GRID + c, falloff });
-      mirrored.push({ idx: (GRID - 1 - r) * GRID + (GRID - 1 - c), falloff });
-      mirrored.push({ idx: c * GRID + r, falloff });
-      mirrored.push({ idx: c * GRID + (GRID - 1 - r), falloff });
-      mirrored.push({ idx: (GRID - 1 - c) * GRID + r, falloff });
-      mirrored.push({ idx: (GRID - 1 - c) * GRID + (GRID - 1 - r), falloff });
-    }
-  }
-
   // Deduplicate
   const seen = new Set();
-  return mirrored.filter(m => {
+  return result.filter(m => {
     if (m.idx < 0 || m.idx >= NUM || seen.has(m.idx)) return false;
     seen.add(m.idx);
     return true;
@@ -1099,17 +1053,6 @@ function playMotionStep() {
   const speed = parseInt(document.getElementById('motion-speed').value);
   motionTimer = setTimeout(playMotionStep, 300 - speed * 25);
 }
-
-// ═══════════════════════════════════════════════════
-// Symmetry
-// ═══════════════════════════════════════════════════
-document.querySelectorAll('.sym-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    const key = this.dataset.sym;
-    symmetry[key] = !symmetry[key];
-    this.classList.toggle('active', symmetry[key]);
-  });
-});
 
 // ═══════════════════════════════════════════════════
 // Gradient bar rendering

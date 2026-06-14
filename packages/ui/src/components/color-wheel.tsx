@@ -153,14 +153,14 @@ export function ColorWheel({
         <div
           className="absolute pointer-events-none"
           style={{
-            width: 14,
-            height: 14,
+            width: '14px',
+            height: '14px',
             borderRadius: '50%',
             border: '2px solid #fff',
             boxShadow: '0 0 6px rgba(0,0,0,0.5)',
             transform: 'translate(-50%, -50%)',
-            left: cursorDisplayX,
-            top: cursorDisplayY
+            left: `${cursorDisplayX}px`,
+            top: `${cursorDisplayY}px`
           }}
         />
       </div>

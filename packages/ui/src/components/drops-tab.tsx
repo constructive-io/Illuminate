@@ -122,6 +122,8 @@ export function DropsControls({
   onChange: (c: DropsConfig) => void;
 }) {
   const spectrumRef = useRef<HTMLCanvasElement>(null);
+  const draggingRef = useRef<'start' | 'end' | null>(null);
+  const rafRef = useRef(0);
 
   useEffect(() => {
     const canvas = spectrumRef.current;
@@ -137,6 +139,53 @@ export function DropsControls({
     }
   }, []);
 
+  const hueFromPointer = useCallback((clientX: number) => {
+    const canvas = spectrumRef.current;
+    if (!canvas) return 0;
+    const rect = canvas.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Math.round(pos * 360);
+  }, []);
+
+  const handleSpectrumDown = useCallback((e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const hue = hueFromPointer(e.clientX);
+    const dStart = Math.abs(hue - config.spectrumStart);
+    const dEnd = Math.abs(hue - config.spectrumEnd);
+    const which = dStart < dEnd ? 'start' : 'end';
+    draggingRef.current = which;
+    if (which === 'start') {
+      onChange({ ...config, spectrumStart: hue });
+    } else {
+      onChange({ ...config, spectrumEnd: hue });
+    }
+  }, [config, onChange, hueFromPointer]);
+
+  const handleSpectrumMove = useCallback((e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    const which = draggingRef.current;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const hue = hueFromPointer(e.clientX);
+      if (which === 'start') {
+        onChange({ ...config, spectrumStart: hue });
+      } else {
+        onChange({ ...config, spectrumEnd: hue });
+      }
+    });
+  }, [config, onChange, hueFromPointer]);
+
+  const handleSpectrumUp = useCallback(() => {
+    draggingRef.current = null;
+  }, []);
+
+  const handleSliderChange = useCallback((key: 'speed' | 'decay' | 'width', val: number) => {
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      onChange({ ...config, [key]: val });
+    });
+  }, [config, onChange]);
+
   return (
     <div className="space-y-3">
       {/* Spectrum range */}
@@ -144,46 +193,82 @@ export function DropsControls({
         <p className="text-xs mb-1.5" style={{ color: '#888898', letterSpacing: '0.05em' }}>
           SPECTRUM
         </p>
-        <div className="relative">
+        <div
+          className="relative"
+          style={{ touchAction: 'none' }}
+          onPointerDown={handleSpectrumDown}
+          onPointerMove={handleSpectrumMove}
+          onPointerUp={handleSpectrumUp}
+          onPointerCancel={handleSpectrumUp}
+        >
           <canvas
             ref={spectrumRef}
             width={200}
-            height={24}
-            className="w-full rounded-md cursor-pointer"
-            style={{ height: 24 }}
-            onPointerDown={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pos = (e.clientX - rect.left) / rect.width;
-              const hue = pos * 360;
-              const dStart = Math.abs(hue - config.spectrumStart);
-              const dEnd = Math.abs(hue - config.spectrumEnd);
-              if (dStart < dEnd) {
-                onChange({ ...config, spectrumStart: Math.round(hue) });
-              } else {
-                onChange({ ...config, spectrumEnd: Math.round(hue) });
-              }
-            }}
+            height={36}
+            className="w-full rounded-md"
+            style={{ height: 36 }}
           />
+          {/* Start handle */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: `calc(${(config.spectrumStart / 360) * 100}% - 10px)`,
+              top: -4,
+              bottom: -4,
+              width: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <div
+              style={{
+                width: 6,
+                height: '100%',
+                background: '#fff',
+                borderRadius: 3,
+                boxShadow: '0 0 8px rgba(0,0,0,0.6), 0 0 2px rgba(255,255,255,0.4)'
+              }}
+            />
+          </div>
+          {/* End handle */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: `calc(${(config.spectrumEnd / 360) * 100}% - 10px)`,
+              top: -4,
+              bottom: -4,
+              width: 20,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <div
+              style={{
+                width: 6,
+                height: '100%',
+                background: '#fff',
+                borderRadius: 3,
+                boxShadow: '0 0 8px rgba(0,0,0,0.6), 0 0 2px rgba(255,255,255,0.4)'
+              }}
+            />
+          </div>
+          {/* Selected range overlay */}
           <div
             className="absolute top-0 bottom-0 pointer-events-none"
             style={{
-              left: `${(config.spectrumStart / 360) * 100}%`,
-              width: 3,
-              background: '#fff',
-              borderRadius: 1,
-              boxShadow: '0 0 4px rgba(0,0,0,0.5)'
+              left: `${(Math.min(config.spectrumStart, config.spectrumEnd) / 360) * 100}%`,
+              width: `${(Math.abs(config.spectrumEnd - config.spectrumStart) / 360) * 100}%`,
+              background: 'rgba(255,255,255,0.12)',
+              borderTop: '2px solid rgba(255,255,255,0.4)',
+              borderBottom: '2px solid rgba(255,255,255,0.4)'
             }}
           />
-          <div
-            className="absolute top-0 bottom-0 pointer-events-none"
-            style={{
-              left: `${(config.spectrumEnd / 360) * 100}%`,
-              width: 3,
-              background: '#fff',
-              borderRadius: 1,
-              boxShadow: '0 0 4px rgba(0,0,0,0.5)'
-            }}
-          />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs font-mono" style={{ color: '#888898', fontSize: 9 }}>{config.spectrumStart}°</span>
+          <span className="text-xs font-mono" style={{ color: '#888898', fontSize: 9 }}>{config.spectrumEnd}°</span>
         </div>
       </div>
 
@@ -201,9 +286,12 @@ export function DropsControls({
               min={s.min}
               max={s.max}
               value={s.val}
-              onChange={(e) => onChange({ ...config, [s.key]: Number(e.target.value) })}
-              style={{ width: 50 }}
+              onChange={(e) => handleSliderChange(s.key, Number(e.target.value))}
+              style={{ width: 60 }}
             />
+            <span className="text-xs font-mono" style={{ color: '#888898', minWidth: 14, textAlign: 'right', fontSize: 9 }}>
+              {s.val}
+            </span>
           </div>
         ))}
       </div>

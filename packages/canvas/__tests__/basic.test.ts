@@ -15,7 +15,7 @@ describe('canvas UI', () => {
     expect(html).toContain('data-mode="scenes"');
     expect(html).toContain('data-mode="motion"');
     expect(html).toContain('data-mode="drops"');
-    expect(html).toContain('data-mode="symmetry"');
+    expect(html).not.toContain('data-mode="symmetry"');
   });
 
   it('should contain scene swatches', () => {
