@@ -71,6 +71,20 @@ importers:
         version: 0.3.1
     publishDirectory: dist
 
+  packages/osc:
+    dependencies:
+      node-osc:
+        specifier: ^11.5.0
+        version: 11.5.0
+      wavegrid:
+        specifier: workspace:*
+        version: link:../receiver/dist
+    devDependencies:
+      makage:
+        specifier: ^0.3.0
+        version: 0.3.1
+    publishDirectory: dist
+
   packages/receiver:
     dependencies:
       ws:
@@ -2782,6 +2796,10 @@ packages:
 
   node-int64@0.4.0:
     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
+
+  node-osc@11.5.0:
+    resolution: {integrity: sha512-0a3+3XHGvg0obDNSjXIaR1GQ9xYMUzUbTqENHiJ1d5OfRZNRTrShEfn7IHjiZ4wWgflzolD6j6Q/5o7seVROww==}
+    engines: {node: ^20.9.0 || ^22.11.0 || >=24.0.0}
 
   node-releases@2.0.47:
     resolution: {integrity: sha512-Uzmd6LXpouKo8EUK68IjH4+E01w/hXyV3R3g/geCJo+rXLNfh1xucB+LOzYEOQPSiUK3h/xZf0cQGcSsmyL2Og==}
@@ -7034,6 +7052,8 @@ snapshots:
       which: 6.0.1
 
   node-int64@0.4.0: {}
+
+  node-osc@11.5.0: {}
 
   node-releases@2.0.47: {}
 

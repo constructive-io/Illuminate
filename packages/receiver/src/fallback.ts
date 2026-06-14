@@ -9,7 +9,7 @@
  * installation is breathing on its own.
  */
 
-import { FilteredCannon, GRID_SIZE, NUM_CANNONS } from './filter';
+import { DEFAULT_GRID_COLUMNS, FilteredCannon } from './filter';
 
 export interface FallbackConfig {
   /** Base hue center for the wave (0–360). Default 220 (civic blue). */
@@ -51,7 +51,8 @@ export const DEFAULT_FALLBACK_CONFIG: FallbackConfig = {
 export function computeFallbackFrame(
   grid: FilteredCannon[],
   tick: number,
-  config: FallbackConfig = DEFAULT_FALLBACK_CONFIG
+  config: FallbackConfig = DEFAULT_FALLBACK_CONFIG,
+  gridColumns: number = DEFAULT_GRID_COLUMNS
 ) {
   const {
     baseHue,
@@ -64,14 +65,18 @@ export function computeFallbackFrame(
   } = config;
 
   const brightRange = brightnessMax - brightnessMin;
+  const cols = Math.max(1, gridColumns);
 
-  for (let i = 0; i < NUM_CANNONS; i++) {
-    const row = Math.floor(i / GRID_SIZE);
-    const col = i % GRID_SIZE;
+  for (let i = 0; i < grid.length; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+
+    const maxCol = Math.max(1, cols - 1);
+    const maxRow = Math.max(1, Math.ceil(grid.length / cols) - 1);
 
     // Normalize to -1..1
-    const nx = (col / (GRID_SIZE - 1)) * 2 - 1;
-    const ny = (row / (GRID_SIZE - 1)) * 2 - 1;
+    const nx = (col / maxCol) * 2 - 1;
+    const ny = (row / maxRow) * 2 - 1;
 
     // Primary diagonal wave → hue
     const wave1 = Math.sin(

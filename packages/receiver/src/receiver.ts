@@ -17,6 +17,8 @@ import {
   applyUpstreamState,
   CannonState,
   createFilteredGrid,
+  DEFAULT_GRID_COLUMNS,
+  DEFAULT_NUM_CANNONS,
   DEFAULT_RECEIVER_ALPHA,
   FilteredCannon,
   tickFilter
@@ -49,6 +51,10 @@ export interface ReceiverConfig {
    * affects which cannons are sent to the output adapter.
    */
   shard?: ShardConfig;
+  /** Total number of cannons in the grid. Default 49. */
+  numCannons: number;
+  /** Number of columns in the grid (for fallback spatial mapping). Default 7. */
+  gridColumns: number;
 }
 
 export const DEFAULT_RECEIVER_CONFIG: ReceiverConfig = {
@@ -57,7 +63,9 @@ export const DEFAULT_RECEIVER_CONFIG: ReceiverConfig = {
   alpha: DEFAULT_RECEIVER_ALPHA,
   fallbackDelay: 3000,
   fallback: DEFAULT_FALLBACK_CONFIG,
-  tickMs: 1000 / 60
+  tickMs: 1000 / 60,
+  numCannons: DEFAULT_NUM_CANNONS,
+  gridColumns: DEFAULT_GRID_COLUMNS
 };
 
 export type ReceiverStatus = 'connected' | 'reconnecting' | 'fallback';
@@ -82,7 +90,7 @@ export class Receiver {
 
   constructor(config: Partial<ReceiverConfig> = {}) {
     this.config = { ...DEFAULT_RECEIVER_CONFIG, ...config };
-    this.grid = createFilteredGrid();
+    this.grid = createFilteredGrid(this.config.numCannons);
   }
 
   get status(): ReceiverStatus { return this._status; }
@@ -163,7 +171,7 @@ export class Receiver {
 
       // If fallback is active, compute sine wave targets
       if (this._fallbackActive) {
-        computeFallbackFrame(this.grid, this.tick, this.config.fallback);
+        computeFallbackFrame(this.grid, this.tick, this.config.fallback, this.config.gridColumns);
       }
 
       // Always tick the low-pass filter — this ensures smooth output

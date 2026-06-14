@@ -4,7 +4,7 @@ export { CallbackOutput, ConsoleOutput, MultiOutput, WebSocketInput, WebSocketOu
 
 // Filter
 export type { CannonState, FilteredCannon } from './filter';
-export { angleDelta, applyUpstreamState, createFilteredGrid, DEFAULT_RECEIVER_ALPHA, tickFilter } from './filter';
+export { angleDelta, applyUpstreamState, createFilteredGrid, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, DEFAULT_RECEIVER_ALPHA, tickFilter } from './filter';
 
 // Fallback
 export type { FallbackConfig } from './fallback';

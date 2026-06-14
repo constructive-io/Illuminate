@@ -3,13 +3,13 @@ import {
   tickFilter,
   applyUpstreamState,
   angleDelta,
-  NUM_CANNONS
+  DEFAULT_NUM_CANNONS
 } from '../src/filter';
 
 describe('filter', () => {
   it('should create a grid with 49 cannons', () => {
     const grid = createFilteredGrid();
-    expect(grid).toHaveLength(NUM_CANNONS);
+    expect(grid).toHaveLength(DEFAULT_NUM_CANNONS);
     expect(grid[0].h).toBe(220);
     expect(grid[0].targetH).toBe(220);
   });

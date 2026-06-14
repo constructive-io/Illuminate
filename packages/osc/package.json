@@ -1,8 +1,8 @@
 {
-  "name": "wavegrid",
-  "version": "0.2.1",
+  "name": "@wavegrid/osc",
+  "version": "0.1.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
-  "description": "Receiver brain — resilient state engine with independent low-pass filter, 3D sine wave fallback, and pluggable adapter pattern",
+  "description": "OSC output adapters for Pangolin BEYOND and FB4 hardware — pluggable, configurable, and publishable independently",
   "main": "index.js",
   "module": "esm/index.js",
   "types": "index.d.ts",
@@ -26,22 +26,23 @@
     "build:dev": "makage build --dev",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",
     "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch",
-    "dev": "ts-node src/main.ts"
+    "test:watch": "jest --watch"
   },
   "keywords": [
+    "wavegrid",
+    "osc",
+    "beyond",
+    "pangolin",
+    "fb4",
     "laser",
-    "receiver",
-    "brain",
-    "adapter",
-    "wavegrid"
+    "udp",
+    "adapter"
   ],
   "dependencies": {
-    "ws": "^8.18.0"
+    "node-osc": "^11.5.0",
+    "wavegrid": "workspace:*"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.13",
     "makage": "^0.3.0"
-  },
-  "gitHead": "5d71ea2c19cc1f48676f65a40aac29ecdd44bc20"
+  }
 }

@@ -1,4 +1,4 @@
-import { createFilteredGrid, NUM_CANNONS } from '../src/filter';
+import { createFilteredGrid, DEFAULT_NUM_CANNONS } from '../src/filter';
 import { computeFallbackFrame, DEFAULT_FALLBACK_CONFIG } from '../src/fallback';
 
 describe('fallback', () => {
@@ -6,7 +6,7 @@ describe('fallback', () => {
     const grid = createFilteredGrid();
     computeFallbackFrame(grid, 0);
 
-    for (let i = 0; i < NUM_CANNONS; i++) {
+    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
       expect(grid[i].targetH).toBeGreaterThanOrEqual(0);
       expect(grid[i].targetH).toBeLessThan(360);
       expect(grid[i].targetS).toBeGreaterThanOrEqual(0);
@@ -33,7 +33,7 @@ describe('fallback', () => {
 
     // Corner cannons should have different values
     const topLeft = grid[0].targetH;
-    const bottomRight = grid[NUM_CANNONS - 1].targetH;
+    const bottomRight = grid[DEFAULT_NUM_CANNONS - 1].targetH;
     // They could coincidentally be close, but with the diagonal wave
     // they should generally differ
     const hues = grid.map(c => c.targetH);
@@ -47,7 +47,7 @@ describe('fallback', () => {
     computeFallbackFrame(grid, 0, config);
 
     // All hues should be near 0 (within spread)
-    for (let i = 0; i < NUM_CANNONS; i++) {
+    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
       const h = grid[i].targetH;
       expect(h < 20 || h > 340).toBe(true);
     }
@@ -58,7 +58,7 @@ describe('fallback', () => {
     computeFallbackFrame(grid, 0);
 
     // Brightness should be within configured range
-    for (let i = 0; i < NUM_CANNONS; i++) {
+    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
       expect(grid[i].targetB).toBeGreaterThanOrEqual(DEFAULT_FALLBACK_CONFIG.brightnessMin - 1);
       expect(grid[i].targetB).toBeLessThanOrEqual(DEFAULT_FALLBACK_CONFIG.brightnessMax + 1);
     }

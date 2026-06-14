@@ -1,0 +1,79 @@
+{
+  "targets": {
+    "beyond-a": {
+      "type": "beyond",
+      "host": "192.168.50.10",
+      "port": 9000
+    },
+    "beyond-b": {
+      "type": "beyond",
+      "host": "192.168.50.11",
+      "port": 9000
+    },
+    "fb4-c": {
+      "type": "fb4",
+      "host": "192.168.50.20",
+      "port": 8000
+    }
+  },
+  "flushHz": 30,
+  "cannons": [
+    { "logical": 0,  "row": 0, "col": 0, "label": "r0c0", "target": "beyond-a", "projectorIndex": 0 },
+    { "logical": 1,  "row": 0, "col": 1, "label": "r0c1", "target": "beyond-a", "projectorIndex": 1 },
+    { "logical": 2,  "row": 0, "col": 2, "label": "r0c2", "target": "beyond-a", "projectorIndex": 2 },
+    { "logical": 3,  "row": 0, "col": 3, "label": "r0c3", "target": "beyond-a", "projectorIndex": 3 },
+    { "logical": 4,  "row": 0, "col": 4, "label": "r0c4", "target": "beyond-a", "projectorIndex": 4 },
+    { "logical": 5,  "row": 0, "col": 5, "label": "r0c5", "target": "beyond-a", "projectorIndex": 5 },
+    { "logical": 6,  "row": 0, "col": 6, "label": "r0c6", "target": "beyond-a", "projectorIndex": 6 },
+
+    { "logical": 7,  "row": 1, "col": 0, "label": "r1c0", "target": "beyond-a", "projectorIndex": 7 },
+    { "logical": 8,  "row": 1, "col": 1, "label": "r1c1", "target": "beyond-a", "projectorIndex": 8 },
+    { "logical": 9,  "row": 1, "col": 2, "label": "r1c2", "target": "beyond-a", "projectorIndex": 9 },
+    { "logical": 10, "row": 1, "col": 3, "label": "r1c3", "target": "beyond-a", "projectorIndex": 10 },
+    { "logical": 11, "row": 1, "col": 4, "label": "r1c4", "target": "beyond-a", "projectorIndex": 11 },
+    { "logical": 12, "row": 1, "col": 5, "label": "r1c5", "target": "beyond-a", "projectorIndex": 12 },
+    { "logical": 13, "row": 1, "col": 6, "label": "r1c6", "target": "beyond-a", "projectorIndex": 13 },
+
+    { "logical": 14, "row": 2, "col": 0, "label": "r2c0", "target": "beyond-a", "projectorIndex": 14 },
+    { "logical": 15, "row": 2, "col": 1, "label": "r2c1", "target": "beyond-a", "projectorIndex": 15 },
+    { "logical": 16, "row": 2, "col": 2, "label": "r2c2", "target": "beyond-a", "projectorIndex": 16 },
+    { "logical": 17, "row": 2, "col": 3, "label": "r2c3", "target": "beyond-a", "projectorIndex": 17 },
+    { "logical": 18, "row": 2, "col": 4, "label": "r2c4", "target": "beyond-a", "projectorIndex": 18 },
+    { "logical": 19, "row": 2, "col": 5, "label": "r2c5", "target": "beyond-a", "projectorIndex": 19 },
+    { "logical": 20, "row": 2, "col": 6, "label": "r2c6", "target": "beyond-a", "projectorIndex": 20 },
+
+    { "logical": 21, "row": 3, "col": 0, "label": "r3c0", "target": "beyond-a", "projectorIndex": 21 },
+    { "logical": 22, "row": 3, "col": 1, "label": "r3c1", "target": "beyond-a", "projectorIndex": 22 },
+    { "logical": 23, "row": 3, "col": 2, "label": "r3c2", "target": "beyond-a", "projectorIndex": 23 },
+    { "logical": 24, "row": 3, "col": 3, "label": "r3c3", "target": "beyond-a", "projectorIndex": 24 },
+    { "logical": 25, "row": 3, "col": 4, "label": "r3c4", "target": "beyond-a", "projectorIndex": 25 },
+    { "logical": 26, "row": 3, "col": 5, "label": "r3c5", "target": "beyond-a", "projectorIndex": 26 },
+    { "logical": 27, "row": 3, "col": 6, "label": "r3c6", "target": "beyond-a", "projectorIndex": 27 },
+
+    { "logical": 28, "row": 4, "col": 0, "label": "r4c0", "target": "beyond-a", "projectorIndex": 28 },
+    { "logical": 29, "row": 4, "col": 1, "label": "r4c1", "target": "beyond-a", "projectorIndex": 29 },
+    { "logical": 30, "row": 4, "col": 2, "label": "r4c2", "target": "beyond-a", "projectorIndex": 30 },
+    { "logical": 31, "row": 4, "col": 3, "label": "r4c3", "target": "beyond-a", "projectorIndex": 31 },
+    { "logical": 32, "row": 4, "col": 4, "label": "r4c4", "target": "beyond-a", "projectorIndex": 32 },
+    { "logical": 33, "row": 4, "col": 5, "label": "r4c5", "target": "beyond-a", "projectorIndex": 33 },
+    { "logical": 34, "row": 4, "col": 6, "label": "r4c6", "target": "beyond-a", "projectorIndex": 34 },
+
+    { "logical": 35, "row": 5, "col": 0, "label": "r5c0", "target": "beyond-a", "projectorIndex": 35 },
+    { "logical": 36, "row": 5, "col": 1, "label": "r5c1", "target": "beyond-a", "projectorIndex": 36 },
+    { "logical": 37, "row": 5, "col": 2, "label": "r5c2", "target": "beyond-a", "projectorIndex": 37 },
+    { "logical": 38, "row": 5, "col": 3, "label": "r5c3", "target": "beyond-a", "projectorIndex": 38 },
+    { "logical": 39, "row": 5, "col": 4, "label": "r5c4", "target": "beyond-a", "projectorIndex": 39 },
+
+    { "logical": 40, "row": 5, "col": 5, "label": "r5c5", "target": "beyond-b", "projectorIndex": 0 },
+    { "logical": 41, "row": 5, "col": 6, "label": "r5c6", "target": "beyond-b", "projectorIndex": 1 },
+
+    { "logical": 42, "row": 6, "col": 0, "label": "r6c0", "target": "beyond-b", "projectorIndex": 2 },
+    { "logical": 43, "row": 6, "col": 1, "label": "r6c1", "target": "beyond-b", "projectorIndex": 3 },
+    { "logical": 44, "row": 6, "col": 2, "label": "r6c2", "target": "beyond-b", "projectorIndex": 4 },
+    { "logical": 45, "row": 6, "col": 3, "label": "r6c3", "target": "beyond-b", "projectorIndex": 5 },
+    { "logical": 46, "row": 6, "col": 4, "label": "r6c4", "target": "beyond-b", "projectorIndex": 6 },
+
+    { "logical": 47, "row": 6, "col": 5, "label": "r6c5", "target": "fb4-c",    "fb4Serial": "02356" },
+    { "logical": 48, "row": 6, "col": 6, "label": "r6c6", "target": "fb4-c",    "fb4Serial": "02418" }
+  ]
+}
