@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { CannonColor } from '@/lib/use-socket';
+
 interface AudioTabProps {
   numCannons: number;
   gridColumns: number;
+  grid: CannonColor[];
   send: (msg: Record<string, unknown>) => void;
 }
+
+type AudioMode = 'spectrum' | 'energy' | 'beat' | 'drops';
+type BlendMode = 'replace' | 'multiply' | 'additive';
 
 interface AudioState {
   playing: boolean;
@@ -16,7 +22,13 @@ interface AudioState {
   bpm: number | null;
 }
 
-export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
+interface Drop {
+  origin: number;
+  tick: number;
+  hue: number;
+}
+
+export function AudioTab({ numCannons, gridColumns, grid, send }: AudioTabProps) {
   const [audioState, setAudioState] = useState<AudioState>({
     playing: false,
     fileName: null,
@@ -25,8 +37,10 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
     bpm: null
   });
   const [dragOver, setDragOver] = useState(false);
-  const [mode, setMode] = useState<'spectrum' | 'energy' | 'beat'>('spectrum');
+  const [mode, setMode] = useState<AudioMode>('spectrum');
+  const [blend, setBlend] = useState<BlendMode>('replace');
   const [sensitivity, setSensitivity] = useState(70);
+  const [sineSpread, setSineSpread] = useState(true);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -36,6 +50,13 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
   const startTimeRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropsRef = useRef<Drop[]>([]);
+  const gridRef = useRef<CannonColor[]>(grid);
+
+  // Keep grid ref in sync
+  useEffect(() => {
+    gridRef.current = grid;
+  }, [grid]);
 
   const stopPlayback = useCallback(() => {
     if (sourceRef.current) {
@@ -46,8 +67,32 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = 0;
     }
+    dropsRef.current = [];
     setAudioState((s) => ({ ...s, playing: false, currentTime: 0 }));
   }, []);
+
+  const applyBlend = useCallback((
+    index: number,
+    audioH: number,
+    audioS: number,
+    audioB: number
+  ) => {
+    const cur = gridRef.current[index] || { h: 0, s: 0, b: 0 };
+
+    if (blend === 'replace') {
+      send({ type: 'cannon', index, h: audioH, s: audioS, b: audioB });
+    } else if (blend === 'multiply') {
+      const h = (cur.h + audioH * 0.3) % 360;
+      const s = Math.min(100, cur.s * (0.5 + audioB / 200));
+      const b = Math.min(100, cur.b * (audioB / 80));
+      send({ type: 'cannon', index, h, s, b });
+    } else {
+      const h = (cur.h + audioH * 0.2) % 360;
+      const s = Math.min(100, Math.max(cur.s, audioS));
+      const b = Math.min(100, cur.b + audioB * 0.4);
+      send({ type: 'cannon', index, h, s, b });
+    }
+  }, [blend, send]);
 
   const processAudioFrame = useCallback(() => {
     if (!analyserRef.current) return;
@@ -57,6 +102,7 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
     const dataArray = new Uint8Array(bufLen);
     analyser.getByteFrequencyData(dataArray);
 
+    // Draw FFT visualization
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
@@ -88,18 +134,31 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
         const bandStart = Math.floor((col / gridColumns) * bufLen);
         const bandEnd = Math.floor(((col + 1) / gridColumns) * bufLen);
         let bandEnergy = 0;
-        for (let i = bandStart; i < bandEnd; i++) {
-          bandEnergy += dataArray[i];
-        }
+        for (let i = bandStart; i < bandEnd; i++) bandEnergy += dataArray[i];
         bandEnergy = (bandEnergy / (bandEnd - bandStart)) / 255;
 
         const hue = (col / gridColumns) * 300;
+
         for (let row = 0; row < rows; row++) {
           const idx = row * gridColumns + col;
           if (idx >= numCannons) continue;
           const rowThreshold = 1 - (row + 1) / rows;
-          const bright = bandEnergy * sens > rowThreshold ? 60 + bandEnergy * 40 : 5;
-          send({ type: 'cannon', index: idx, h: hue, s: 85, b: bright });
+          let bright = bandEnergy * sens > rowThreshold ? 60 + bandEnergy * 40 : 5;
+
+          // Sine spread: blend with neighboring columns
+          if (sineSpread && bright > 5) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dc === 0) continue;
+              const nc = col + dc;
+              if (nc < 0 || nc >= gridColumns) continue;
+              const nIdx = row * gridColumns + nc;
+              if (nIdx >= numCannons) continue;
+              const falloff = Math.cos((Math.PI / 2) * Math.abs(dc));
+              applyBlend(nIdx, hue, 85, bright * falloff * 0.4);
+            }
+          }
+
+          applyBlend(idx, hue, 85, bright);
         }
       }
     } else if (mode === 'energy') {
@@ -116,7 +175,7 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
       const bright = 20 + totalEnergy * sens * 80;
 
       for (let i = 0; i < numCannons; i++) {
-        send({ type: 'cannon', index: i, h: hue, s: 80, b: bright });
+        applyBlend(i, hue, 80, bright);
       }
     } else if (mode === 'beat') {
       let totalEnergy = 0;
@@ -138,7 +197,81 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
           if (idx >= numCannons) continue;
           const hue = isBeat ? 0 + col * 30 : 220;
           const bright = isBeat ? 70 + bandVal * 30 : 10 + bandVal * 20;
-          send({ type: 'cannon', index: idx, h: hue % 360, s: 90, b: bright });
+          applyBlend(idx, hue % 360, 90, bright);
+        }
+      }
+    } else if (mode === 'drops') {
+      // Drops mode: frequency bands trigger drops at top row
+      for (let col = 0; col < gridColumns; col++) {
+        const bandStart = Math.floor((col / gridColumns) * bufLen);
+        const bandEnd = Math.floor(((col + 1) / gridColumns) * bufLen);
+        let bandEnergy = 0;
+        for (let i = bandStart; i < bandEnd; i++) bandEnergy += dataArray[i];
+        bandEnergy = (bandEnergy / (bandEnd - bandStart)) / 255;
+
+        // Trigger a new drop when energy exceeds threshold
+        if (bandEnergy * sens > 0.5) {
+          const origin = col; // top row
+          const alreadyActive = dropsRef.current.some(
+            (d) => d.origin === origin && d.tick < 3
+          );
+          if (!alreadyActive) {
+            dropsRef.current.push({
+              origin,
+              tick: 0,
+              hue: (col / gridColumns) * 300
+            });
+          }
+        }
+      }
+
+      // Accumulate drop contributions
+      const contrib = new Float32Array(numCannons);
+      const hues = new Float32Array(numCannons);
+      const counts = new Float32Array(numCannons);
+      const maxRadius = rows * 1.5;
+      const speedMult = 0.4;
+      const ringWidth = 2;
+      const decayRate = 0.7;
+
+      for (let d = dropsRef.current.length - 1; d >= 0; d--) {
+        const drop = dropsRef.current[d];
+        const radius = drop.tick * speedMult;
+        if (radius > maxRadius + ringWidth) {
+          dropsRef.current.splice(d, 1);
+          continue;
+        }
+
+        const oCol = drop.origin;
+
+        for (let i = 0; i < numCannons; i++) {
+          const r = Math.floor(i / gridColumns);
+          const c = i % gridColumns;
+          const dist = Math.sqrt(r * r + (c - oCol) * (c - oCol));
+          const delta = Math.abs(dist - radius);
+          if (delta > ringWidth) continue;
+
+          const ringFalloff = 1 - (delta / ringWidth);
+          const ageFalloff = Math.pow(decayRate, drop.tick * 0.3);
+          const intensity = ringFalloff * ageFalloff * 80 * sens;
+          if (intensity < 1) continue;
+
+          contrib[i] += intensity;
+          hues[i] += drop.hue * intensity;
+          counts[i] += intensity;
+        }
+
+        drop.tick++;
+      }
+
+      for (let i = 0; i < numCannons; i++) {
+        if (counts[i] > 0) {
+          const h = (hues[i] / counts[i] + 360) % 360;
+          const b = Math.min(100, contrib[i]);
+          applyBlend(i, h, 90, b);
+        } else if (blend === 'replace') {
+          // Fade out cannons with no drop contribution
+          applyBlend(i, 220, 0, 3);
         }
       }
     }
@@ -151,7 +284,7 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
     }
 
     animFrameRef.current = requestAnimationFrame(processAudioFrame);
-  }, [mode, sensitivity, numCannons, gridColumns, send]);
+  }, [mode, blend, sensitivity, sineSpread, numCannons, gridColumns, applyBlend]);
 
   const startPlayback = useCallback(() => {
     if (!audioBufferRef.current || !audioContextRef.current) return;
@@ -272,21 +405,32 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
     return `${min}:${sec.toString().padStart(2, '0')}`;
   };
 
+  const modes: { key: AudioMode; label: string }[] = [
+    { key: 'spectrum', label: 'Spectrum' },
+    { key: 'energy', label: 'Energy' },
+    { key: 'beat', label: 'Beat' },
+    { key: 'drops', label: 'Drops' }
+  ];
+
+  const blends: { key: BlendMode; label: string; desc: string }[] = [
+    { key: 'replace', label: 'Replace', desc: 'Audio controls colors directly' },
+    { key: 'multiply', label: 'Multiply', desc: 'Audio modulates existing state' },
+    { key: 'additive', label: 'Add', desc: 'Audio adds on top of current state' }
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-          dragOver
-            ? 'border-accent bg-accent/10 scale-[1.02]'
-            : audioState.fileName
-              ? 'border-success/50 bg-success/5'
-              : 'border-border hover:border-text-2'
-        }`}
+        className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all"
+        style={{
+          borderColor: dragOver ? '#4a7cff' : audioState.fileName ? '#4a4' : '#1a1a25',
+          background: dragOver ? 'rgba(74,124,255,0.1)' : audioState.fileName ? 'rgba(68,170,68,0.05)' : 'transparent'
+        }}
       >
         <input
           ref={fileInputRef}
@@ -298,88 +442,124 @@ export function AudioTab({ numCannons, gridColumns, send }: AudioTabProps) {
         {audioState.fileName ? (
           <div>
             <p className="text-sm font-medium">{audioState.fileName}</p>
-            <p className="text-xs text-text-2 mt-1">
+            <p className="text-xs mt-1" style={{ color: '#888898' }}>
               {formatTime(audioState.duration)}
               {audioState.bpm && ` · ~${audioState.bpm} BPM`}
             </p>
           </div>
         ) : (
           <div>
-            <p className="text-sm text-text-2">Drop audio file here</p>
-            <p className="text-xs text-text-2/60 mt-1">MP3, WAV, OGG, FLAC</p>
+            <p className="text-sm" style={{ color: '#888898' }}>Drop audio file here</p>
+            <p className="text-xs mt-1" style={{ color: 'rgba(136,136,152,0.6)' }}>MP3, WAV, OGG, FLAC</p>
           </div>
         )}
       </div>
 
-      {/* Transport controls */}
+      {/* Transport */}
       {audioState.fileName && (
         <div className="flex items-center gap-3">
           <button
             onClick={audioState.playing ? stopPlayback : startPlayback}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              audioState.playing
-                ? 'bg-danger/20 text-danger border border-danger/40 hover:bg-danger/30'
-                : 'bg-accent/20 text-accent border border-accent/40 hover:bg-accent/30'
-            }`}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+            style={{
+              background: audioState.playing ? 'rgba(221,68,68,0.2)' : 'rgba(74,124,255,0.2)',
+              color: audioState.playing ? '#d44' : '#4a7cff',
+              border: `1px solid ${audioState.playing ? 'rgba(221,68,68,0.4)' : 'rgba(74,124,255,0.4)'}`
+            }}
           >
             {audioState.playing ? '■ Stop' : '▶ Play'}
           </button>
-          <span className="text-xs font-mono text-text-2">
+          <span className="text-xs font-mono" style={{ color: '#888898' }}>
             {formatTime(audioState.currentTime)} / {formatTime(audioState.duration)}
           </span>
           {audioState.bpm && (
-            <span className="text-xs font-mono text-accent ml-auto">
+            <span className="text-xs font-mono ml-auto" style={{ color: '#4a7cff' }}>
               ~{audioState.bpm} BPM
             </span>
           )}
         </div>
       )}
 
-      {/* Visualization canvas */}
+      {/* FFT viz */}
       <canvas
         ref={canvasRef}
         width={400}
-        height={100}
-        className="w-full h-24 rounded-lg bg-bg"
+        height={80}
+        className="w-full rounded-lg"
+        style={{ height: 64, background: '#0a0a0f' }}
       />
 
       {/* Mode selector */}
-      <div className="flex gap-2">
-        {(['spectrum', 'energy', 'beat'] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-3 py-1.5 rounded-full text-xs capitalize border transition-all ${
-              mode === m
-                ? 'border-accent text-white ring-1 ring-accent'
-                : 'border-border text-text-2 hover:border-text-2'
-            }`}
-          >
-            {m}
-          </button>
-        ))}
+      <div>
+        <p className="text-xs mb-1.5" style={{ color: '#888898', letterSpacing: '0.05em' }}>MODE</p>
+        <div className="flex gap-1.5">
+          {modes.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              className="px-3 py-1.5 rounded-full text-xs transition-all"
+              style={{
+                background: mode === m.key ? '#4a7cff' : '#12121a',
+                color: mode === m.key ? '#fff' : '#888898',
+                border: `1px solid ${mode === m.key ? '#4a7cff' : '#1a1a25'}`
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Sensitivity */}
-      <div className="flex items-center gap-3">
-        <label className="text-xs text-text-2 min-w-20">Sensitivity</label>
-        <input
-          type="range"
-          className="flex-1"
-          min={10}
-          max={100}
-          value={sensitivity}
-          onChange={(e) => setSensitivity(Number(e.target.value))}
-        />
-        <span className="text-xs text-text-2 min-w-8 text-right font-mono">{sensitivity}%</span>
+      {/* Blend mode */}
+      <div>
+        <p className="text-xs mb-1.5" style={{ color: '#888898', letterSpacing: '0.05em' }}>BLEND</p>
+        <div className="flex gap-1.5">
+          {blends.map((b) => (
+            <button
+              key={b.key}
+              onClick={() => setBlend(b.key)}
+              className="px-3 py-1.5 rounded-full text-xs transition-all"
+              style={{
+                background: blend === b.key ? '#4a7cff' : '#12121a',
+                color: blend === b.key ? '#fff' : '#888898',
+                border: `1px solid ${blend === b.key ? '#4a7cff' : '#1a1a25'}`
+              }}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs mt-1" style={{ color: 'rgba(136,136,152,0.6)' }}>
+          {blends.find((b) => b.key === blend)?.desc}
+        </p>
       </div>
 
-      {/* Mode descriptions */}
-      <p className="text-xs text-text-2/60">
-        {mode === 'spectrum' && 'Frequency bands map to columns, amplitude controls brightness per row.'}
-        {mode === 'energy' && 'Overall energy maps to brightness, bass frequencies shift the hue.'}
-        {mode === 'beat' && 'Beat detection flashes the grid on transients with frequency-based coloring.'}
-      </p>
+      {/* Toggles & sensitivity */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setSineSpread(!sineSpread)}
+          className="px-3 py-1.5 rounded-2xl text-xs transition-all"
+          style={{
+            background: sineSpread ? 'rgba(74,124,255,0.1)' : '#12121a',
+            color: sineSpread ? '#4a7cff' : '#888898',
+            border: `1px solid ${sineSpread ? '#4a7cff' : '#1a1a25'}`
+          }}
+        >
+          Sine Spread
+        </button>
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-xs" style={{ color: '#888898' }}>Sens</span>
+          <input
+            type="range"
+            className="flex-1"
+            min={10}
+            max={100}
+            value={sensitivity}
+            onChange={(e) => setSensitivity(Number(e.target.value))}
+          />
+          <span className="text-xs font-mono min-w-8 text-right" style={{ color: '#888898' }}>{sensitivity}%</span>
+        </div>
+      </div>
     </div>
   );
 }

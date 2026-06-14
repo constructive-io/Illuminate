@@ -1,71 +1,112 @@
 'use client';
 
-const defaultSceneColors: Record<string, string> = {
-  civic: 'bg-blue-600',
-  pride: 'bg-gradient-to-r from-red-500 via-yellow-400 to-purple-500',
-  gold: 'bg-amber-500',
-  white: 'bg-white',
-  solstice: 'bg-orange-500',
-  ocean: 'bg-cyan-600',
-  sunset: 'bg-orange-600',
-  off: 'bg-neutral-800'
+const sceneGradients: Record<string, string> = {
+  civic: 'linear-gradient(135deg, #1a3a8a, #2563eb, #60a5fa)',
+  pride: 'linear-gradient(135deg, #e33, #f90, #ee0, #3a5, #35e, #a3e)',
+  gold: 'linear-gradient(135deg, #b8860b, #ffd700, #f0c040)',
+  white: 'linear-gradient(135deg, #ccc, #fff, #ddd)',
+  solstice: 'linear-gradient(135deg, #c2410c, #ea580c, #f97316)',
+  ocean: 'linear-gradient(135deg, #0e4580, #0891b2, #22d3ee)',
+  sunset: 'linear-gradient(135deg, #c2185b, #e65100, #f9a825)',
+  off: 'linear-gradient(135deg, #1a1a25, #0e0e14)'
 };
 
-const defaultAnimColors: Record<string, string> = {
-  wave: 'bg-blue-500',
-  breathe: 'bg-indigo-500',
-  rainbow: 'bg-gradient-to-r from-red-500 via-green-400 to-blue-500',
-  pacman: 'bg-yellow-400',
-  spiral: 'bg-purple-500',
-  rain: 'bg-sky-600',
-  heartbeat: 'bg-red-500'
+const animGradients: Record<string, string> = {
+  wave: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+  breathe: 'linear-gradient(135deg, #4338ca, #6366f1)',
+  rainbow: 'linear-gradient(135deg, #e33, #ee0, #3a5, #35e)',
+  pacman: 'linear-gradient(135deg, #ca8a04, #facc15)',
+  spiral: 'linear-gradient(135deg, #7e22ce, #a855f7)',
+  rain: 'linear-gradient(135deg, #0369a1, #0ea5e9)',
+  heartbeat: 'linear-gradient(135deg, #b91c1c, #ef4444)'
 };
 
-export function ScenePalette({ active, onSelect }: { active: string | null; onSelect: (name: string) => void }) {
-  const scenes = Object.keys(defaultSceneColors);
+export function ScenePalette({
+  active,
+  onSelect
+}: {
+  active: string | null;
+  onSelect: (name: string) => void;
+}) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {scenes.map((name) => (
+    <div className="flex gap-2 flex-wrap">
+      {Object.keys(sceneGradients).map((name) => (
         <button
           key={name}
           onClick={() => onSelect(name)}
-          className={`px-3 py-1.5 rounded-full text-xs capitalize border transition-all ${
-            active === name
-              ? 'border-accent text-white ring-1 ring-accent'
-              : 'border-border text-text-2 hover:border-text-2'
-          }`}
+          className="relative overflow-hidden transition-transform active:scale-93"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 14,
+            background: sceneGradients[name],
+            border: active === name ? '2px solid #fff' : '2px solid transparent'
+          }}
         >
-          <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${defaultSceneColors[name] || 'bg-neutral-500'}`} />
-          {name}
+          <span
+            className="absolute bottom-0.5 left-0 right-0 text-center text-white font-semibold"
+            style={{
+              fontSize: 8,
+              textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+              letterSpacing: '0.03em'
+            }}
+          >
+            {name}
+          </span>
         </button>
       ))}
     </div>
   );
 }
 
-export function AnimationPalette({ active, onSelect, onStop }: { active: string | null; onSelect: (name: string) => void; onStop: () => void }) {
-  const anims = Object.keys(defaultAnimColors);
+export function AnimationPalette({
+  active,
+  onSelect,
+  onStop
+}: {
+  active: string | null;
+  onSelect: (name: string) => void;
+  onStop: () => void;
+}) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {anims.map((name) => (
+    <div className="flex gap-2 flex-wrap">
+      {Object.keys(animGradients).map((name) => (
         <button
           key={name}
           onClick={() => onSelect(name)}
-          className={`px-3 py-1.5 rounded-full text-xs capitalize border transition-all ${
-            active === name
-              ? 'border-success text-white ring-1 ring-success'
-              : 'border-border text-text-2 hover:border-text-2'
-          }`}
+          className="relative overflow-hidden transition-transform active:scale-93"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 14,
+            background: animGradients[name],
+            border: active === name ? '2px solid #fff' : '2px solid transparent'
+          }}
         >
-          <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${defaultAnimColors[name] || 'bg-neutral-500'}`} />
-          {name}
+          <span
+            className="absolute bottom-0.5 left-0 right-0 text-center text-white font-semibold"
+            style={{
+              fontSize: 8,
+              textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+              letterSpacing: '0.03em'
+            }}
+          >
+            {name}
+          </span>
         </button>
       ))}
       <button
         onClick={onStop}
-        className="px-3 py-1.5 rounded-full text-xs border border-danger/50 text-danger hover:border-danger"
+        className="transition-transform active:scale-93 flex items-center justify-center"
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 14,
+          background: '#1a1a25',
+          border: '1px solid #333'
+        }}
       >
-        Stop
+        <span style={{ fontSize: 10, color: '#d44' }}>Stop</span>
       </button>
     </div>
   );

@@ -1,39 +1,48 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: oklch(0.13 0.01 260);
-  --color-surface: oklch(0.17 0.01 260);
-  --color-surface-2: oklch(0.21 0.01 260);
-  --color-border: oklch(0.28 0.01 260);
-  --color-text: oklch(0.92 0.01 260);
-  --color-text-2: oklch(0.6 0.01 260);
-  --color-accent: oklch(0.65 0.18 260);
-  --color-accent-glow: oklch(0.65 0.18 260 / 0.3);
-  --color-danger: oklch(0.55 0.2 25);
-  --color-success: oklch(0.6 0.18 145);
+  --color-bg: #050508;
+  --color-surface: #0c0c12;
+  --color-surface-2: #12121a;
+  --color-border: #1a1a25;
+  --color-text: #e8e8f0;
+  --color-text-2: #888898;
+  --color-accent: #4a7cff;
+  --color-accent-glow: rgba(74, 124, 255, 0.3);
+  --color-danger: #d44;
+  --color-success: #4a4;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
+  width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--color-border);
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #1a1a2a, var(--color-accent));
   outline: none;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent-glow);
   cursor: pointer;
 }
