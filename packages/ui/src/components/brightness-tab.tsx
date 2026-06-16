@@ -107,8 +107,10 @@ export function useBrightnessAnimation(
 
   const setMode = useCallback((mode: BrightnessMode) => {
     if (mode !== 'off') {
-      // Snapshot current grid colors at the moment the mode is activated
-      snapshotRef.current = gridRef.current.map((c) => ({ ...c }));
+      // Only snapshot if we don't already have one (switching between modes keeps the original)
+      if (!snapshotRef.current) {
+        snapshotRef.current = gridRef.current.map((c) => ({ ...c }));
+      }
     } else {
       // Turning off — restore the snapshot colors one final time
       if (snapshotRef.current) {
