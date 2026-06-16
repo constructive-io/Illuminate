@@ -215,6 +215,7 @@ function ToolPanel({
             onMode={brightness.setMode}
             onSpeed={brightness.setSpeed}
             onIntensity={brightness.setIntensity}
+            onResnapshot={brightness.resnapshot}
           />
         )}
 
