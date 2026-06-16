@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { AudioTab } from '@/components/audio-tab';
 import { ColorWheel } from '@/components/color-wheel';
 import { DropsControls, useDrops } from '@/components/drops-tab';
-import { FlagsTab } from '@/components/flags-tab';
+import { FlagsTab, useFlagAnimation } from '@/components/flags-tab';
 import { GradientBar, useGradient } from '@/components/gradient-tab';
 import type { GridMode } from '@/components/grid-display';
 import { GridDisplay } from '@/components/grid-display';
@@ -42,7 +42,7 @@ function ToolPanel({
   energyValue, handleEnergyChange,
   motion, activeScene, handleScene,
   activeAnim, handleAnim, handleAnimStop,
-  activeFlag, handleFlag,
+  flags,
   audio
 }: {
   tab: GridMode;
@@ -62,8 +62,7 @@ function ToolPanel({
   activeAnim: string | null;
   handleAnim: (name: string) => void;
   handleAnimStop: () => void;
-  activeFlag: string | null;
-  handleFlag: (name: string, cells: { index: number; h: number; s: number; b: number }[]) => void;
+  flags: ReturnType<typeof useFlagAnimation>;
   audio: ReturnType<typeof useAudio>;
 }) {
   const isRight = layout === 'right';
@@ -196,7 +195,14 @@ function ToolPanel({
         )}
 
         {tab === 'flags' && (
-          <FlagsTab active={activeFlag} onSelect={handleFlag} />
+          <FlagsTab
+            activeFlag={flags.activeFlag}
+            effect={flags.effect}
+            purpleBlack={flags.purpleBlack}
+            onSelectFlag={flags.selectFlag}
+            onEffect={flags.setEffect}
+            onPurpleBlack={flags.setPurpleBlack}
+          />
         )}
 
         {tab === 'audio' && (
@@ -232,7 +238,7 @@ export default function Home() {
   }, []);
   const [activeScene, setActiveScene] = useState<string | null>(null);
   const [activeAnim, setActiveAnim] = useState<string | null>(null);
-  const [activeFlag, setActiveFlag] = useState<string | null>(null);
+
   const [energyValue, setEnergyValue] = useState(80);
   const [dropsConfig, setDropsConfig] = useState({
     spectrumStart: 0,
@@ -263,16 +269,8 @@ export default function Home() {
     [send]
   );
 
-  const handleFlag = useCallback(
-    (name: string, cells: { index: number; h: number; s: number; b: number }[]) => {
-      setActiveFlag(name);
-      setActiveAnim(null);
-      for (const c of cells) {
-        send({ type: 'cannon', index: c.index, h: c.h, s: c.s, b: c.b });
-      }
-    },
-    [send]
-  );
+  // Flags engine (animation loop lives inside the hook)
+  const flags = useFlagAnimation(send);
 
   const handleScene = useCallback(
     (name: string) => {
@@ -359,7 +357,7 @@ export default function Home() {
     energyValue, handleEnergyChange,
     motion, activeScene, handleScene,
     activeAnim, handleAnim, handleAnimStop,
-    activeFlag, handleFlag,
+    flags,
     audio
   };
 
