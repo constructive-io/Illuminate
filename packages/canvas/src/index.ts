@@ -1,1 +1,0 @@
-export { getCanvasHTML } from './ui';

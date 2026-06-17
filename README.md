@@ -34,18 +34,19 @@ pnpm build
 | Package | Name | Description |
 |---------|------|-------------|
 | `packages/simulator` | `@wavegrid/simulator` | Grid state engine and master controller UI |
-| `packages/canvas` | `@wavegrid/canvas` | Artist-facing creative canvas — "painting the sky with light" |
+| `packages/ui` | `@wavegrid/ui` | Next.js artist UI — Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio |
 | `packages/receiver` | `wavegrid` | Receiver brain — LP filter, sine fallback, pluggable adapter pattern |
 | `packages/relay` | `@wavegrid/relay` | Transparent WebSocket message router |
 | `packages/osc` | `@wavegrid/osc` | OSC output adapters for BEYOND and FB4 laser hardware |
+| `packages/webgl` | `@wavegrid/webgl` | Three.js 3D Civic Center viewer — volumetric laser beams, bloom, camera presets |
 
 ## Architecture
 
 ```
 ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
-│   Canvas     │ ──ws──▶ │  Simulator   │ ──ws──▶ │  Receiver    │
+│   UI         │ ──ws──▶ │  Simulator   │ ──ws──▶ │  Receiver    │
 │  (artist UI) │ ◀──ws── │ (state + LP) │         │  (brain)     │
-│  :3001       │         │  :3000       │         │  own LP      │
+│  :3003       │         │  :3000       │         │  own LP      │
 └──────────────┘         └──────────────┘         │  sine fbk    │
        │                        │                 │  → hardware  │
        │    ┌──────────────┐    │                 └──────────────┘
@@ -59,7 +60,7 @@ pnpm build
 ```
 
 - **Simulator** — state engine with exponential low-pass filtering and master controller UI. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change.
-- **Canvas** — artist-facing creative instrument. Paint, gradient, brush, energy, motion, symmetry modes. iPad-optimized, no technical language.
+- **UI** — Next.js artist-facing creative instrument. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI.
 - **Receiver** — the "brain" that controls physical hardware. Runs its own independent LP filter so output never jolts. On signal loss, smoothly transitions into ambient 3D sine waves. Pluggable input/output adapters.
 - **Relay** — transparent WebSocket message router for remote access or multi-receiver setups. Optional — direct connections still work.
 - **OSC** — output adapters for Pangolin BEYOND and FB4 laser hardware. HSB-to-RGB color conversion, per-cannon routing via JSON config.
@@ -69,11 +70,12 @@ pnpm build
 ```sh
 # Start the full stack (each in its own terminal)
 pnpm dev:sim       # Simulator at :3000 (master controller)
-pnpm dev:canvas    # Canvas at :3001 (artist UI)
+pnpm dev:ui        # UI at :3003 (artist UI)
 pnpm dev:receiver  # Receiver (brain)
 
-# Optional: relay for remote access
+# Optional
 pnpm dev:relay     # Relay at :3002
+pnpm dev:webgl     # 3D Civic Center viewer at :3004
 ```
 
 ## Configurable Grid Size
@@ -83,7 +85,7 @@ Everything defaults to 7x7 (49 cannons). Override with environment variables:
 ```sh
 # 10x10 grid (100 cannons)
 NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:sim
-NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:canvas
+NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:ui
 NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:receiver
 ```
 
@@ -99,7 +101,7 @@ SHARD_START=0 SHARD_END=39 pnpm dev:receiver
 SHARD_START=40 SHARD_END=48 pnpm dev:receiver
 ```
 
-Both connect to the same Simulator (or Relay). The Canvas stays unified.
+Both connect to the same Simulator (or Relay). The UI stays unified.
 
 ## Deployment
 
@@ -107,11 +109,11 @@ For a live event, run all services on the Windows machine at the venue:
 
 ```sh
 node packages/simulator/dist/server.js   # :3000 (master controller)
-node packages/canvas/dist/server.js      # :3001 (artist UI)
+pnpm dev:ui                              # :3003 (artist UI)
 node packages/receiver/dist/main.js      # brain → hardware
 ```
 
-iPads connect to `http://<machine-ip>:3001` for the Canvas.
+iPads connect to `http://<machine-ip>:3003` for the UI.
 
 ## Credits
 
