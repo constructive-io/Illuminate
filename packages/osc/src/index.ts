@@ -20,5 +20,7 @@ export {
   RoutedOscOutput,
   createRoutedOutput,
   encodeBeyondMessages,
-  encodeFB4Messages
+  encodeFB4Messages,
+  hueToColorSlider,
+  satToSaturation
 } from './osc-adapters';

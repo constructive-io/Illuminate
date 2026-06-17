@@ -13,7 +13,7 @@
 
 import { Client, Message } from 'node-osc';
 
-import { hsbToRgb100, hsbToRgb255 } from './color';
+import { hsbToRgb100 } from './color';
 
 /** When true, log every OSC message sent. Set via DEBUG_OSC=1 env var. */
 export const DEBUG_OSC = !!process.env.DEBUG_OSC;
@@ -69,15 +69,24 @@ export interface BeyondOscConfig {
   sendEveryNFrames?: number;
 }
 
+/** Map hue (0–360) to BEYOND ColorSlider (0–255). */
+export function hueToColorSlider(h: number): number {
+  return ((h % 360) + 360) % 360 * (255 / 360);
+}
+
+/** Map saturation (0–100) to BEYOND Saturation (-100 to 100). */
+export function satToSaturation(s: number): number {
+  return s - 100;
+}
+
 /**
  * Encode a grid snapshot into BEYOND OSC messages.
  * Exported for testing — the adapter calls this internally.
  *
- * BEYOND livecontrol uses zone-level addressing:
- *   /beyond/zone/{n}/livecontrol/red    (0–255 float)
- *   /beyond/zone/{n}/livecontrol/green  (0–255 float)
- *   /beyond/zone/{n}/livecontrol/blue   (0–255 float)
- *   /beyond/zone/{n}/livecontrol/brightness (0–100 float)
+ * BEYOND livecontrol uses zone-level addressing (case-sensitive):
+ *   /beyond/zone/{n}/livecontrol/ColorSlider  (0–255 float)
+ *   /beyond/zone/{n}/livecontrol/Saturation   (-100–100 float)
+ *   /beyond/zone/{n}/livecontrol/Brightness   (0–100 float)
  */
 export function encodeBeyondMessages(
   grid: CannonState[],
@@ -98,13 +107,11 @@ export function encodeBeyondMessages(
       if (cannon.h === prev.h && cannon.s === prev.s && cannon.b === prev.b) continue;
     }
 
-    const rgb = hsbToRgb255(cannon.h, cannon.s, cannon.b);
     const prefix = `/beyond/zone/${projIndex}/livecontrol`;
 
-    messages.push({ address: `${prefix}/red`, value: rgb.r });
-    messages.push({ address: `${prefix}/green`, value: rgb.g });
-    messages.push({ address: `${prefix}/blue`, value: rgb.b });
-    messages.push({ address: `${prefix}/brightness`, value: Math.round(cannon.b) });
+    messages.push({ address: `${prefix}/ColorSlider`, value: hueToColorSlider(cannon.h) });
+    messages.push({ address: `${prefix}/Saturation`, value: satToSaturation(cannon.s) });
+    messages.push({ address: `${prefix}/Brightness`, value: Math.round(cannon.b) });
   }
 
   return messages;
@@ -140,11 +147,11 @@ export class BeyondOscOutput implements OutputAdapter {
     if (messages.length === 0) return;
 
     if (DEBUG_OSC) {
-      const sample = messages.slice(0, 4);
+      const sample = messages.slice(0, 3);
       const lines = sample.map(m => `    ${m.address} = ${m.value}`);
       console.log(`  [OSC→BEYOND] frame ${this.frameCount} | ${messages.length} msgs to ${this.config.host}:${this.config.port}`);
       for (const line of lines) console.log(line);
-      if (messages.length > 4) console.log(`    ... +${messages.length - 4} more`);
+      if (messages.length > 3) console.log(`    ... +${messages.length - 3} more`);
     }
     for (const msg of messages) {
       sendFloat(this.client, msg.address, msg.value);
