@@ -4,6 +4,7 @@ export { hsbToRgb, hsbToRgb100, hsbToRgb255 } from './color';
 
 // OSC adapters
 export type {
+  BeyondColorMode,
   BeyondOscConfig,
   CannonRoute,
   CannonState,

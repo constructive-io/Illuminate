@@ -10,6 +10,7 @@ import {
   createRoutedOutput,
   hueToColorSlider
 } from '../src/osc-adapters';
+import { hsbToRgb255 } from '../src/color';
 
 function makeGrid(h = 220, s = 90, b = 80): CannonState[] {
   return Array.from({ length: 49 }, () => ({ h, s, b }));
@@ -149,6 +150,78 @@ describe('encodeBeyondMessages', () => {
   });
 });
 
+describe('encodeBeyondMessages (rgba mode)', () => {
+  it('should produce RGBA address with 4-float array', () => {
+    const grid = makeSingleGrid(0, 0, 100, 100); // h=0, s=100, b=100 (red)
+    const messages = encodeBeyondMessages(grid, { 0: 3 }, undefined, 'rgba');
+
+    expect(messages).toHaveLength(2);
+    expect(messages[0].address).toBe('/beyond/zone/3/livecontrol/RGBA');
+    expect(Array.isArray(messages[0].value)).toBe(true);
+    const rgba = messages[0].value as number[];
+    expect(rgba).toHaveLength(4);
+    expect(rgba[0]).toBe(255); // R
+    expect(rgba[1]).toBe(0);   // G
+    expect(rgba[2]).toBe(0);   // B
+    expect(rgba[3]).toBe(0);   // A
+    expect(messages[1].address).toBe('/beyond/zone/3/livecontrol/Brightness');
+    expect(messages[1].value).toBe(100);
+  });
+
+  it('should produce white (255,255,255,0) for s=0 b=100', () => {
+    const grid = makeSingleGrid(0, 0, 0, 100); // h=0, s=0, b=100 → white
+    const messages = encodeBeyondMessages(grid, { 0: 0 }, undefined, 'rgba');
+
+    expect(messages).toHaveLength(2);
+    const rgba = messages[0].value as number[];
+    expect(rgba[0]).toBe(255); // R
+    expect(rgba[1]).toBe(255); // G
+    expect(rgba[2]).toBe(255); // B
+    expect(rgba[3]).toBe(0);   // A
+  });
+
+  it('should produce black (0,0,0,0) for b=0', () => {
+    const grid = makeSingleGrid(0, 0, 100, 0); // h=0, s=100, b=0 → black
+    const messages = encodeBeyondMessages(grid, { 0: 0 }, undefined, 'rgba');
+
+    expect(messages).toHaveLength(2);
+    const rgba = messages[0].value as number[];
+    expect(rgba[0]).toBe(0); // R
+    expect(rgba[1]).toBe(0); // G
+    expect(rgba[2]).toBe(0); // B
+    expect(rgba[3]).toBe(0); // A
+    expect(messages[1].value).toBe(0); // Brightness
+  });
+
+  it('should match hsbToRgb255 conversion', () => {
+    const grid = makeSingleGrid(0, 120, 80, 75); // green-ish
+    const messages = encodeBeyondMessages(grid, { 0: 0 }, undefined, 'rgba');
+    const rgba = messages[0].value as number[];
+    const expected = hsbToRgb255(120, 80, 75);
+    expect(rgba[0]).toBe(expected.r);
+    expect(rgba[1]).toBe(expected.g);
+    expect(rgba[2]).toBe(expected.b);
+    expect(rgba[3]).toBe(0);
+  });
+
+  it('should handle multiple mapped cannons in rgba mode', () => {
+    const grid = makeGrid(120, 100, 100);
+    const messages = encodeBeyondMessages(grid, { 0: 0, 1: 1, 2: 2 }, undefined, 'rgba');
+
+    expect(messages).toHaveLength(6); // 3 cannons × 2 messages (RGBA + Brightness)
+    expect(messages[0].address).toContain('/beyond/zone/0/');
+    expect(messages[2].address).toContain('/beyond/zone/1/');
+    expect(messages[4].address).toContain('/beyond/zone/2/');
+  });
+
+  it('should skip unchanged cannons in rgba mode', () => {
+    const grid = makeGrid(120, 100, 100);
+    const prevGrid = makeGrid(120, 100, 100);
+    const messages = encodeBeyondMessages(grid, { 0: 0, 1: 1 }, prevGrid, 'rgba');
+    expect(messages).toHaveLength(0);
+  });
+});
+
 describe('encodeFB4Messages', () => {
   it('should produce correct serial-based OSC addresses', () => {
     const grid = makeSingleGrid(0, 0, 100, 100); // pure red
@@ -275,6 +348,42 @@ describe('BeyondOscOutput (UDP integration)', () => {
     await new Promise((r) => setTimeout(r, 200));
 
     expect(mock.packets.length).toBe(2); // one send = 2 packets (ColorSlider, Brightness)
+
+    adapter.close();
+    await mock.close();
+  });
+
+  it('should send RGBA multi-float packets in rgba mode', async () => {
+    const port = nextPort();
+    const mock = await createMockOscReceiver(port);
+
+    const adapter = new BeyondOscOutput({
+      host: '127.0.0.1',
+      port,
+      projectorMap: { 0: 0 },
+      sendEveryNFrames: 1,
+      colorMode: 'rgba'
+    });
+    adapter.connect();
+
+    const grid = makeSingleGrid(0, 0, 100, 100); // pure red
+    adapter.send(grid);
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(mock.packets.length).toBeGreaterThanOrEqual(2);
+
+    const rgbaPkt = mock.packets.find(p => p.address === '/beyond/zone/0/livecontrol/RGBA');
+    expect(rgbaPkt).toBeDefined();
+    expect(rgbaPkt!.args).toHaveLength(4);
+    expect(rgbaPkt!.args[0]).toBeCloseTo(255, 0); // R
+    expect(rgbaPkt!.args[1]).toBeCloseTo(0, 0);   // G
+    expect(rgbaPkt!.args[2]).toBeCloseTo(0, 0);   // B
+    expect(rgbaPkt!.args[3]).toBeCloseTo(0, 0);   // A
+
+    const brightPkt = mock.packets.find(p => p.address === '/beyond/zone/0/livecontrol/Brightness');
+    expect(brightPkt).toBeDefined();
+    expect(brightPkt!.args[0]).toBeCloseTo(100, 0);
 
     adapter.close();
     await mock.close();

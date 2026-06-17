@@ -13,12 +13,13 @@
  *   ROUTING_CONFIG     Path to a JSON routing config file (enables OSC output)
  *   BEYOND_HOST/PORT   Quick single-target BEYOND OSC (alternative to routing file)
  *   BEYOND_GRID_ORDER  Grid-to-projector mapping: "row" (default) or "column"
+ *   BEYOND_COLOR_MODE  Color control: "slider" (default) or "rgba"
  *   FB4_HOST/PORT      Quick single-target FB4 OSC (alternative to routing file)
  */
 
 import * as fs from 'fs';
 
-import { BeyondOscOutput, createRoutedOutput, FB4OscOutput } from '@wavegrid/osc';
+import { BeyondColorMode, BeyondOscOutput, createRoutedOutput, FB4OscOutput } from '@wavegrid/osc';
 
 import { ConsoleOutput, MultiOutput, OutputAdapter, WebSocketInput, WebSocketOutput } from './adapters';
 import { DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS } from './filter';
@@ -60,6 +61,7 @@ if (process.env.BEYOND_HOST) {
   const host = process.env.BEYOND_HOST;
   const port = parseInt(process.env.BEYOND_PORT || '7001', 10);
   const gridOrder = (process.env.BEYOND_GRID_ORDER || 'row').toLowerCase();
+  const colorMode = (process.env.BEYOND_COLOR_MODE || 'slider').toLowerCase() as BeyondColorMode;
   const projectorMap: Record<number, number> = {};
   const rows = Math.ceil(NUM_CANNONS / GRID_COLUMNS);
   for (let i = 0; i < NUM_CANNONS; i++) {
@@ -71,10 +73,10 @@ if (process.env.BEYOND_HOST) {
       projectorMap[i] = i;
     }
   }
-  const beyond = new BeyondOscOutput({ host, port, projectorMap });
+  const beyond = new BeyondOscOutput({ host, port, projectorMap, colorMode });
   beyond.connect();
   outputs.push(beyond);
-  outputLabels.push(`BEYOND OSC → ${host}:${port} (${gridOrder}-major)`);
+  outputLabels.push(`BEYOND OSC → ${host}:${port} (${gridOrder}-major, ${colorMode})`);
 }
 
 if (process.env.FB4_HOST) {
