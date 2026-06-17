@@ -11,7 +11,7 @@
  *   FB4:    /FB4-{serial}/{command}
  */
 
-import { Client } from 'node-osc';
+import { Client, Message } from 'node-osc';
 
 import { hsbToRgb100, hsbToRgb255 } from './color';
 
@@ -35,10 +35,16 @@ export interface OutputAdapter {
   close(): void;
 }
 
-/** A single OSC message: address + numeric argument. */
+/** A single OSC message: address + float argument. */
 export interface OscMessage {
   address: string;
   value: number;
+}
+
+/** Send a single OSC message with explicit float typing. */
+function sendFloat(client: Client, address: string, value: number): void {
+  const msg = new Message(address, { type: 'float', value });
+  client.send(msg);
 }
 
 // ═══════════════════════════════════════════════════
@@ -75,7 +81,8 @@ export interface BeyondOscConfig {
  */
 export function encodeBeyondMessages(
   grid: CannonState[],
-  projectorMap: Record<number, number>
+  projectorMap: Record<number, number>,
+  prevGrid?: CannonState[]
 ): OscMessage[] {
   const messages: OscMessage[] = [];
 
@@ -84,6 +91,13 @@ export function encodeBeyondMessages(
     if (projIndex === undefined) continue;
 
     const cannon = grid[i];
+
+    // Skip if state hasn't changed since last frame
+    if (prevGrid && prevGrid[i]) {
+      const prev = prevGrid[i];
+      if (cannon.h === prev.h && cannon.s === prev.s && cannon.b === prev.b) continue;
+    }
+
     const rgb = hsbToRgb255(cannon.h, cannon.s, cannon.b);
     const prefix = `/beyond/projector/${projIndex}/livecontrol`;
 
@@ -101,6 +115,7 @@ export class BeyondOscOutput implements OutputAdapter {
   private config: BeyondOscConfig;
   private frameCount = 0;
   private sendInterval: number;
+  private prevGrid: CannonState[] | undefined;
 
   constructor(config: BeyondOscConfig) {
     this.config = config;
@@ -117,8 +132,14 @@ export class BeyondOscOutput implements OutputAdapter {
     if (this.frameCount % this.sendInterval !== 0) return;
     if (!this.client) return;
 
-    const messages = encodeBeyondMessages(grid, this.config.projectorMap);
-    if (DEBUG_OSC && messages.length > 0) {
+    const messages = encodeBeyondMessages(grid, this.config.projectorMap, this.prevGrid);
+
+    // Snapshot current state for next-frame diff
+    this.prevGrid = grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+
+    if (messages.length === 0) return;
+
+    if (DEBUG_OSC) {
       const sample = messages.slice(0, 4);
       const lines = sample.map(m => `    ${m.address} = ${m.value}`);
       console.log(`  [OSC→BEYOND] frame ${this.frameCount} | ${messages.length} msgs to ${this.config.host}:${this.config.port}`);
@@ -126,7 +147,7 @@ export class BeyondOscOutput implements OutputAdapter {
       if (messages.length > 4) console.log(`    ... +${messages.length - 4} more`);
     }
     for (const msg of messages) {
-      this.client.send(msg.address, msg.value);
+      sendFloat(this.client, msg.address, msg.value);
     }
   }
 
@@ -167,7 +188,8 @@ export interface FB4OscConfig {
  */
 export function encodeFB4Messages(
   grid: CannonState[],
-  serialMap: Record<number, string>
+  serialMap: Record<number, string>,
+  prevGrid?: CannonState[]
 ): OscMessage[] {
   const messages: OscMessage[] = [];
 
@@ -176,6 +198,12 @@ export function encodeFB4Messages(
     if (serial === undefined) continue;
 
     const cannon = grid[i];
+
+    if (prevGrid && prevGrid[i]) {
+      const prev = prevGrid[i];
+      if (cannon.h === prev.h && cannon.s === prev.s && cannon.b === prev.b) continue;
+    }
+
     const rgb = hsbToRgb100(cannon.h, cannon.s, cannon.b);
 
     messages.push({ address: `/FB4-${serial}/color_red`, value: rgb.r });
@@ -191,6 +219,7 @@ export class FB4OscOutput implements OutputAdapter {
   private config: Required<Pick<FB4OscConfig, 'host' | 'port' | 'serialMap'>> & Pick<FB4OscConfig, 'sendEveryNFrames'>;
   private frameCount = 0;
   private sendInterval: number;
+  private prevGrid: CannonState[] | undefined;
 
   constructor(config: FB4OscConfig) {
     this.config = {
@@ -209,8 +238,12 @@ export class FB4OscOutput implements OutputAdapter {
     if (this.frameCount % this.sendInterval !== 0) return;
     if (!this.client) return;
 
-    const messages = encodeFB4Messages(grid, this.config.serialMap);
-    if (DEBUG_OSC && messages.length > 0) {
+    const messages = encodeFB4Messages(grid, this.config.serialMap, this.prevGrid);
+    this.prevGrid = grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+
+    if (messages.length === 0) return;
+
+    if (DEBUG_OSC) {
       const sample = messages.slice(0, 3);
       const lines = sample.map(m => `    ${m.address} = ${m.value}`);
       console.log(`  [OSC→FB4] frame ${this.frameCount} | ${messages.length} msgs to ${this.config.host}:${this.config.port}`);
@@ -218,7 +251,7 @@ export class FB4OscOutput implements OutputAdapter {
       if (messages.length > 3) console.log(`    ... +${messages.length - 3} more`);
     }
     for (const msg of messages) {
-      this.client.send(msg.address, msg.value);
+      sendFloat(this.client, msg.address, msg.value);
     }
   }
 

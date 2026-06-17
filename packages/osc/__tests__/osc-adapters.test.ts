@@ -30,10 +30,14 @@ describe('encodeBeyondMessages', () => {
     const messages = encodeBeyondMessages(grid, { 0: 3 });
 
     expect(messages).toHaveLength(4);
-    expect(messages[0]).toEqual({ address: '/beyond/projector/3/livecontrol/red', value: 255 });
-    expect(messages[1]).toEqual({ address: '/beyond/projector/3/livecontrol/green', value: 0 });
-    expect(messages[2]).toEqual({ address: '/beyond/projector/3/livecontrol/blue', value: 0 });
-    expect(messages[3]).toEqual({ address: '/beyond/projector/3/livecontrol/brightness', value: 100 });
+    expect(messages[0].address).toBe('/beyond/projector/3/livecontrol/red');
+    expect(messages[0].value).toBe(255);
+    expect(messages[1].address).toBe('/beyond/projector/3/livecontrol/green');
+    expect(messages[1].value).toBe(0);
+    expect(messages[2].address).toBe('/beyond/projector/3/livecontrol/blue');
+    expect(messages[2].value).toBe(0);
+    expect(messages[3].address).toBe('/beyond/projector/3/livecontrol/brightness');
+    expect(messages[3].value).toBe(100);
   });
 
   it('should skip unmapped cannons', () => {
@@ -58,9 +62,12 @@ describe('encodeBeyondMessages', () => {
     const grid = makeSingleGrid(0, 240, 100, 100); // pure blue
     const messages = encodeBeyondMessages(grid, { 0: 0 });
 
-    expect(messages[0]).toEqual({ address: '/beyond/projector/0/livecontrol/red', value: 0 });
-    expect(messages[1]).toEqual({ address: '/beyond/projector/0/livecontrol/green', value: 0 });
-    expect(messages[2]).toEqual({ address: '/beyond/projector/0/livecontrol/blue', value: 255 });
+    expect(messages[0].address).toBe('/beyond/projector/0/livecontrol/red');
+    expect(messages[0].value).toBe(0);
+    expect(messages[1].address).toBe('/beyond/projector/0/livecontrol/green');
+    expect(messages[1].value).toBe(0);
+    expect(messages[2].address).toBe('/beyond/projector/0/livecontrol/blue');
+    expect(messages[2].value).toBe(255);
   });
 
   it('should return empty array when no cannons are mapped', () => {
@@ -71,7 +78,28 @@ describe('encodeBeyondMessages', () => {
   it('should include brightness from HSB b value', () => {
     const grid = makeSingleGrid(0, 0, 100, 50); // 50% brightness
     const messages = encodeBeyondMessages(grid, { 0: 0 });
-    expect(messages[3]).toEqual({ address: '/beyond/projector/0/livecontrol/brightness', value: 50 });
+    expect(messages[3].address).toBe('/beyond/projector/0/livecontrol/brightness');
+    expect(messages[3].value).toBe(50);
+  });
+
+  it('should skip unchanged cannons when prevGrid is provided', () => {
+    const grid = makeGrid(120, 100, 100);
+    const prevGrid = makeGrid(120, 100, 100);
+    const messages = encodeBeyondMessages(grid, { 0: 0, 1: 1 }, prevGrid);
+    expect(messages).toHaveLength(0);
+  });
+
+  it('should include changed cannons when prevGrid differs', () => {
+    const grid = makeGrid(120, 100, 100);
+    const prevGrid = makeGrid(0, 100, 100); // different hue
+    const messages = encodeBeyondMessages(grid, { 0: 0, 1: 1 }, prevGrid);
+    expect(messages).toHaveLength(8); // 2 cannons × 4 messages
+  });
+
+  it('should send all cannons on first frame (no prevGrid)', () => {
+    const grid = makeGrid(120, 100, 100);
+    const messages = encodeBeyondMessages(grid, { 0: 0, 1: 1 });
+    expect(messages).toHaveLength(8);
   });
 
   it('should work with arbitrary grid sizes (not just 49)', () => {
@@ -91,9 +119,12 @@ describe('encodeFB4Messages', () => {
     const messages = encodeFB4Messages(grid, { 0: '02356' });
 
     expect(messages).toHaveLength(3);
-    expect(messages[0]).toEqual({ address: '/FB4-02356/color_red', value: 100 });
-    expect(messages[1]).toEqual({ address: '/FB4-02356/color_green', value: 0 });
-    expect(messages[2]).toEqual({ address: '/FB4-02356/color_blue', value: 0 });
+    expect(messages[0].address).toBe('/FB4-02356/color_red');
+    expect(messages[0].value).toBe(100);
+    expect(messages[1].address).toBe('/FB4-02356/color_green');
+    expect(messages[1].value).toBe(0);
+    expect(messages[2].address).toBe('/FB4-02356/color_blue');
+    expect(messages[2].value).toBe(0);
   });
 
   it('should use 0-100 range for FB4 color values', () => {
@@ -177,19 +208,20 @@ describe('BeyondOscOutput (UDP integration)', () => {
 
     const redPkt = mock.packets.find(p => p.address === '/beyond/projector/5/livecontrol/red');
     expect(redPkt).toBeDefined();
-    expect(redPkt!.args[0]).toBe(255);
+    expect(redPkt!.args[0]).toBeCloseTo(255, 0);
+    expect(typeof redPkt!.args[0]).toBe('number');
 
     const greenPkt = mock.packets.find(p => p.address === '/beyond/projector/5/livecontrol/green');
     expect(greenPkt).toBeDefined();
-    expect(greenPkt!.args[0]).toBe(0);
+    expect(greenPkt!.args[0]).toBeCloseTo(0, 0);
 
     const bluePkt = mock.packets.find(p => p.address === '/beyond/projector/5/livecontrol/blue');
     expect(bluePkt).toBeDefined();
-    expect(bluePkt!.args[0]).toBe(0);
+    expect(bluePkt!.args[0]).toBeCloseTo(0, 0);
 
     const brightPkt = mock.packets.find(p => p.address === '/beyond/projector/5/livecontrol/brightness');
     expect(brightPkt).toBeDefined();
-    expect(brightPkt!.args[0]).toBe(100);
+    expect(brightPkt!.args[0]).toBeCloseTo(100, 0);
 
     adapter.close();
     await mock.close();
@@ -243,11 +275,11 @@ describe('FB4OscOutput (UDP integration)', () => {
 
     const redPkt = mock.packets.find(p => p.address === '/FB4-02356/color_red');
     expect(redPkt).toBeDefined();
-    expect(redPkt!.args[0]).toBe(100);
+    expect(redPkt!.args[0]).toBeCloseTo(100, 0);
 
     const greenPkt = mock.packets.find(p => p.address === '/FB4-02356/color_green');
     expect(greenPkt).toBeDefined();
-    expect(greenPkt!.args[0]).toBe(0);
+    expect(greenPkt!.args[0]).toBeCloseTo(0, 0);
 
     adapter.close();
     await mock.close();
@@ -292,11 +324,11 @@ describe('RoutedOscOutput', () => {
 
     const beyondRed = beyondMock.packets.find(p => p.address === '/beyond/projector/3/livecontrol/red');
     expect(beyondRed).toBeDefined();
-    expect(beyondRed!.args[0]).toBe(255);
+    expect(beyondRed!.args[0]).toBeCloseTo(255, 0);
 
     const fb4Red = fb4Mock.packets.find(p => p.address === '/FB4-02356/color_red');
     expect(fb4Red).toBeDefined();
-    expect(fb4Red!.args[0]).toBe(100);
+    expect(fb4Red!.args[0]).toBeCloseTo(100, 0);
 
     routed.close();
     await beyondMock.close();
