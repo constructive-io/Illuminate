@@ -17,6 +17,8 @@
 
 import * as fs from 'fs';
 
+import { BeyondOscOutput, createRoutedOutput, FB4OscOutput } from '@wavegrid/osc';
+
 import { ConsoleOutput, MultiOutput, OutputAdapter, WebSocketInput, WebSocketOutput } from './adapters';
 import { DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS } from './filter';
 import { Receiver, ShardConfig } from './receiver';
@@ -43,47 +45,39 @@ const input = new WebSocketInput({ url: SIMULATOR_URL });
 const outputs: OutputAdapter[] = [new ConsoleOutput()];
 const outputLabels: string[] = ['Console'];
 
-// OSC adapters are in @wavegrid/osc — try to load them if env vars are set
-const hasOscConfig = process.env.ROUTING_CONFIG || process.env.BEYOND_HOST || process.env.FB4_HOST;
-if (hasOscConfig) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const osc = require('@wavegrid/osc');
+// ─── OSC output adapters (from @wavegrid/osc) ───
+if (process.env.ROUTING_CONFIG) {
+  const raw = fs.readFileSync(process.env.ROUTING_CONFIG, 'utf8');
+  const routingConfig = JSON.parse(raw);
+  const routed = createRoutedOutput(routingConfig);
+  routed.connect();
+  outputs.push(routed);
+  outputLabels.push(`Routed OSC → [${routed.targetNames.join(', ')}]`);
+}
 
-    if (process.env.ROUTING_CONFIG) {
-      const raw = fs.readFileSync(process.env.ROUTING_CONFIG, 'utf8');
-      const routingConfig = JSON.parse(raw);
-      const routed = osc.createRoutedOutput(routingConfig);
-      routed.connect();
-      outputs.push(routed);
-      outputLabels.push(`Routed OSC → [${routed.targetNames.join(', ')}]`);
-    }
+if (process.env.BEYOND_HOST) {
+  const host = process.env.BEYOND_HOST;
+  const port = parseInt(process.env.BEYOND_PORT || '7001', 10);
+  const projectorMap: Record<number, number> = {};
+  for (let i = 0; i < NUM_CANNONS; i++) projectorMap[i] = i;
+  const beyond = new BeyondOscOutput({ host, port, projectorMap });
+  beyond.connect();
+  outputs.push(beyond);
+  outputLabels.push(`BEYOND OSC → ${host}:${port}`);
+}
 
-    if (process.env.BEYOND_HOST) {
-      const host = process.env.BEYOND_HOST;
-      const port = parseInt(process.env.BEYOND_PORT || '7001', 10);
-      const projectorMap: Record<number, number> = {};
-      for (let i = 0; i < NUM_CANNONS; i++) projectorMap[i] = i;
-      const beyond = new osc.BeyondOscOutput({ host, port, projectorMap });
-      beyond.connect();
-      outputs.push(beyond);
-      outputLabels.push(`BEYOND OSC → ${host}:${port}`);
-    }
+if (process.env.FB4_HOST) {
+  const host = process.env.FB4_HOST;
+  const port = parseInt(process.env.FB4_PORT || '8000', 10);
+  console.warn('  ⚠ FB4_HOST set but no serial map — use ROUTING_CONFIG for per-cannon FB4 mapping');
+  const fb4 = new FB4OscOutput({ host, port, serialMap: {} });
+  fb4.connect();
+  outputs.push(fb4);
+  outputLabels.push(`FB4 OSC → ${host}:${port}`);
+}
 
-    if (process.env.FB4_HOST) {
-      const host = process.env.FB4_HOST;
-      const port = parseInt(process.env.FB4_PORT || '8000', 10);
-      console.warn('  ⚠ FB4_HOST set but no serial map — use ROUTING_CONFIG for per-cannon FB4 mapping');
-      const fb4 = new osc.FB4OscOutput({ host, port, serialMap: {} });
-      fb4.connect();
-      outputs.push(fb4);
-      outputLabels.push(`FB4 OSC → ${host}:${port}`);
-    }
-  } catch (e) {
-    console.error('  ✖ Failed to load @wavegrid/osc:');
-    console.error(`    ${e instanceof Error ? e.message : String(e)}`);
-    console.error('    OSC output is DISABLED — only console output will be active.');
-  }
+if (!process.env.BEYOND_HOST && !process.env.FB4_HOST && !process.env.ROUTING_CONFIG) {
+  console.warn('  ⚠ No OSC target configured (set BEYOND_HOST, FB4_HOST, or ROUTING_CONFIG to enable)');
 }
 
 let wsOutput: WebSocketOutput | null = null;

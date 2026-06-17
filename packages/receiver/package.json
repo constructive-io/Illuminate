@@ -37,6 +37,7 @@
     "wavegrid"
   ],
   "dependencies": {
+    "@wavegrid/osc": "workspace:*",
     "ws": "^8.18.0"
   },
   "devDependencies": {

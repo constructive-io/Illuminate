@@ -39,8 +39,7 @@
     "adapter"
   ],
   "dependencies": {
-    "node-osc": "^11.5.0",
-    "wavegrid": "workspace:*"
+    "node-osc": "^11.5.0"
   },
   "devDependencies": {
     "makage": "^0.3.0"

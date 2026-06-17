@@ -6,9 +6,11 @@ export { hsbToRgb, hsbToRgb100, hsbToRgb255 } from './color';
 export type {
   BeyondOscConfig,
   CannonRoute,
+  CannonState,
   FB4OscConfig,
   OscMessage,
   OscTarget,
+  OutputAdapter,
   RoutingConfig
 } from './osc-adapters';
 export {

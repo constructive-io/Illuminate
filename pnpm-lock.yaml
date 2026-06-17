@@ -62,9 +62,6 @@ importers:
       node-osc:
         specifier: ^11.5.0
         version: 11.5.0
-      wavegrid:
-        specifier: workspace:*
-        version: link:../receiver/dist
     devDependencies:
       makage:
         specifier: ^0.3.0
@@ -73,6 +70,9 @@ importers:
 
   packages/receiver:
     dependencies:
+      '@wavegrid/osc':
+        specifier: workspace:*
+        version: link:../osc/dist
       ws:
         specifier: ^8.18.0
         version: 8.21.0

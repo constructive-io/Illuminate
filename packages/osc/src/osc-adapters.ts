@@ -3,7 +3,7 @@
  *
  * These adapters convert the internal HSB grid state to OSC messages
  * and send them via UDP. Each adapter implements the OutputAdapter
- * interface from wavegrid so it can be swapped in without modifying
+ * interface so it can be swapped into the receiver without modifying
  * the receiver core.
  *
  * OSC addressing follows Pangolin's documented schemas:
@@ -12,7 +12,6 @@
  */
 
 import { Client } from 'node-osc';
-import { CannonState, OutputAdapter } from 'wavegrid';
 
 import { hsbToRgb100, hsbToRgb255 } from './color';
 
@@ -22,6 +21,19 @@ export const DEBUG_OSC = !!process.env.DEBUG_OSC;
 // ═══════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════
+
+/** HSB state for a single cannon/beam. */
+export interface CannonState {
+  h: number; // hue 0–360
+  s: number; // saturation 0–100
+  b: number; // brightness 0–100
+}
+
+/** Generic output adapter interface. */
+export interface OutputAdapter {
+  send(grid: CannonState[]): void;
+  close(): void;
+}
 
 /** A single OSC message: address + numeric argument. */
 export interface OscMessage {

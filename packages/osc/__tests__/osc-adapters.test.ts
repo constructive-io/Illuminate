@@ -1,5 +1,5 @@
 import { Server as OscServer } from 'node-osc';
-import { CannonState } from 'wavegrid';
+import { CannonState } from '../src/osc-adapters';
 
 import {
   BeyondOscOutput,
