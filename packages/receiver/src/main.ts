@@ -12,6 +12,7 @@
  *   GRID_COLUMNS       Number of columns (default 7)
  *   ROUTING_CONFIG     Path to a JSON routing config file (enables OSC output)
  *   BEYOND_HOST/PORT   Quick single-target BEYOND OSC (alternative to routing file)
+ *   BEYOND_GRID_ORDER  Grid-to-projector mapping: "row" (default) or "column"
  *   FB4_HOST/PORT      Quick single-target FB4 OSC (alternative to routing file)
  */
 
@@ -58,12 +59,22 @@ if (process.env.ROUTING_CONFIG) {
 if (process.env.BEYOND_HOST) {
   const host = process.env.BEYOND_HOST;
   const port = parseInt(process.env.BEYOND_PORT || '7001', 10);
+  const gridOrder = (process.env.BEYOND_GRID_ORDER || 'row').toLowerCase();
   const projectorMap: Record<number, number> = {};
-  for (let i = 0; i < NUM_CANNONS; i++) projectorMap[i] = i;
+  const rows = Math.ceil(NUM_CANNONS / GRID_COLUMNS);
+  for (let i = 0; i < NUM_CANNONS; i++) {
+    if (gridOrder === 'column') {
+      const r = Math.floor(i / GRID_COLUMNS);
+      const c = i % GRID_COLUMNS;
+      projectorMap[i] = c * rows + r;
+    } else {
+      projectorMap[i] = i;
+    }
+  }
   const beyond = new BeyondOscOutput({ host, port, projectorMap });
   beyond.connect();
   outputs.push(beyond);
-  outputLabels.push(`BEYOND OSC → ${host}:${port}`);
+  outputLabels.push(`BEYOND OSC → ${host}:${port} (${gridOrder}-major)`);
 }
 
 if (process.env.FB4_HOST) {
