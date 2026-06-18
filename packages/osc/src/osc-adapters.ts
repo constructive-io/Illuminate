@@ -338,6 +338,8 @@ export interface OscTarget {
   type: 'beyond' | 'fb4';
   host: string;
   port: number;
+  /** Color mode for BEYOND targets. Default: 'slider'. */
+  colorMode?: BeyondColorMode;
 }
 
 /**
@@ -412,6 +414,7 @@ export class RoutedOscOutput implements OutputAdapter {
         host: target.host,
         port: target.port,
         projectorMap,
+        colorMode: target.colorMode,
         sendEveryNFrames: 1
       }));
     }
