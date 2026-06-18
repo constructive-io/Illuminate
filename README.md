@@ -263,10 +263,24 @@ The startup banner will show: `Routed OSC → [beyond-a, beyond-b]`
 The receiver sends 5 OSC messages per changed cannon: `alpha` (255 = full override) + `red` + `green` + `blue` (0–255) + `Brightness` (0–100). This requires BEYOND's RGBA panel to be enabled: **Settings → Configuration → Live Control → Extra Controls → "Show R-G-B-A panel"**.
 
 
+### User Authentication
+
+The UI has a login screen that protects access. Create a `.users` file in the repo root with one `username:password` per line:
+
+```sh
+cp .users.example .users
+# Edit .users with real credentials
+```
+
+When `.users` exists and contains entries, the UI shows a login screen. When it's missing or empty, the UI is open (no login required).
+
+The `.users` file is gitignored — only `.users.example` (with fake credentials) is tracked.
+
 ### Environment Variables Reference
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `USERS_FILE` | `../../.users` | Path to credentials file (UI only) |
 | `SIMULATOR_URL` | `ws://localhost:3000` | WebSocket upstream for the receiver |
 | `NEXT_PUBLIC_SIMULATOR_URL` | `ws://localhost:3000` | WebSocket URL the browser UI connects to |
 | `BEYOND_HOST` | — | BEYOND PC IP (enables OSC output) |

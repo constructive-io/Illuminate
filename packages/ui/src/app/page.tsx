@@ -11,9 +11,11 @@ import { FlagsTab, useFlagAnimation } from '@/components/flags-tab';
 import { GradientBar, useGradient } from '@/components/gradient-tab';
 import type { GridMode } from '@/components/grid-display';
 import { GridDisplay } from '@/components/grid-display';
+import { LoginScreen } from '@/components/login-screen';
 import { MotionControls, useMotion } from '@/components/motion-tab';
 import { AnimationPalette, ScenePalette } from '@/components/palette';
 import { useAudio } from '@/lib/use-audio';
+import { useAuth } from '@/lib/use-auth';
 import { useIsPhone } from '@/lib/use-media-query';
 import { useSocket } from '@/lib/use-socket';
 
@@ -344,8 +346,17 @@ function MasterSliders({
 /* ---------- Main page ---------- */
 
 export default function Home() {
+  const { user, checked, login, logout } = useAuth();
   const { connected, grid, send } = useSocket(SIMULATOR_URL);
   const isPhone = useIsPhone();
+
+  if (!checked) {
+    return <div className="h-screen" style={{ background: '#050508' }} />;
+  }
+
+  if (!user) {
+    return <LoginScreen onLogin={login} />;
+  }
 
   const [tab, setTab] = useState<GridMode>('paint');
   const [layout, setLayout] = useState<PanelLayout>('bottom');
@@ -510,22 +521,34 @@ export default function Home() {
             {audio.state.playing && (
               <span className="text-sm animate-pulse" style={{ color: '#4a7cff' }}>♪</span>
             )}
+            <span className="text-xs" style={{ color: '#555' }}>
+              {user}
+            </span>
           </div>
-          <button
-            onClick={() => setShowMasterSliders(!showMasterSliders)}
-            className="flex items-center justify-center transition-all"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              background: showMasterSliders ? 'rgba(74,124,255,0.15)' : '#12121a',
-              border: `1px solid ${showMasterSliders ? '#4a7cff' : '#1a1a25'}`,
-              color: showMasterSliders ? '#4a7cff' : '#888898',
-              fontSize: 18
-            }}
-          >
-            ≡
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={logout}
+              className="text-xs px-2 py-1 rounded"
+              style={{ color: '#666', background: '#12121a', border: '1px solid #1a1a25' }}
+            >
+              Logout
+            </button>
+            <button
+              onClick={() => setShowMasterSliders(!showMasterSliders)}
+              className="flex items-center justify-center transition-all"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: showMasterSliders ? 'rgba(74,124,255,0.15)' : '#12121a',
+                border: `1px solid ${showMasterSliders ? '#4a7cff' : '#1a1a25'}`,
+                color: showMasterSliders ? '#4a7cff' : '#888898',
+                fontSize: 18
+              }}
+            >
+              ≡
+            </button>
+          </div>
         </header>
 
         {/* Expandable master sliders */}
@@ -599,6 +622,16 @@ export default function Home() {
           {audio.state.playing && (
             <span className="text-sm animate-pulse" style={{ color: '#4a7cff' }}>♪</span>
           )}
+          <span className="text-xs" style={{ color: '#555' }}>
+            {user}
+          </span>
+          <button
+            onClick={logout}
+            className="text-xs px-2 py-1 rounded ml-1"
+            style={{ color: '#666', background: '#12121a', border: '1px solid #1a1a25' }}
+          >
+            Logout
+          </button>
         </div>
         <div className="flex items-center gap-5">
           <MasterSliders

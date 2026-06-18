@@ -10,5 +10,8 @@ lerna-debug.log
 **/.env
 **/.env.local
 
+# user credentials (real passwords — .users.example is tracked)
+.users
+
 # generated machine config (holds real LAN/cloud IPs)
 deploy/routing.json

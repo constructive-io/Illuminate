@@ -1,0 +1,9 @@
+# Illuminate user credentials
+# Format: username:password (one per line)
+# Copy this file to .users and replace with real credentials
+# Lines starting with # are ignored, blank lines are skipped
+
+ben:laser123
+dan:illuminate77
+sarah:photon42
+artist1:canvas99
