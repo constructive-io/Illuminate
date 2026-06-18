@@ -26,6 +26,8 @@
     "dev:ui": "pnpm --filter @wavegrid/ui run dev",
     "dev:webgl": "pnpm --filter @wavegrid/webgl run dev",
     "gen:config": "node deploy/gen-config.js",
+    "build:ui": "pnpm --filter @wavegrid/ui build",
+    "start:ui": "pnpm --filter @wavegrid/ui start",
     "deps": "pnpm up -r -i -L"
   },
   "devDependencies": {

@@ -76,7 +76,10 @@ const common = {
 
 module.exports = {
   apps: [
+    // Simulator still runs via ts-node — no dev/prod distinction, no overlay.
     { ...common, name: 'wavegrid-sim', args: 'dev:sim' },
-    { ...common, name: 'wavegrid-ui', args: 'dev:ui' },
+    // UI runs the PRODUCTION server (next start). Requires `pnpm build:ui`
+    // first — use `deploy/cloud.sh deploy` which builds then restarts.
+    { ...common, name: 'wavegrid-ui', args: 'start:ui' },
   ],
 };
