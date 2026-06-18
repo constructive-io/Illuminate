@@ -262,42 +262,11 @@ The startup banner will show: `Routed OSC → [beyond-a, beyond-b]`
 
 The receiver sends 5 OSC messages per changed cannon: `alpha` (255 = full override) + `red` + `green` + `blue` (0–255) + `Brightness` (0–100). This requires BEYOND's RGBA panel to be enabled: **Settings → Configuration → Live Control → Extra Controls → "Show R-G-B-A panel"**.
 
-### Password Protection
-
-Set `AUTH_PASSWORD` to lock down the simulator and UI. Without the password, nothing loads and WebSocket connections are rejected.
-
-**Simulator** (cloud server):
-```sh
-AUTH_PASSWORD=illuminate77! pnpm dev:sim
-```
-
-**UI** (cloud server):
-```sh
-AUTH_PASSWORD=illuminate77! NEXT_PUBLIC_AUTH_TOKEN=illuminate77! NEXT_PUBLIC_SIMULATOR_URL=ws://203.0.113.50:3000 pnpm dev:ui
-```
-
-**Receiver** (Pangolin PC) — append `?token=` to the simulator URL:
-
-PowerShell:
-```powershell
-$env:SIMULATOR_URL = "ws://203.0.113.50:3000?token=illuminate77!"
-$env:BEYOND_HOST = "127.0.0.1"
-pnpm dev:receiver
-```
-
-Bash:
-```sh
-SIMULATOR_URL="ws://203.0.113.50:3000?token=illuminate77!" BEYOND_HOST=127.0.0.1 pnpm dev:receiver
-```
-
-When `AUTH_PASSWORD` is not set, everything works without authentication (same as before).
 
 ### Environment Variables Reference
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUTH_PASSWORD` | — | Password for simulator + UI access (unset = open) |
-| `NEXT_PUBLIC_AUTH_TOKEN` | — | Token the UI sends to the simulator WebSocket |
 | `SIMULATOR_URL` | `ws://localhost:3000` | WebSocket upstream for the receiver |
 | `NEXT_PUBLIC_SIMULATOR_URL` | `ws://localhost:3000` | WebSocket URL the browser UI connects to |
 | `BEYOND_HOST` | — | BEYOND PC IP (enables OSC output) |

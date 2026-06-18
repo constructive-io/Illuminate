@@ -19,11 +19,7 @@ import { useSocket } from '@/lib/use-socket';
 
 const NUM_CANNONS = parseInt(process.env.NEXT_PUBLIC_NUM_CANNONS || '49', 10);
 const GRID_COLUMNS = parseInt(process.env.NEXT_PUBLIC_GRID_COLUMNS || '7', 10);
-const SIMULATOR_URL_BASE = process.env.NEXT_PUBLIC_SIMULATOR_URL || 'ws://localhost:3000';
-const AUTH_TOKEN = process.env.NEXT_PUBLIC_AUTH_TOKEN || '';
-const SIMULATOR_URL = AUTH_TOKEN
-  ? `${SIMULATOR_URL_BASE}${SIMULATOR_URL_BASE.includes('?') ? '&' : '?'}token=${encodeURIComponent(AUTH_TOKEN)}`
-  : SIMULATOR_URL_BASE;
+const SIMULATOR_URL = process.env.NEXT_PUBLIC_SIMULATOR_URL || 'ws://localhost:3000';
 
 type PanelLayout = 'bottom' | 'right';
 
@@ -551,7 +547,7 @@ export default function Home() {
         {/* Grid canvas — takes remaining space above the sheet */}
         <div
           className="flex-1 flex items-center justify-center overflow-hidden"
-          style={{ padding: 8, paddingBottom: 88 }}
+          style={{ padding: 12, paddingBottom: 88 }}
         >
           <GridDisplay
             grid={gridData}

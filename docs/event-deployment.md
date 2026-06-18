@@ -41,13 +41,13 @@ graph LR
 Open two terminals:
 
 ```sh
-# Terminal 1 — Simulator (password-protected)
-AUTH_PASSWORD=illuminate77! pnpm dev:sim
+# Terminal 1 — Simulator
+pnpm dev:sim
 ```
 
 ```sh
-# Terminal 2 — UI (password-protected, replace CLOUD_IP with your server's public IP)
-AUTH_PASSWORD=illuminate77! NEXT_PUBLIC_AUTH_TOKEN=illuminate77! NEXT_PUBLIC_SIMULATOR_URL=ws://<CLOUD_IP>:3000 pnpm dev:ui
+# Terminal 2 — UI (replace CLOUD_IP with your server's public IP)
+NEXT_PUBLIC_SIMULATOR_URL=ws://<CLOUD_IP>:3000 pnpm dev:ui
 ```
 
 Ensure ports **3000** and **3003** are open in the firewall.
@@ -57,7 +57,7 @@ Ensure ports **3000** and **3003** are open in the firewall.
 #### Single BEYOND target
 
 ```powershell
-$env:SIMULATOR_URL = "ws://<CLOUD_IP>:3000?token=illuminate77!"
+$env:SIMULATOR_URL = "ws://<CLOUD_IP>:3000"
 $env:BEYOND_HOST = "127.0.0.1"
 $env:BEYOND_PORT = "7001"
 $env:SHARD_START = "0"
@@ -94,7 +94,7 @@ Then run:
 
 ```powershell
 $env:ROUTING_CONFIG = "routing.json"
-$env:SIMULATOR_URL = "ws://<CLOUD_IP>:3000?token=illuminate77!"
+$env:SIMULATOR_URL = "ws://<CLOUD_IP>:3000"
 $env:DEBUG_OSC = "1"
 pnpm dev:receiver
 ```
