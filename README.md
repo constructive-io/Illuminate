@@ -162,8 +162,21 @@ NEXT_PUBLIC_SIMULATOR_URL=ws://203.0.113.50:3000 pnpm dev:ui
 
 Replace `203.0.113.50` with your server's public IP. Ensure ports **3000** and **3003** are open in the firewall.
 
-**On the Pangolin PC** (on-site, same network as BEYOND):
+**On the Pangolin PC** (on-site, Windows — same network as BEYOND):
 
+PowerShell:
+```powershell
+$env:SIMULATOR_URL = "ws://203.0.113.50:3000"
+$env:BEYOND_COLOR_MODE = "rgb"
+$env:BEYOND_HOST = "127.0.0.1"
+$env:BEYOND_PORT = "7001"
+$env:SHARD_START = "0"
+$env:SHARD_END = "23"
+$env:DEBUG_OSC = "1"
+pnpm dev:receiver
+```
+
+Bash (Linux/macOS):
 ```sh
 SIMULATOR_URL=ws://203.0.113.50:3000 \
 BEYOND_COLOR_MODE=rgb \
