@@ -8,32 +8,32 @@
   },
   "flushHz": 30,
   "cannons": [
-    { "logical": 0,  "target": "local", "projectorIndex": 19, "label": "A1", "fb4Serial": "SE 44377" },
-    { "logical": 1,  "target": "local", "projectorIndex": 16, "label": "A2", "fb4Serial": "SE 66597" },
-    { "logical": 2,  "target": "local", "projectorIndex": 5,  "label": "A3", "fb4Serial": "XE 77236" },
+    { "logical": 0,  "target": "local", "projectorIndex": 0,  "label": "A1", "fb4Serial": "SE 44377" },
+    { "logical": 1,  "target": "local", "projectorIndex": 1,  "label": "A2", "fb4Serial": "SE 66597" },
+    { "logical": 2,  "target": "local", "projectorIndex": 2,  "label": "A3", "fb4Serial": "XE 77236" },
 
-    { "logical": 7,  "target": "local", "projectorIndex": 11, "label": "B1", "fb4Serial": "XE 46175" },
-    { "logical": 8,  "target": "local", "projectorIndex": 6,  "label": "B2", "fb4Serial": "XE 78226" },
-    { "logical": 9,  "target": "local", "projectorIndex": 4,  "label": "B3", "fb4Serial": "XE 77243" },
+    { "logical": 7,  "target": "local", "projectorIndex": 3,  "label": "B1", "fb4Serial": "XE 46175" },
+    { "logical": 8,  "target": "local", "projectorIndex": 4,  "label": "B2", "fb4Serial": "XE 78226" },
+    { "logical": 9,  "target": "local", "projectorIndex": 5,  "label": "B3", "fb4Serial": "XE 77243" },
 
-    { "logical": 14, "target": "local", "projectorIndex": 18, "label": "C1", "fb4Serial": "SE 44379" },
-    { "logical": 15, "target": "local", "projectorIndex": 3,  "label": "C2", "fb4Serial": "XE 77244" },
-    { "logical": 16, "target": "local", "projectorIndex": 10, "label": "C3", "fb4Serial": "XE 78229" },
+    { "logical": 14, "target": "local", "projectorIndex": 6,  "label": "C1", "fb4Serial": "SE 44379" },
+    { "logical": 15, "target": "local", "projectorIndex": 7,  "label": "C2", "fb4Serial": "XE 77244" },
+    { "logical": 16, "target": "local", "projectorIndex": 8,  "label": "C3", "fb4Serial": "XE 78229" },
 
-    { "logical": 21, "target": "local", "projectorIndex": 13, "label": "D1", "fb4Serial": "XE 78227" },
-    { "logical": 22, "target": "local", "projectorIndex": 9,  "label": "D2", "fb4Serial": "XE 77246" },
-    { "logical": 23, "target": "local", "projectorIndex": 7,  "label": "D3", "fb4Serial": "XE 78222" },
+    { "logical": 21, "target": "local", "projectorIndex": 9,  "label": "D1", "fb4Serial": "XE 78227" },
+    { "logical": 22, "target": "local", "projectorIndex": 10, "label": "D2", "fb4Serial": "XE 77246" },
+    { "logical": 23, "target": "local", "projectorIndex": 11, "label": "D3", "fb4Serial": "XE 78222" },
 
-    { "logical": 28, "target": "local", "projectorIndex": 20, "label": "E1", "fb4Serial": "SE 62159" },
-    { "logical": 29, "target": "local", "projectorIndex": 14, "label": "E2", "fb4Serial": "SE 62160" },
-    { "logical": 30, "target": "local", "projectorIndex": 12, "label": "E3", "fb4Serial": "XE 46195" },
+    { "logical": 28, "target": "local", "projectorIndex": 12, "label": "E1", "fb4Serial": "SE 62159" },
+    { "logical": 29, "target": "local", "projectorIndex": 13, "label": "E2", "fb4Serial": "SE 62160" },
+    { "logical": 30, "target": "local", "projectorIndex": 14, "label": "E3", "fb4Serial": "XE 46195" },
 
     { "logical": 35, "target": "local", "projectorIndex": 15, "label": "F1", "fb4Serial": "SE 44380" },
-    { "logical": 36, "target": "local", "projectorIndex": 1,  "label": "F2", "fb4Serial": "XE 46191" },
-    { "logical": 37, "target": "local", "projectorIndex": 8,  "label": "F3", "fb4Serial": "XE 46188" },
+    { "logical": 36, "target": "local", "projectorIndex": 16, "label": "F2", "fb4Serial": "XE 46191" },
+    { "logical": 37, "target": "local", "projectorIndex": 17, "label": "F3", "fb4Serial": "XE 46188" },
 
-    { "logical": 42, "target": "local", "projectorIndex": 17, "label": "G1", "fb4Serial": "SE 66615" },
-    { "logical": 43, "target": "local", "projectorIndex": 0,  "label": "G2", "fb4Serial": "XE 46192" },
-    { "logical": 44, "target": "local", "projectorIndex": 2,  "label": "G3", "fb4Serial": "XE 78223" }
+    { "logical": 42, "target": "local", "projectorIndex": 18, "label": "G1", "fb4Serial": "SE 66615" },
+    { "logical": 43, "target": "local", "projectorIndex": 19, "label": "G2", "fb4Serial": "XE 46192" },
+    { "logical": 44, "target": "local", "projectorIndex": 20, "label": "G3", "fb4Serial": "XE 78223" }
   ]
 }
