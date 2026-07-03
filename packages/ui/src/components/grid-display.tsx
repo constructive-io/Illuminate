@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { CannonColor, Orientation } from '@/lib/use-socket';
 
-export type GridMode = 'paint' | 'gradient' | 'drops' | 'motion' | 'scenes' | 'animations' | 'audio' | 'video' | 'flags' | 'pride' | 'usa' | 'patterns' | 'playlist' | 'sequences' | 'debug';
+export type GridMode = 'paint' | 'gradient' | 'drops' | 'scenes' | 'animations' | 'audio' | 'video' | 'flags' | 'pride' | 'usa' | 'patterns' | 'playlist' | 'sequences' | 'debug';
 
 interface GridDisplayProps {
   grid: CannonColor[];
@@ -273,12 +273,6 @@ export function GridDisplay({
       return;
     }
 
-    if (mode === 'motion') {
-      if (idx >= 0 && onMotionPoint) onMotionPoint(idx);
-      lastPaintedRef.current = idx;
-      return;
-    }
-
     if (mode === 'gradient') {
       gradientStartRef.current = idx;
       return;
@@ -300,12 +294,6 @@ export function GridDisplay({
 
     if (mode === 'drops') {
       if (onDrop) onDrop(idx);
-      lastPaintedRef.current = idx;
-      return;
-    }
-
-    if (mode === 'motion') {
-      if (onMotionPoint) onMotionPoint(idx);
       lastPaintedRef.current = idx;
       return;
     }
