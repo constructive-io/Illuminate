@@ -93,6 +93,8 @@ let animationTick = 0;
 let animSpeed = 1.0;
 let audioLayer: CannonState[] | null = null;
 let audioBlend: BlendMode = 'replace';
+let videoLayer: CannonState[] | null = null;
+let videoBlend: BlendMode = 'replace';
 let calibrationMode = false;
 let previewPhysicalIndex: number | null = null;
 let orientation: Orientation = defaultOrientation();
@@ -152,9 +154,12 @@ function broadcastState() {
   const output = calibrationMode
     ? getCalibrationOutput()
     : remapGridForUi(
-      audioLayer
-        ? compositeLayer(grid, audioLayer, audioBlend)
-        : grid.map(c => ({ h: c.h, s: c.s, b: c.b })),
+      (() => {
+        let base = grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+        if (audioLayer) base = compositeLayer(base, audioLayer, audioBlend);
+        if (videoLayer) base = compositeLayer(base, videoLayer, videoBlend);
+        return base;
+      })(),
       GRID_COLUMNS, GRID_ROWS, orientation
     );
   const payload = JSON.stringify({ type: 'state', grid: output });
@@ -389,6 +394,22 @@ function handleMessage(msg: any) {
     audioLayer = null;
     broadcastState();
     break;
+  case 'video_layer':
+    if (Array.isArray(msg.grid)) {
+      const remapped = new Array<CannonState>(msg.grid.length);
+      for (let ui = 0; ui < msg.grid.length; ui++) {
+        const gi = mapUiToGrid(ui, GRID_COLUMNS, GRID_ROWS, orientation);
+        remapped[gi] = msg.grid[ui];
+      }
+      videoLayer = remapped;
+      videoBlend = msg.blend || 'replace';
+      broadcastState();
+    }
+    break;
+  case 'video_layer_clear':
+    videoLayer = null;
+    broadcastState();
+    break;
   case 'smoothness':
     if (typeof msg.value === 'number') {
       currentAlpha = msg.value;
@@ -555,12 +576,13 @@ setInterval(() => {
   }
   tickGrid(grid, currentAlpha);
 
-  // When audio layer is active, composite it with the base grid and
-  // send paint commands to receivers so the lasers reflect audio visuals.
-  if (audioLayer) {
-    const base = grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
-    const composited = compositeLayer(base, audioLayer, audioBlend);
-    const cells = composited.map((c, i) => ({ idx: i, h: c.h, s: c.s, b: c.b }));
+  // When audio/video layers are active, composite them with the base grid and
+  // send paint commands to receivers so the lasers reflect the visuals.
+  if (audioLayer || videoLayer) {
+    let base = grid.map(c => ({ h: c.h, s: c.s, b: c.b }));
+    if (audioLayer) base = compositeLayer(base, audioLayer, audioBlend);
+    if (videoLayer) base = compositeLayer(base, videoLayer, videoBlend);
+    const cells = base.map((c, i) => ({ idx: i, h: c.h, s: c.s, b: c.b }));
     broadcastCommand({ action: 'paint', cells });
     framesSinceLastCommand = 0;
   }

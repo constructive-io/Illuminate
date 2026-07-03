@@ -19,6 +19,7 @@ import { PatternsTab } from '@/components/patterns-tab';
 import { PlaylistTab } from '@/components/playlist-tab';
 import { PrideTab } from '@/components/pride-tab';
 import { UsaTab } from '@/components/usa-tab';
+import { VideoTab } from '@/components/video-tab';
 import { SequencesTab } from '@/components/sequences-tab';
 import { SettingsTab } from '@/components/settings-tab';
 import { ShiftDial } from '@/components/shift-dial';
@@ -50,6 +51,7 @@ const tabs: { key: GridMode; label: string }[] = [
   { key: 'flags', label: 'Flags' },
   { key: 'drops', label: 'Drops' },
   { key: 'audio', label: 'Audio' },
+  { key: 'video', label: 'Video' },
   { key: 'motion', label: 'Motion' },
   { key: 'debug', label: 'Debug' }
 ];
@@ -260,6 +262,10 @@ function ToolContent({
 
       {tab === 'audio' && (
         <AudioTab audio={audio} />
+      )}
+
+      {tab === 'video' && (
+        <VideoTab send={send} numCannons={numCannons} gridColumns={gridColumns} />
       )}
 
       {tab === 'debug' && (
@@ -656,6 +662,7 @@ export default function Home() {
     send({ type: 'animation', name: 'stop' });
     send({ type: 'stopPattern' });
     send({ type: 'shift', vx: 0, vy: 0 });
+    send({ type: 'video_layer_clear' });
     flags.stop();
     brightness.setMode('off');
     audio.stop();
