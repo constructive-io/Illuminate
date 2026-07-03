@@ -231,6 +231,115 @@ render: function(ctx) {
 meta: { name: 'usa-diamond' }
 };
 })()`
+  },
+  {
+    name: 'US Flag',
+    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #BF0A30, #FFFFFF, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = Math.ceil(ctx.cols * 0.43);
+  var cantonRows = Math.ceil(ctx.rows * 0.57);
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < cantonRows && col < cantonCols) {
+      var sr = row % 2 === 0 && col % 2 === 0;
+      if (sr) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = Math.floor(row / ctx.rows * 13);
+      if (stripe % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-usflag' }
+};
+})()`
+  },
+  {
+    name: 'Flag V2',
+    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #BF0A30, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < cantonRows && col < cantonCols) {
+      var star = (row + col) % 2 === 0;
+      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = row % 2 === 0;
+      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-v2' }
+};
+})()`
+  },
+  {
+    name: 'Bold Stripes',
+    gradient: 'linear-gradient(180deg, #BF0A30 50%, #FFFFFF 50%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var stripe = row % 2;
+    if (stripe === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+    else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+  }
+},
+meta: { name: 'usa-bold-stripes' }
+};
+})()`
+  },
+  {
+    name: 'Vertical Stripes',
+    gradient: 'linear-gradient(90deg, #BF0A30 50%, #FFFFFF 50%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var col = i % ctx.cols;
+    var stripe = col % 2;
+    if (stripe === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+    else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+  }
+},
+meta: { name: 'usa-vstripes' }
+};
+})()`
+  },
+  {
+    name: 'Star Field',
+    gradient: 'radial-gradient(circle, #FFFFFF 15%, #002868 15%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var isStar = (row + col) % 3 === 0;
+    if (isStar) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+  }
+},
+meta: { name: 'usa-star-field' }
+};
+})()`
   }
 ];
 
@@ -824,6 +933,466 @@ render: function(ctx) {
   }
 },
 meta: { name: 'usa-plasma' }
+};
+})()`
+  },
+  {
+    name: 'Flag Wave',
+    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #BF0A30, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var wave = Math.sin(col * 0.9 + ctx.t * 3) * 0.5;
+    var adjRow = row + wave;
+    var r = Math.floor(adjRow);
+    if (r < cantonRows && col < cantonCols) {
+      var star = (r + col) % 2 === 0;
+      var twinkle = Math.sin(ctx.t * 5 + col * 2 + r * 3) > 0;
+      if (star && twinkle) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = Math.floor(adjRow) % 2;
+      if (stripe === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-wave' }
+};
+})()`
+  },
+  {
+    name: 'Flag Scroll',
+    gradient: 'linear-gradient(90deg, #002868 30%, #BF0A30 30% 65%, #FFFFFF 65%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  var scrollOffset = Math.floor(ctx.t * 2) % ctx.cols;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = (i % ctx.cols + scrollOffset) % ctx.cols;
+    if (row < cantonRows && col < cantonCols) {
+      var star = (row + col) % 2 === 0;
+      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = row % 2 === 0;
+      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-scroll' }
+};
+})()`
+  },
+  {
+    name: 'Flag Reveal',
+    gradient: 'linear-gradient(90deg, transparent, #BF0A30, #FFFFFF, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  var reveal = ((ctx.t * 0.5) % 2);
+  var edge = reveal > 1 ? (2 - reveal) * ctx.cols : reveal * ctx.cols;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (col > edge) {
+      ctx.set(i, 0, 0, 0);
+    } else if (row < cantonRows && col < cantonCols) {
+      var star = (row + col) % 2 === 0;
+      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = row % 2 === 0;
+      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-reveal' }
+};
+})()`
+  },
+  {
+    name: 'Flag Pulse',
+    gradient: 'radial-gradient(circle, #FFFFFF 20%, #BF0A30 50%, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  var pulse = 70 + 30 * Math.sin(ctx.t * 2.5);
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < cantonRows && col < cantonCols) {
+      var star = (row + col) % 2 === 0;
+      if (star) { ctx.set(i, WHITE[0], WHITE[1], pulse); }
+      else { ctx.set(i, BLUE[0], BLUE[1], pulse * 0.7); }
+    } else {
+      var stripe = row % 2 === 0;
+      if (stripe) { ctx.set(i, RED[0], RED[1], pulse); }
+      else { ctx.set(i, WHITE[0], WHITE[1], pulse); }
+    }
+  }
+},
+meta: { name: 'usa-flag-pulse' }
+};
+})()`
+  },
+  {
+    name: 'Bars Scroll',
+    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #002868, #FFFFFF, #BF0A30)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var shifted = (row + Math.floor(ctx.t * 3)) % ctx.rows;
+    var zone = Math.floor(shifted / ctx.rows * 3);
+    if (zone >= 3) zone = 2;
+    var c = COLORS[zone];
+    ctx.set(i, c[0], c[1], c[2]);
+  }
+},
+meta: { name: 'usa-bars-scroll' }
+};
+})()`
+  },
+  {
+    name: 'Column March',
+    gradient: 'linear-gradient(90deg, #BF0A30, #FFFFFF, #002868, #FFFFFF, #BF0A30)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var col = i % ctx.cols;
+    var shifted = (col + Math.floor(ctx.t * 4)) % ctx.cols;
+    var zone = Math.floor(shifted / ctx.cols * 3);
+    if (zone >= 3) zone = 2;
+    var c = COLORS[zone];
+    ctx.set(i, c[0], c[1], c[2]);
+  }
+},
+meta: { name: 'usa-column-march' }
+};
+})()`
+  },
+  {
+    name: 'Alternator',
+    gradient: 'linear-gradient(90deg, #BF0A30 33%, #002868 66%, #FFFFFF)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var phase = Math.floor(ctx.t * 2) % 3;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var idx = (row + col + phase) % 3;
+    var c = COLORS[idx];
+    ctx.set(i, c[0], c[1], c[2]);
+  }
+},
+meta: { name: 'usa-alternator' }
+};
+})()`
+  },
+  {
+    name: 'Spotlight',
+    gradient: 'radial-gradient(circle, #FFFFFF, #BF0A30 60%, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cx = (ctx.cols - 1) / 2;
+  var cy = (ctx.rows - 1) / 2;
+  var sx = cx + Math.cos(ctx.t * 1.0) * cx * 0.7;
+  var sy = cy + Math.sin(ctx.t * 1.3) * cy * 0.7;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var dx = col - sx;
+    var dy = row - sy;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1.0) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (dist < 2.5) { ctx.set(i, RED[0], RED[1], 100); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 70); }
+  }
+},
+meta: { name: 'usa-spotlight' }
+};
+})()`
+  },
+  {
+    name: 'Blink Grid',
+    gradient: 'linear-gradient(135deg, #BF0A30 33%, #FFFFFF 33% 66%, #002868 66%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var tick = Math.floor(ctx.t * 4);
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var idx = (row * 3 + col * 7 + tick) % 3;
+    var bright = 70 + 30 * Math.abs(Math.sin(ctx.t * 3 + i * 0.3));
+    var c = COLORS[idx];
+    ctx.set(i, c[0], c[1], bright);
+  }
+},
+meta: { name: 'usa-blink-grid' }
+};
+})()`
+  },
+  {
+    name: 'Waterfall',
+    gradient: 'linear-gradient(180deg, #FFFFFF, #BF0A30, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var fall = (row + ctx.t * 4 + col * 0.5) % ctx.rows;
+    var zone = Math.floor(fall / ctx.rows * 3);
+    if (zone >= 3) zone = 2;
+    var c = COLORS[zone];
+    var bright = 70 + 30 * (1 - fall / ctx.rows);
+    ctx.set(i, c[0], c[1], bright);
+  }
+},
+meta: { name: 'usa-waterfall' }
+};
+})()`
+  },
+  {
+    name: 'Disco USA',
+    gradient: 'conic-gradient(#BF0A30 33%, #FFFFFF 33% 66%, #002868 66%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var tick = Math.floor(ctx.t * 8);
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var hash = (tick * 17 + row * 31 + col * 13) % 100;
+    var on = hash < 40;
+    if (on) {
+      var colorIdx = (tick + row + col) % 3;
+      var c = COLORS[colorIdx];
+      ctx.set(i, c[0], c[1], 100);
+    } else {
+      ctx.set(i, BLUE[0], BLUE[1], 25);
+    }
+  }
+},
+meta: { name: 'usa-disco' }
+};
+})()`
+  },
+  {
+    name: 'Expanding Rings',
+    gradient: 'radial-gradient(circle, #BF0A30, #FFFFFF, #002868, #BF0A30)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cx = (ctx.cols - 1) / 2;
+  var cy = (ctx.rows - 1) / 2;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var dx = col - cx;
+    var dy = row - cy;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var ring = (dist - ctx.t * 2 + 20) % 3;
+    if (ring < 0) ring += 3;
+    var zone = Math.floor(ring);
+    if (zone >= 3) zone = 2;
+    var c = COLORS[zone];
+    ctx.set(i, c[0], c[1], 100);
+  }
+},
+meta: { name: 'usa-expanding-rings' }
+};
+})()`
+  },
+  {
+    name: 'Pendulum',
+    gradient: 'linear-gradient(90deg, #BF0A30, #FFFFFF, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var swing = Math.sin(ctx.t * 1.5) * ctx.cols * 0.4;
+  var center = (ctx.cols - 1) / 2 + swing;
+  for (var i = 0; i < ctx.count; i++) {
+    var col = i % ctx.cols;
+    var dist = Math.abs(col - center);
+    if (dist < 1) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (dist < 3) { ctx.set(i, RED[0], RED[1], 100); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 70); }
+  }
+},
+meta: { name: 'usa-pendulum' }
+};
+})()`
+  },
+  {
+    name: 'Ticker',
+    gradient: 'linear-gradient(90deg, #BF0A30 25%, #FFFFFF 50%, #002868 75%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var offset = ctx.t * 5;
+  for (var i = 0; i < ctx.count; i++) {
+    var col = i % ctx.cols;
+    var pos = ((col + offset) % ctx.cols + ctx.cols) % ctx.cols;
+    var zone = Math.floor(pos / ctx.cols * 3);
+    if (zone >= 3) zone = 2;
+    var c = COLORS[zone];
+    ctx.set(i, c[0], c[1], 100);
+  }
+},
+meta: { name: 'usa-ticker' }
+};
+})()`
+  },
+  {
+    name: 'Crossfade',
+    gradient: 'linear-gradient(180deg, #BF0A30, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var phase = Math.floor(ctx.t * 0.7) % 3;
+  var mix = (ctx.t * 0.7) % 1;
+  var bright = 70 + 30 * (mix < 0.5 ? mix * 2 : (1 - mix) * 2);
+  var c = COLORS[phase];
+  for (var i = 0; i < ctx.count; i++) {
+    ctx.set(i, c[0], c[1], bright);
+  }
+},
+meta: { name: 'usa-crossfade' }
+};
+})()`
+  },
+  {
+    name: 'Tri Flash',
+    gradient: 'linear-gradient(90deg, #BF0A30, #FFFFFF, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var phase = Math.floor(ctx.t * 3) % 3;
+  var c = COLORS[phase];
+  for (var i = 0; i < ctx.count; i++) {
+    ctx.set(i, c[0], c[1], 100);
+  }
+},
+meta: { name: 'usa-tri-flash' }
+};
+})()`
+  },
+  {
+    name: 'Chaser',
+    gradient: 'linear-gradient(90deg, #FFFFFF 10%, #BF0A30 40%, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var head = Math.floor(ctx.t * 6) % ctx.count;
+  for (var i = 0; i < ctx.count; i++) {
+    var dist = (i - head + ctx.count) % ctx.count;
+    if (dist < 3) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (dist < 10) { ctx.set(i, RED[0], RED[1], 100 - (dist - 3) * 8); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 50); }
+  }
+},
+meta: { name: 'usa-chaser' }
+};
+})()`
+  },
+  {
+    name: 'Rain',
+    gradient: 'linear-gradient(180deg, #002868, #FFFFFF 50%, #BF0A30)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var drop = (row + Math.floor(ctx.t * 6) + col * 3) % ctx.rows;
+    if (drop === 0) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (drop < 2) { ctx.set(i, RED[0], RED[1], 80); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 40 + row * 5); }
+  }
+},
+meta: { name: 'usa-rain' }
+};
+})()`
+  },
+  {
+    name: 'Scan Line',
+    gradient: 'linear-gradient(180deg, #FFFFFF 5%, #BF0A30 50%, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var scanRow = Math.floor(ctx.t * 3) % ctx.rows;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    if (row === scanRow) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (Math.abs(row - scanRow) === 1) { ctx.set(i, RED[0], RED[1], 90); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 50); }
+  }
+},
+meta: { name: 'usa-scan-line' }
+};
+})()`
+  },
+  {
+    name: 'Bounce Ball',
+    gradient: 'radial-gradient(circle at 50% 80%, #FFFFFF 10%, #BF0A30 30%, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var bx = (ctx.cols - 1) / 2 + Math.sin(ctx.t * 1.7) * 2.5;
+  var by = (ctx.rows - 1) / 2 + Math.sin(ctx.t * 2.3) * 2.5;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    var dx = col - bx;
+    var dy = row - by;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1.0) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+    else if (dist < 2.2) { ctx.set(i, RED[0], RED[1], 100); }
+    else { ctx.set(i, BLUE[0], BLUE[1], 60); }
+  }
+},
+meta: { name: 'usa-bounce-ball' }
 };
 })()`
   }
