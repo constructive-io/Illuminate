@@ -364,6 +364,28 @@ meta: { name: 'usa-old-glory' }
 })()`
   },
   {
+    name: 'Flag Classic',
+    gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 14% 28%, #BF0A30 28% 42%, #002868 42%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < 3 && col < 3) {
+      ctx.set(i, BLUE[0], BLUE[1], BLUE[2]);
+    } else {
+      if (row % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-classic' }
+};
+})()`
+  },
+  {
     name: 'Glory Stars',
     gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 28%, #002868 57%)',
     code: `(function(){
@@ -408,58 +430,6 @@ render: function(ctx) {
   }
 },
 meta: { name: 'usa-flag-wide' }
-};
-})()`
-  },
-  {
-    name: 'Flag Tight',
-    gradient: 'linear-gradient(180deg, #002868 30%, #BF0A30 30% 65%, #FFF 65%)',
-    code: `(function(){
-${USA_COLORS_CODE}
-return {
-render: function(ctx) {
-  for (var i = 0; i < ctx.count; i++) {
-    var row = Math.floor(i / ctx.cols);
-    var col = i % ctx.cols;
-    if (row < 3 && col < 2) {
-      var star = row % 2 === 0;
-      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
-      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
-    } else {
-      var stripe = row % 2 === 0;
-      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
-      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
-    }
-  }
-},
-meta: { name: 'usa-flag-tight' }
-};
-})()`
-  },
-  {
-    name: 'Betsy Ross',
-    gradient: 'radial-gradient(circle at 20% 35%, #FFFFFF 10%, #002868 10% 30%, #BF0A30 50%)',
-    code: `(function(){
-${USA_COLORS_CODE}
-return {
-render: function(ctx) {
-  for (var i = 0; i < ctx.count; i++) {
-    var row = Math.floor(i / ctx.cols);
-    var col = i % ctx.cols;
-    if (row < 4 && col < 3) {
-      var cx = 1; var cy = 1.5;
-      var dx = col - cx; var dy = row - cy;
-      var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.8) { ctx.set(i, WHITE[0], WHITE[1], 100); }
-      else if (dist < 1.8) { ctx.set(i, WHITE[0], WHITE[1], 80); }
-      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
-    } else {
-      if (row % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
-      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
-    }
-  }
-},
-meta: { name: 'usa-betsy-ross' }
 };
 })()`
   }
