@@ -13,7 +13,7 @@ import { GradientBar, useGradient } from '@/components/gradient-tab';
 import type { GridMode } from '@/components/grid-display';
 import { GridDisplay } from '@/components/grid-display';
 import { LoginScreen } from '@/components/login-screen';
-import { MotionControls, useMotion } from '@/components/motion-tab';
+import { useMotion } from '@/components/motion-tab';
 import { AnimationPalette, ScenePalette } from '@/components/palette';
 import { PatternsTab } from '@/components/patterns-tab';
 import { PlaylistTab } from '@/components/playlist-tab';
@@ -52,7 +52,6 @@ const tabs: { key: GridMode; label: string }[] = [
   { key: 'drops', label: 'Drops' },
   { key: 'audio', label: 'Audio' },
   { key: 'video', label: 'Video' },
-  { key: 'motion', label: 'Motion' },
   { key: 'debug', label: 'Debug' }
 ];
 
@@ -63,7 +62,7 @@ function ToolContent({
   hue, sat, bright, brushSize, softEdge, trailFade,
   setHue, setSat, setBright, setBrushSize, setSoftEdge, setTrailFade,
   gradient, dropsConfig, setDropsConfig,
-  motion, activeScene, handleScene,
+  activeScene, handleScene,
   activeAnim, handleAnim,
   animSpeed, onAnimSpeed,
   send,
@@ -81,7 +80,6 @@ function ToolContent({
   gradient: ReturnType<typeof useGradient>;
   dropsConfig: { spectrumStart: number; spectrumEnd: number; speed: number; decay: number; width: number };
   setDropsConfig: (c: typeof dropsConfig) => void;
-  motion: ReturnType<typeof useMotion>;
   activeScene: string | null;
   handleScene: (name: string) => void;
   activeAnim: string | null;
@@ -142,16 +140,6 @@ function ToolContent({
 
       {tab === 'drops' && (
         <DropsControls config={dropsConfig} onChange={setDropsConfig} />
-      )}
-
-      {tab === 'motion' && (
-        <MotionControls
-          state={motion.state}
-          onRecord={motion.toggleRecord}
-          onPlay={motion.togglePlay}
-          onClear={motion.clear}
-          onSpeed={motion.setSpeed}
-        />
       )}
 
       {tab === 'scenes' && (
@@ -746,7 +734,7 @@ export default function Home() {
     hue, sat, bright, brushSize, softEdge, trailFade,
     setHue, setSat, setBright, setBrushSize, setSoftEdge, setTrailFade,
     gradient, dropsConfig, setDropsConfig,
-    motion, activeScene, handleScene,
+    activeScene, handleScene,
     activeAnim, handleAnim,
     animSpeed, onAnimSpeed: handleAnimSpeed,
     send,
