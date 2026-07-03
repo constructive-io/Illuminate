@@ -1,0 +1,72 @@
+{
+  "targets": {
+    "pc-3x7": {
+      "type": "beyond",
+      "host": "3X7_LAPTOP_IP",
+      "port": 8000
+    },
+    "pc-4x7": {
+      "type": "beyond",
+      "host": "4X7_LAPTOP_IP",
+      "port": 8000
+    }
+  },
+  "flushHz": 30,
+  "cannons": [
+    { "logical": 0,  "target": "pc-3x7", "projectorIndex": 0,  "label": "A1", "fb4Serial": "SE 44377" },
+    { "logical": 1,  "target": "pc-3x7", "projectorIndex": 1,  "label": "A2", "fb4Serial": "SE 66597" },
+    { "logical": 2,  "target": "pc-3x7", "projectorIndex": 2,  "label": "A3", "fb4Serial": "XE 77236" },
+    { "logical": 3,  "target": "pc-4x7", "projectorIndex": 0,  "label": "A4", "fb4Serial": "XE 46186" },
+    { "logical": 4,  "target": "pc-4x7", "projectorIndex": 1,  "label": "A5", "fb4Serial": "SE 66608" },
+    { "logical": 5,  "target": "pc-4x7", "projectorIndex": 2,  "label": "A6", "fb4Serial": "SE 62164" },
+    { "logical": 6,  "target": "pc-4x7", "projectorIndex": 3,  "label": "A7", "fb4Serial": "SE 66604" },
+
+    { "logical": 7,  "target": "pc-3x7", "projectorIndex": 3,  "label": "B1", "fb4Serial": "XE 46175" },
+    { "logical": 8,  "target": "pc-3x7", "projectorIndex": 4,  "label": "B2", "fb4Serial": "XE 78226" },
+    { "logical": 9,  "target": "pc-3x7", "projectorIndex": 5,  "label": "B3", "fb4Serial": "XE 77243" },
+    { "logical": 10, "target": "pc-4x7", "projectorIndex": 4,  "label": "B4", "fb4Serial": "SE 66596" },
+    { "logical": 11, "target": "pc-4x7", "projectorIndex": 5,  "label": "B5", "fb4Serial": "SE 44385" },
+    { "logical": 12, "target": "pc-4x7", "projectorIndex": 6,  "label": "B6", "fb4Serial": "SE 62153" },
+    { "logical": 13, "target": "pc-4x7", "projectorIndex": 7,  "label": "B7", "fb4Serial": "XE 77272" },
+
+    { "logical": 14, "target": "pc-3x7", "projectorIndex": 6,  "label": "C1", "fb4Serial": "SE 44379" },
+    { "logical": 15, "target": "pc-3x7", "projectorIndex": 7,  "label": "C2", "fb4Serial": "XE 77244" },
+    { "logical": 16, "target": "pc-3x7", "projectorIndex": 8,  "label": "C3", "fb4Serial": "XE 78229" },
+    { "logical": 17, "target": "pc-4x7", "projectorIndex": 8,  "label": "C4", "fb4Serial": "XE 46177" },
+    { "logical": 18, "target": "pc-4x7", "projectorIndex": 9,  "label": "C5", "fb4Serial": "XE 46193" },
+    { "logical": 19, "target": "pc-4x7", "projectorIndex": 10, "label": "C6", "fb4Serial": "SE 66601" },
+    { "logical": 20, "target": "pc-4x7", "projectorIndex": 11, "label": "C7", "fb4Serial": "XE 77240" },
+
+    { "logical": 21, "target": "pc-3x7", "projectorIndex": 9,  "label": "D1", "fb4Serial": "XE 78227" },
+    { "logical": 22, "target": "pc-3x7", "projectorIndex": 10, "label": "D2", "fb4Serial": "XE 77246" },
+    { "logical": 23, "target": "pc-3x7", "projectorIndex": 11, "label": "D3", "fb4Serial": "XE 78222" },
+    { "logical": 24, "target": "pc-4x7", "projectorIndex": 12, "label": "D4", "fb4Serial": "XE 46189" },
+    { "logical": 25, "target": "pc-4x7", "projectorIndex": 13, "label": "D5", "fb4Serial": "SE 62151" },
+    { "logical": 26, "target": "pc-4x7", "projectorIndex": 14, "label": "D6", "fb4Serial": "SE 62161" },
+    { "logical": 27, "target": "pc-4x7", "projectorIndex": 15, "label": "D7", "fb4Serial": "SE 62165" },
+
+    { "logical": 28, "target": "pc-3x7", "projectorIndex": 12, "label": "E1", "fb4Serial": "SE 62159" },
+    { "logical": 29, "target": "pc-3x7", "projectorIndex": 13, "label": "E2", "fb4Serial": "SE 62160" },
+    { "logical": 30, "target": "pc-3x7", "projectorIndex": 14, "label": "E3", "fb4Serial": "XE 46195" },
+    { "logical": 31, "target": "pc-4x7", "projectorIndex": 16, "label": "E4", "fb4Serial": "XE 46179" },
+    { "logical": 32, "target": "pc-4x7", "projectorIndex": 17, "label": "E5", "fb4Serial": "XE 46196" },
+    { "logical": 33, "target": "pc-4x7", "projectorIndex": 18, "label": "E6", "fb4Serial": "XE 46199" },
+    { "logical": 34, "target": "pc-4x7", "projectorIndex": 19, "label": "E7", "fb4Serial": "XE 78224" },
+
+    { "logical": 35, "target": "pc-3x7", "projectorIndex": 15, "label": "F1", "fb4Serial": "SE 44380" },
+    { "logical": 36, "target": "pc-3x7", "projectorIndex": 16, "label": "F2", "fb4Serial": "XE 46191" },
+    { "logical": 37, "target": "pc-3x7", "projectorIndex": 17, "label": "F3", "fb4Serial": "XE 46188" },
+    { "logical": 38, "target": "pc-4x7", "projectorIndex": 20, "label": "F4", "fb4Serial": "XE 77245" },
+    { "logical": 39, "target": "pc-4x7", "projectorIndex": 21, "label": "F5", "fb4Serial": "SE 66610" },
+    { "logical": 40, "target": "pc-4x7", "projectorIndex": 22, "label": "F6", "fb4Serial": "SE 44381" },
+    { "logical": 41, "target": "pc-4x7", "projectorIndex": 23, "label": "F7", "fb4Serial": "XE 46172" },
+
+    { "logical": 42, "target": "pc-3x7", "projectorIndex": 18, "label": "G1", "fb4Serial": "SE 66615" },
+    { "logical": 43, "target": "pc-3x7", "projectorIndex": 19, "label": "G2", "fb4Serial": "XE 46192" },
+    { "logical": 44, "target": "pc-3x7", "projectorIndex": 20, "label": "G3", "fb4Serial": "XE 78223" },
+    { "logical": 45, "target": "pc-4x7", "projectorIndex": 24, "label": "G4", "fb4Serial": "SE 16544" },
+    { "logical": 46, "target": "pc-4x7", "projectorIndex": 25, "label": "G5", "fb4Serial": "SE 66612" },
+    { "logical": 47, "target": "pc-4x7", "projectorIndex": 26, "label": "G6", "fb4Serial": "XE 46187" },
+    { "logical": 48, "target": "pc-4x7", "projectorIndex": 27, "label": "G7", "fb4Serial": "XE 46183" }
+  ]
+}
