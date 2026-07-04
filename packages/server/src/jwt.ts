@@ -1,21 +1,9 @@
-import { createHmac, randomBytes } from 'crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
-
-const STATE_DIR = resolve(process.cwd(), '.state');
-const SECRET_FILE = resolve(STATE_DIR, 'jwt-secret');
+import { createHmac } from 'crypto';
 
 function getSecret(): string {
-  const env = process.env.WG_JWT_SECRET;
-  if (env) return env;
-  try {
-    return readFileSync(SECRET_FILE, 'utf8').trim();
-  } catch {
-    const secret = randomBytes(32).toString('hex');
-    mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(SECRET_FILE, secret, { mode: 0o600 });
-    return secret;
-  }
+  const secret = process.env.WG_JWT_SECRET;
+  if (!secret) throw new Error('WG_JWT_SECRET env var is not set');
+  return secret;
 }
 
 function base64url(buf: Buffer): string {
