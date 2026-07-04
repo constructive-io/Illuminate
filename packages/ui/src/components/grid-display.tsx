@@ -95,7 +95,7 @@ export function GridDisplay({
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const cellSize = (size - 20) / Math.max(columns, rows);
+    const cellSize = Math.max(0, (size - 20) / Math.max(columns, rows));
     sizeRef.current = { cellSize, gridOffset: 10, canvasW: size, canvasH: size };
   }, [columns, rows]);
 
@@ -107,6 +107,7 @@ export function GridDisplay({
 
     const { cellSize, gridOffset, canvasW, canvasH } = sizeRef.current;
     ctx.clearRect(0, 0, canvasW, canvasH);
+    if (cellSize <= 0) return;
 
     const r = cellSize * 0.34;
 
