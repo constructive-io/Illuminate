@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-function decodePayload(token: string): { sub: string; exp: number } | null {
+function decodePayload(token: string): { sub: string } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -10,7 +10,6 @@ function decodePayload(token: string): { sub: string; exp: number } | null {
     const json = atob(padded);
     const payload = JSON.parse(json);
     if (!payload.sub) return null;
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;

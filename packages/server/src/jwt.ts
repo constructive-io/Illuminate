@@ -30,7 +30,6 @@ function base64urlDecode(str: string): string {
 export interface JwtPayload {
   sub: string;
   iat: number;
-  exp: number;
 }
 
 export function verifyJwt(token: string): JwtPayload | null {
@@ -42,7 +41,6 @@ export function verifyJwt(token: string): JwtPayload | null {
     const expectedSig = base64url(createHmac('sha256', secret).update(data).digest());
     if (expectedSig !== parts[2]) return null;
     const payload: JwtPayload = JSON.parse(base64urlDecode(parts[1]));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;

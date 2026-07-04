@@ -30,13 +30,12 @@ function base64urlDecode(str: string): string {
 
 const HEADER = base64url('{"alg":"HS256","typ":"JWT"}');
 
-export function signJwt(username: string, expiresInSeconds = 86400 * 30): string {
+export function signJwt(username: string): string {
   const secret = getSecret();
   const now = Math.floor(Date.now() / 1000);
   const payload = base64url(JSON.stringify({
     sub: username,
-    iat: now,
-    exp: now + expiresInSeconds
+    iat: now
   }));
   const data = `${HEADER}.${payload}`;
   const sig = base64url(createHmac('sha256', secret).update(data).digest());
@@ -46,7 +45,6 @@ export function signJwt(username: string, expiresInSeconds = 86400 * 30): string
 export interface JwtPayload {
   sub: string;
   iat: number;
-  exp: number;
 }
 
 export function verifyJwt(token: string): JwtPayload | null {
@@ -58,7 +56,6 @@ export function verifyJwt(token: string): JwtPayload | null {
     const expectedSig = base64url(createHmac('sha256', secret).update(data).digest());
     if (expectedSig !== parts[2]) return null;
     const payload: JwtPayload = JSON.parse(base64urlDecode(parts[1]));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
