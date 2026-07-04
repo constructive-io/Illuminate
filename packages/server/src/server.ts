@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import http from 'http';
 import { resolve } from 'path';
+import { URL } from 'url';
 import { WebSocket,WebSocketServer } from 'ws';
 
 import { animations } from './animations';
 import type { BlendMode, CannonState, Orientation, Rotation } from './grid';
+import { verifyJwt } from './jwt';
 import {compositeLayer, createGrid, DEFAULT_ALPHA, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, defaultOrientation, mapUiToGrid, remapGridForUi, resetGrid, setAllTargets, setCannonTarget, shiftGrid, tickGrid } from './grid';
 import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
@@ -140,7 +142,28 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ noServer: true });
 
+const RECEIVER_KEY = process.env.WG_RECEIVER_KEY || '';
+
 server.on('upgrade', (req, socket, head) => {
+  const reqUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const token = reqUrl.searchParams.get('token');
+  const key = reqUrl.searchParams.get('key');
+
+  if (token) {
+    const payload = verifyJwt(token);
+    if (!payload) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+  } else if (RECEIVER_KEY) {
+    if (key !== RECEIVER_KEY) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+  }
+
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit('connection', ws, req);
   });

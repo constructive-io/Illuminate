@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 
 interface LoginScreenProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, token: string) => void;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -27,9 +27,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       });
       const data = await res.json();
 
-      if (data.ok) {
-        localStorage.setItem('wg_user', data.username);
-        onLogin(data.username);
+      if (data.ok && data.token) {
+        onLogin(data.username, data.token);
       } else {
         setError(data.error || 'Login failed');
       }
