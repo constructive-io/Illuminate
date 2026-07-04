@@ -149,6 +149,8 @@ server.on('upgrade', (req, socket, head) => {
   const token = reqUrl.searchParams.get('token');
   const key = reqUrl.searchParams.get('key');
 
+  // Require either a valid JWT token or a valid receiver key.
+  // Connections with neither are rejected.
   if (token) {
     const payload = verifyJwt(token);
     if (!payload) {
@@ -156,12 +158,12 @@ server.on('upgrade', (req, socket, head) => {
       socket.destroy();
       return;
     }
-  } else if (RECEIVER_KEY) {
-    if (key !== RECEIVER_KEY) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+  } else if (key && RECEIVER_KEY && key === RECEIVER_KEY) {
+    // valid receiver key — allow
+  } else {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
   }
 
   wss.handleUpgrade(req, socket, head, (ws) => {

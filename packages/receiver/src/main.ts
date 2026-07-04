@@ -4,6 +4,7 @@
  * Configure input and output adapters via environment variables:
  *
  *   SIMULATOR_URL      WebSocket upstream (default ws://localhost:3000)
+ *   WG_RECEIVER_KEY    Auth key for server connection (must match server's WG_RECEIVER_KEY)
  *   RECEIVER_ALPHA     LP filter alpha (default 0.06)
  *   FALLBACK_DELAY     Ms before sine fallback (default 3000)
  *   WS_OUTPUT_PORT     Optional WebSocket relay port
@@ -25,7 +26,11 @@ import { startDebugUI } from './debug-ui';
 import { DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS } from './filter';
 import { Receiver, ShardConfig } from './receiver';
 
-const SIMULATOR_URL = process.env.SIMULATOR_URL || 'ws://localhost:3000';
+const RAW_SIMULATOR_URL = process.env.SIMULATOR_URL || 'ws://localhost:3000';
+const RECEIVER_KEY = process.env.WG_RECEIVER_KEY || '';
+const SIMULATOR_URL = RECEIVER_KEY
+  ? (() => { const u = new URL(RAW_SIMULATOR_URL); u.searchParams.set('key', RECEIVER_KEY); return u.toString(); })()
+  : RAW_SIMULATOR_URL;
 const ALPHA = parseFloat(process.env.RECEIVER_ALPHA || '0.06');
 const FALLBACK_DELAY = parseInt(process.env.FALLBACK_DELAY || '3000', 10);
 const WS_OUTPUT_PORT = process.env.WS_OUTPUT_PORT ? parseInt(process.env.WS_OUTPUT_PORT, 10) : undefined;
@@ -144,7 +149,7 @@ if (DEBUG_UI_PORT) {
   startDebugUI({
     port: DEBUG_UI_PORT,
     gridColumns: GRID_COLUMNS,
-    getGrid: () => receiver.rawGrid,
+    getGrid: () => receiver.rawGrid
   });
 }
 
