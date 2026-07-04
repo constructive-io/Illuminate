@@ -70,6 +70,55 @@ function makeWavePattern(colorsCode: string): string {
 
 const USA_STATIC: PatternDef[] = [
   {
+    name: 'Flag Classic',
+    gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 14% 28%, #BF0A30 28% 42%, #002868 42%)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < 3 && col < 3) {
+      ctx.set(i, BLUE[0], BLUE[1], BLUE[2]);
+    } else {
+      if (row % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-classic' }
+};
+})()`
+  },
+  {
+    name: 'Flag V2',
+    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #BF0A30, #002868)',
+    code: `(function(){
+${USA_COLORS_CODE}
+return {
+render: function(ctx) {
+  var cantonCols = 3;
+  var cantonRows = 4;
+  for (var i = 0; i < ctx.count; i++) {
+    var row = Math.floor(i / ctx.cols);
+    var col = i % ctx.cols;
+    if (row < cantonRows && col < cantonCols) {
+      var star = (row + col) % 2 === 0;
+      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
+      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
+    } else {
+      var stripe = row % 2 === 0;
+      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
+      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
+    }
+  }
+},
+meta: { name: 'usa-flag-v2' }
+};
+})()`
+  },
+  {
     name: 'Flag',
     gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #002868)',
     code: `(function(){
@@ -260,33 +309,6 @@ meta: { name: 'usa-usflag' }
 })()`
   },
   {
-    name: 'Flag V2',
-    gradient: 'linear-gradient(180deg, #BF0A30, #FFFFFF, #BF0A30, #002868)',
-    code: `(function(){
-${USA_COLORS_CODE}
-return {
-render: function(ctx) {
-  var cantonCols = 3;
-  var cantonRows = 4;
-  for (var i = 0; i < ctx.count; i++) {
-    var row = Math.floor(i / ctx.cols);
-    var col = i % ctx.cols;
-    if (row < cantonRows && col < cantonCols) {
-      var star = (row + col) % 2 === 0;
-      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
-      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
-    } else {
-      var stripe = row % 2 === 0;
-      if (stripe) { ctx.set(i, RED[0], RED[1], RED[2]); }
-      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
-    }
-  }
-},
-meta: { name: 'usa-flag-v2' }
-};
-})()`
-  },
-  {
     name: 'Bold Stripes',
     gradient: 'linear-gradient(180deg, #BF0A30 50%, #FFFFFF 50%)',
     code: `(function(){
@@ -364,28 +386,6 @@ meta: { name: 'usa-old-glory' }
 })()`
   },
   {
-    name: 'Flag Classic',
-    gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 14% 28%, #BF0A30 28% 42%, #002868 42%)',
-    code: `(function(){
-${USA_COLORS_CODE}
-return {
-render: function(ctx) {
-  for (var i = 0; i < ctx.count; i++) {
-    var row = Math.floor(i / ctx.cols);
-    var col = i % ctx.cols;
-    if (row < 3 && col < 3) {
-      ctx.set(i, BLUE[0], BLUE[1], BLUE[2]);
-    } else {
-      if (row % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
-      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
-    }
-  }
-},
-meta: { name: 'usa-flag-classic' }
-};
-})()`
-  },
-  {
     name: 'Glory Stars',
     gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 28%, #002868 57%)',
     code: `(function(){
@@ -406,30 +406,6 @@ render: function(ctx) {
   }
 },
 meta: { name: 'usa-glory-stars' }
-};
-})()`
-  },
-  {
-    name: 'Flag Wide',
-    gradient: 'linear-gradient(180deg, #BF0A30 14%, #FFF 28%, #BF0A30 42%, #002868 57%)',
-    code: `(function(){
-${USA_COLORS_CODE}
-return {
-render: function(ctx) {
-  for (var i = 0; i < ctx.count; i++) {
-    var row = Math.floor(i / ctx.cols);
-    var col = i % ctx.cols;
-    if (row < 3 && col < 3) {
-      var star = (row + col) % 2 === 0;
-      if (star) { ctx.set(i, WHITE[0], WHITE[1], 100); }
-      else { ctx.set(i, BLUE[0], BLUE[1], BLUE[2]); }
-    } else {
-      if (row % 2 === 0) { ctx.set(i, RED[0], RED[1], RED[2]); }
-      else { ctx.set(i, WHITE[0], WHITE[1], WHITE[2]); }
-    }
-  }
-},
-meta: { name: 'usa-flag-wide' }
 };
 })()`
   }
