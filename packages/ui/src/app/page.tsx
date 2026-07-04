@@ -430,8 +430,8 @@ function MasterSliders({
 
 export default function Home() {
   const config = useConfig();
-  const { user, checked, login } = useAuth();
-  const { connected, grid, orientation, playlistState, settings, send } = useSocket(config?.simulatorUrl ?? 'ws://localhost:3000');
+  const { user, token, checked, login } = useAuth();
+  const { connected, grid, orientation, playlistState, settings, send } = useSocket(config?.simulatorUrl ?? 'ws://localhost:3000', token);
   const isPhone = useIsPhone();
 
   const NUM_CANNONS = config?.numCannons ?? 49;

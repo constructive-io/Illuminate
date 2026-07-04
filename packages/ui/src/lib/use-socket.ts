@@ -32,7 +32,7 @@ export interface Settings {
   animation: string | null;
 }
 
-export function useSocket(url: string) {
+export function useSocket(url: string, token: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [grid, setGrid] = useState<CannonColor[]>([]);
@@ -41,7 +41,11 @@ export function useSocket(url: string) {
   const [settings, setSettings] = useState<Settings | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(url);
+    if (!token) return;
+
+    const wsUrl = new URL(url);
+    wsUrl.searchParams.set('token', token);
+    const ws = new WebSocket(wsUrl.toString());
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);
@@ -80,7 +84,7 @@ export function useSocket(url: string) {
       ws.close();
       wsRef.current = null;
     };
-  }, [url]);
+  }, [url, token]);
 
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

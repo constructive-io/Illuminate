@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolve } from 'path';
 
+import { signJwt } from '@/lib/jwt';
+
 const USERS_FILE = process.env.USERS_FILE || resolve(process.cwd(), '../../.users');
 
 interface UserEntry {
@@ -37,9 +39,9 @@ export async function POST(req: NextRequest) {
 
   const users = loadUsers();
 
-  // If no .users file exists, auth is disabled — let everyone in
+  // .users file must exist and contain at least one entry
   if (users.length === 0) {
-    return NextResponse.json({ ok: true, username });
+    return NextResponse.json({ ok: false, error: 'Auth not configured' }, { status: 503 });
   }
 
   const match = users.some(u => u.username === username && u.password === password);
@@ -47,5 +49,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid username or password' }, { status: 401 });
   }
 
-  return NextResponse.json({ ok: true, username });
+  const token = signJwt(username);
+  return NextResponse.json({ ok: true, username, token });
 }
