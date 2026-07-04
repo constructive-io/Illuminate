@@ -39,10 +39,9 @@ export async function POST(req: NextRequest) {
 
   const users = loadUsers();
 
-  // If no .users file exists, auth is disabled — let everyone in
+  // .users file must exist and contain at least one entry
   if (users.length === 0) {
-    const token = signJwt(username);
-    return NextResponse.json({ ok: true, username, token });
+    return NextResponse.json({ ok: false, error: 'Auth not configured' }, { status: 503 });
   }
 
   const match = users.some(u => u.username === username && u.password === password);
