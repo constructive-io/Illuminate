@@ -31,8 +31,8 @@ function rgbToHsb(r: number, g: number, b: number): [number, number, number] {
 }
 
 const blendModes: { key: BlendMode; label: string; desc: string }[] = [
+  { key: 'filter', label: 'Brightness', desc: 'Video brightness modulates existing colors — wave hands to control' },
   { key: 'replace', label: 'Replace', desc: 'Video colors replace current grid state' },
-  { key: 'filter', label: 'Brightness', desc: 'Video brightness modulates existing colors' },
   { key: 'multiply', label: 'Multiply', desc: 'Video colors multiply with current state' }
 ];
 
@@ -47,9 +47,9 @@ export function VideoTab({ send, numCannons, gridColumns }: VideoTabProps) {
   const [active, setActive] = useState(false);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>('');
-  const [blend, setBlend] = useState<BlendMode>('replace');
+  const [blend, setBlend] = useState<BlendMode>('filter');
   const [fps, setFps] = useState(15);
-  const [brightness, setBrightness] = useState(100);
+  const [brightness, setBrightness] = useState(150);
   const [saturation, setSaturation] = useState(100);
   const [mirror, setMirror] = useState(true);
 
