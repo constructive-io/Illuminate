@@ -18,6 +18,7 @@
 import { loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
 import { BeyondOscOutput, createRoutedOutput, FB4OscOutput } from '@wavegrid/osc';
 import * as fs from 'fs';
+import * as os from 'os';
 import { resolve } from 'path';
 
 import { ConsoleOutput, MultiOutput, OutputAdapter, WebSocketInput, WebSocketOutput } from './adapters';
@@ -29,6 +30,7 @@ export interface ReceiverHandle {
   stop: () => void;
 }
 
+const RECEIVER_VERSION = '0.4.1';
 const LOG_FILE = process.env.RECEIVER_LOG || resolve(process.cwd(), 'wavegrid-receiver.log');
 
 function logToFile(level: string, msg: string) {
@@ -165,6 +167,22 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
   console.log(`  → Shard: ${shard ? `cannons ${shard.start}–${shard.end} (${shard.end - shard.start + 1} of ${NUM_CANNONS})` : `all cannons (no shard)`}`);
   if (process.env.DEBUG_OSC) console.log('  → DEBUG_OSC: enabled (logging all OSC messages)');
   console.log('');
+
+  // Announce ourselves to the server on every (re)connect so `wavegrid doctor`
+  // can enumerate laptops and check shard coverage across the installation.
+  const sendHello = () => {
+    input.send({
+      type: 'hello',
+      role: 'receiver',
+      host: os.hostname(),
+      pid: process.pid,
+      version: RECEIVER_VERSION,
+      layout: { id: layout.id, count: NUM_CANNONS },
+      mode: RUN_MODE === 'distributed' ? 'distributed' : 'simple',
+      shard: shard ? { start: shard.start, end: shard.end } : null
+    });
+  };
+  input.on('connected', sendHello);
 
   receiver.start();
 

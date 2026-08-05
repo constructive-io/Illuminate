@@ -176,6 +176,13 @@ export class WebSocketInput extends EventEmitter implements InputAdapter {
 
   get connected(): boolean { return this._connected; }
 
+  /** Send a JSON message upstream (e.g. the receiver's `hello`). No-op if not connected. */
+  send(obj: unknown): void {
+    if (this.ws && this._connected) {
+      try { this.ws.send(JSON.stringify(obj)); } catch { /* best effort */ }
+    }
+  }
+
   connect(): void {
     if (this._running) return;
     this._running = true;

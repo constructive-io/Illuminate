@@ -35,6 +35,7 @@ wavegrid start                # run server + receiver
 | `wavegrid users rm <name>` | Remove a UI login user. |
 | `wavegrid users list` | List UI usernames. |
 | `wavegrid env export` | Write a `.env` for the current project (`--file` to override). |
+| `wavegrid doctor` | Diagnose this laptop (env hijacks, ports, secrets, users, shard) and — if a server is reachable — the whole installation: connected receivers + shard coverage (gaps/overlaps). `--json` for scripting, `--server ws://host:port` to point at a remote server. |
 
 Every command acts on the active project unless you pass `--project <name>`
 (or set `WAVEGRID_PROJECT`).

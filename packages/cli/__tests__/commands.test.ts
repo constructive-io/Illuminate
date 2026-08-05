@@ -41,7 +41,7 @@ describe('configEnvMap', () => {
       debug: { osc: true }
     });
     expect(env.WAVEGRID_LAYOUT).toBe('ring-6');
-    expect(env.PORT).toBe('3200');
+    expect(env.WAVEGRID_PORT).toBe('3200');
     expect(env.RECEIVER_ALPHA).toBe('0.1');
     expect(env.SHARD_START).toBe('0');
     expect(env.SHARD_END).toBe('3');

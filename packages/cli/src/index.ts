@@ -1,4 +1,14 @@
 export { parseArgs, type ParsedArgs,run } from './cli';
+export { runDoctor } from './commands/doctor';
+export {
+  type Check,
+  checkEnvHijack,
+  checkOsc,
+  checkShard,
+  type CheckStatus,
+  isSecureMode,
+  overallStatus
+} from './commands/doctor-checks';
 export { buildEnvLines, runEnvExport } from './commands/env';
 export { runInit } from './commands/init';
 export { runPrintConfig } from './commands/print-config';

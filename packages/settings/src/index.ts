@@ -4,6 +4,7 @@ export { openStore, type SettingsStore, type StoreOptions } from './store';
 // Paths
 export {
   projectLogsDir,
+  projectSecretsFile,
   projectStateDir,
   resolvePaths,
   type StorePaths,

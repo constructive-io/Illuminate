@@ -46,9 +46,11 @@
     "@wavegrid/settings": "workspace:*",
     "confstash": "^0.1.2",
     "inquirerer": "^4.8.1",
+    "ws": "^8.18.0",
     "yanse": "^0.2.1"
   },
   "devDependencies": {
+    "@types/ws": "^8.5.13",
     "makage": "^0.3.0"
   }
 }

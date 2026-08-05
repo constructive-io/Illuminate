@@ -18,9 +18,9 @@ export function configEnvMap(config: WavegridConfig): Record<string, string> {
 
   if (config.layout.preset) set('WAVEGRID_LAYOUT', config.layout.preset);
   set('WAVEGRID_MODE', config.mode);
-  set('HOST', config.server.host);
-  set('PORT', config.server.port);
-  set('UI_PORT', config.ui.port);
+  set('WAVEGRID_HOST', config.server.host);
+  set('WAVEGRID_PORT', config.server.port);
+  set('WAVEGRID_UI_PORT', config.ui.port);
   set('SIMULATOR_URL', `ws://localhost:${config.server.port}`);
 
   set('RECEIVER_ALPHA', config.receiver.alpha);
