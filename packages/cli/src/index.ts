@@ -1,4 +1,5 @@
 export { parseArgs, type ParsedArgs,run } from './cli';
+export { runConfigSet } from './commands/config-set';
 export { runDoctor } from './commands/doctor';
 export {
   type Check,

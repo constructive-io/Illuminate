@@ -34,6 +34,7 @@ wavegrid start                # run server + receiver
 | `wavegrid users add [name]` | Add/replace a UI login user (password hashed). |
 | `wavegrid users rm <name>` | Remove a UI login user. |
 | `wavegrid users list` | List UI usernames. |
+| `wavegrid config set <k> <v>` | Update a project config field without re-`init` or editing JSON. Keys: `layout`/`preset` (a built-in preset id), `mode` (`auto`/`simple`/`distributed`), `port`, `host`, `ui-port`. |
 | `wavegrid env export` | Write a `.env` for the current project (`--file` to override). |
 | `wavegrid doctor` | Diagnose this laptop (env hijacks, ports, secrets, users, shard) and — if a server is reachable — the whole installation: connected receivers + shard coverage (gaps/overlaps). `--json` for scripting, `--server ws://host:port` to point at a remote server. |
 
