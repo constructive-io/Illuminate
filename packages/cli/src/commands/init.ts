@@ -1,17 +1,8 @@
 import { resolveLayout } from '@wavegrid/layout';
-import { writeFileSync } from 'fs';
 import type { Inquirerer, Question } from 'inquirerer';
-import { join } from 'path';
 import c from 'yanse';
 
-import {
-  buildConfig,
-  CONFIG_FILENAME,
-  type InitAnswers,
-  knownPresets,
-  serializeConfig,
-  type ShapeKind
-} from '../config-file';
+import { buildConfig, type InitAnswers, knownPresets, type ShapeKind } from '../config-file';
 import { getStore } from '../project';
 
 interface RawArgv {
@@ -23,16 +14,15 @@ interface FullInitAnswers extends InitAnswers {
   createUser?: boolean;
   username?: string;
   password?: string;
-  writeLocal?: boolean;
 }
 
 /**
  * `wavegrid init [name]` — create a project in the centralized store, generate
- * its secrets ONCE, and optionally add a first UI user + a local wavegrid.json.
- * Everything the CLI produces is plain configuration + generated secrets; there
- * is no shape-specific executable code.
+ * its secrets ONCE, and optionally add a first UI user. Everything the CLI
+ * produces lives in the store; there is no shape-specific executable code and
+ * no duplicate local config file.
  */
-export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process.cwd()): Promise<string> {
+export async function runInit(argv: RawArgv, prompter: Inquirerer): Promise<string> {
   const defaultName = typeof argv.project === 'string' ? argv.project : 'default';
 
   const questions: Question[] = [
@@ -114,12 +104,6 @@ export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process
       name: 'password',
       message: 'Password',
       when: (a: Partial<FullInitAnswers>) => a.createUser === true
-    },
-    {
-      type: 'confirm',
-      name: 'writeLocal',
-      message: 'Also write a local wavegrid.json here?',
-      default: false
     }
   ];
 
@@ -142,12 +126,6 @@ export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process
     store.addUser(projectName, answers.username, answers.password);
   }
 
-  let localPath: string | undefined;
-  if (answers.writeLocal) {
-    localPath = join(cwd, CONFIG_FILENAME);
-    writeFileSync(localPath, serializeConfig(config));
-  }
-
   console.log('');
   console.log(c.green(`  ✓ Created project ${c.bold(projectName)}`));
   console.log(`  → Layout:  ${c.cyan(layout.name)} (${layout.topology}, ${layout.count} cannons)`);
@@ -161,7 +139,6 @@ export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process
   if (answers.createUser && answers.username) {
     console.log(`  → User:    ${c.cyan(answers.username)}`);
   }
-  if (localPath) console.log(`  → Wrote:   ${c.cyan(localPath)}`);
   console.log('');
   console.log(`  Start it with ${c.bold(`wavegrid start${projectName === 'default' ? '' : ` --project ${projectName}`}`)}`);
   console.log('');
