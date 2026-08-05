@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.0.0...@wavegrid/cli@1.1.0) (2026-08-05)
+
+### Features
+
+- **cli:** wavegrid config set — change layout/port/mode after init ([d3a4832](https://github.com/constructive-io/Illuminate/commit/d3a4832fd1aa1b4e3347a8063429619abe1d2ff0))
+
 # [1.0.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@0.4.0...@wavegrid/cli@1.0.0) (2026-08-05)
 
 **Note:** Version bump only for package @wavegrid/cli
