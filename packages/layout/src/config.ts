@@ -40,15 +40,18 @@ function envLayer(env: NodeJS.ProcessEnv): Partial<WavegridConfig> {
   const simpleMax = toInt(env.WAVEGRID_SIMPLE_MAX);
   if (simpleMax != null) out.simpleModeMax = simpleMax;
 
-  const serverPort = toInt(env.PORT ?? env.SIM_PORT);
-  if (serverPort != null || env.HOST) {
+  // Namespaced only: a bare `PORT`/`HOST` in a dev shell must NOT hijack the
+  // server (that caused an EADDRINUSE against macOS AirPlay on :5000). The
+  // store/project is authoritative; env overrides are explicit `WAVEGRID_*`.
+  const serverPort = toInt(env.WAVEGRID_PORT);
+  if (serverPort != null || env.WAVEGRID_HOST) {
     out.server = {
       ...DEFAULT_CONFIG.server,
       ...(serverPort != null ? { port: serverPort } : {}),
-      ...(env.HOST ? { host: env.HOST } : {})
+      ...(env.WAVEGRID_HOST ? { host: env.WAVEGRID_HOST } : {})
     };
   }
-  const uiPort = toInt(env.UI_PORT);
+  const uiPort = toInt(env.WAVEGRID_UI_PORT);
   if (uiPort != null) out.ui = { port: uiPort };
 
   // Receiver tuning + sharding

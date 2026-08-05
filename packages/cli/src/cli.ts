@@ -1,6 +1,7 @@
 import { Inquirerer } from 'inquirerer';
 import c from 'yanse';
 
+import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
 import { runPrintConfig } from './commands/print-config';
@@ -30,6 +31,7 @@ ${c.bold('Commands')}
   users add [name]    Add/replace a UI login user (password prompted)
   users rm <name>     Remove a UI login user
   env export          Write a .env for the current project (--file to override)
+  doctor              Diagnose this laptop + the whole installation
 
 ${c.bold('Options')}
   --project <name>    Act on a specific project (else the active one)
@@ -98,7 +100,7 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     return;
   }
 
-  const knownCommands = ['init', 'start', 'projects', 'use', 'config', 'print-config', 'secrets', 'users', 'env'];
+  const knownCommands = ['init', 'start', 'projects', 'use', 'config', 'print-config', 'secrets', 'users', 'env', 'doctor'];
   const showHelp = flags.help || flags.h;
   if (!command || (showHelp && !knownCommands.includes(command))) {
     console.log(HELP);
@@ -166,6 +168,9 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     }
     break;
   }
+  case 'doctor':
+    await runDoctor(flags);
+    break;
   default:
     console.log(c.red(`Unknown command: ${command}`));
     console.log(HELP);

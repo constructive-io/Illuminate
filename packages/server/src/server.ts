@@ -6,11 +6,13 @@ import { URL } from 'url';
 import { WebSocket,WebSocketServer } from 'ws';
 
 import { animations } from './animations';
+import { computeCoverage } from './coverage';
 import type { BlendMode, CannonState, Orientation, Rotation } from './grid';
 import {compositeLayer, createGrid, DEFAULT_ALPHA, defaultOrientation, mapUiToGrid, remapGridForUi, resetGrid, setAllTargets, setCannonTarget, shiftGrid, tickGrid } from './grid';
 import { verifyJwt } from './jwt';
 import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
+import type { ClientInfo, HelloMessage, SystemStatus } from './protocol';
 import { applyScene, scenes } from './scenes';
 
 export interface ServerHandle {
@@ -34,6 +36,11 @@ export function startServer(resolved: ResolvedConfig = loadWavegridConfig()): Se
 
   const PORT = resolved.config.server.port;
   const TICK_MS = 1000 / 60; // 60fps interpolation
+  const SERVER_VERSION = '0.5.0';
+  const startedAt = Date.now();
+
+  // Per-socket registry powering `system_status` (→ `wavegrid doctor`).
+  const clients = new Map<WebSocket, ClientInfo>();
 
   const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
 
@@ -273,7 +280,40 @@ function cancelPlaylistIfActive() {
   }
 }
 
-wss.on('connection', (ws) => {
+function buildSystemStatus(): SystemStatus {
+  const receivers: ClientInfo[] = [];
+  let uiClients = 0;
+  for (const info of clients.values()) {
+    if (info.role === 'receiver') receivers.push(info);
+    else if (info.role === 'ui') uiClients++;
+  }
+  const coverage = computeCoverage(
+    NUM_CANNONS,
+    receivers.map(r => r.hello?.shard ?? null)
+  );
+  return {
+    type: 'system_status',
+    server: {
+      version: SERVER_VERSION,
+      layout: { id: layout.id, name: layout.name, count: NUM_CANNONS },
+      mode: RUN_MODE,
+      port: PORT,
+      host: resolved.config.server.host,
+      uptimeMs: Date.now() - startedAt
+    },
+    receivers,
+    uiClients,
+    coverage
+  };
+}
+
+wss.on('connection', (ws, req: http.IncomingMessage) => {
+  const remote = req.socket.remoteAddress ?? 'unknown';
+  const isUi = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).searchParams.has('token');
+  const now = Date.now();
+  clients.set(ws, { role: isUi ? 'ui' : 'unknown', remote, connectedAt: now, lastSeen: now });
+  ws.on('close', () => clients.delete(ws));
+
   // Send the resolved layout first — the single source of truth for geometry —
   // so UI and receiver render/route from the same fixtures the server uses.
   ws.send(JSON.stringify({ type: 'layout', layout, runMode: RUN_MODE }));
@@ -311,6 +351,26 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
+      const info = clients.get(ws);
+      if (info) info.lastSeen = Date.now();
+
+      if (msg.type === 'hello' && msg.role === 'receiver' && info) {
+        const hello = msg as HelloMessage;
+        info.role = 'receiver';
+        info.hello = {
+          host: hello.host,
+          pid: hello.pid,
+          version: hello.version,
+          layout: hello.layout,
+          mode: hello.mode,
+          shard: hello.shard ?? null
+        };
+        return;
+      }
+      if (msg.type === 'system_status') {
+        ws.send(JSON.stringify(buildSystemStatus()));
+        return;
+      }
       handleMessage(msg);
     } catch {
       // ignore malformed messages
