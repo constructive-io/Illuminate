@@ -86,6 +86,56 @@ export interface UiConfig {
   port: number;
 }
 
+/** A contiguous cannon range this receiver drives in distributed mode. */
+export interface ShardConfig {
+  start: number;
+  end: number;
+}
+
+/** A single BEYOND OSC target. */
+export interface BeyondConfig {
+  host: string;
+  port: number;
+  /** Order fixtures are emitted in — matches the BEYOND grid wiring. */
+  gridOrder: 'row' | 'column';
+}
+
+/** A single FB4 OSC target. */
+export interface Fb4Config {
+  host: string;
+  port: number;
+}
+
+/**
+ * OSC output. Pick ONE: a single `beyond` target, a single `fb4` target, or a
+ * multi-target `routingConfig` file path. All optional — when none is set the
+ * receiver runs console-only (no lasers).
+ */
+export interface OscConfig {
+  beyond?: BeyondConfig;
+  fb4?: Fb4Config;
+  /** Absolute path to a JSON routing file (multi-target installs). */
+  routingConfig?: string;
+}
+
+export interface ReceiverConfig {
+  /** Smoothing factor 0..1 applied to incoming values. */
+  alpha: number;
+  /** Milliseconds of silence before falling back to idle. */
+  fallbackDelay: number;
+  /** Distributed mode only: the cannon range this laptop drives. */
+  shard?: ShardConfig;
+  /** Absolute path to a fixture→light map JSON, when required by the outputs. */
+  lightMap?: string;
+}
+
+export interface DebugConfig {
+  /** Emit OSC packet logging. */
+  osc: boolean;
+  /** When set, open a debug grid UI on this port. */
+  uiPort?: number;
+}
+
 export interface WavegridConfig {
   layout: LayoutSpec;
   /**
@@ -98,4 +148,7 @@ export interface WavegridConfig {
   simpleModeMax: number;
   server: ServerConfig;
   ui: UiConfig;
+  receiver: ReceiverConfig;
+  osc: OscConfig;
+  debug: DebugConfig;
 }

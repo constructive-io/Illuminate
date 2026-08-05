@@ -1,9 +1,9 @@
 import { createHmac } from 'crypto';
 
+import { jwtSecret } from './settings';
+
 function getSecret(): string {
-  const secret = process.env.WG_JWT_SECRET;
-  if (!secret) throw new Error('WG_JWT_SECRET env var is not set');
-  return secret;
+  return jwtSecret();
 }
 
 function base64url(buf: Buffer | string): string {

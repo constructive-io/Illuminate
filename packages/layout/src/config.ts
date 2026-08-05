@@ -8,12 +8,21 @@ export const DEFAULT_CONFIG: WavegridConfig = {
   mode: 'auto',
   simpleModeMax: 40,
   server: { host: '0.0.0.0', port: 3000 },
-  ui: { port: 3003 }
+  ui: { port: 3003 },
+  receiver: { alpha: 0.06, fallbackDelay: 3000 },
+  osc: {},
+  debug: { osc: false }
 };
 
 function toInt(value: string | undefined): number | undefined {
   if (value == null || value.trim() === '') return undefined;
   const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function toFloat(value: string | undefined): number | undefined {
+  if (value == null || value.trim() === '') return undefined;
+  const n = parseFloat(value);
   return Number.isFinite(n) ? n : undefined;
 }
 
@@ -42,6 +51,44 @@ function envLayer(env: NodeJS.ProcessEnv): Partial<WavegridConfig> {
   const uiPort = toInt(env.UI_PORT);
   if (uiPort != null) out.ui = { port: uiPort };
 
+  // Receiver tuning + sharding
+  const receiver: Partial<WavegridConfig['receiver']> = {};
+  const alpha = toFloat(env.RECEIVER_ALPHA);
+  if (alpha != null) receiver.alpha = alpha;
+  const fallback = toInt(env.FALLBACK_DELAY);
+  if (fallback != null) receiver.fallbackDelay = fallback;
+  const shardStart = toInt(env.SHARD_START);
+  const shardEnd = toInt(env.SHARD_END);
+  if (shardStart != null && shardEnd != null) receiver.shard = { start: shardStart, end: shardEnd };
+  if (env.LIGHT_MAP_CONFIG) receiver.lightMap = env.LIGHT_MAP_CONFIG;
+  if (Object.keys(receiver).length > 0) {
+    out.receiver = { ...DEFAULT_CONFIG.receiver, ...receiver };
+  }
+
+  // OSC output — a single BEYOND / FB4 target or a routing file
+  const osc: WavegridConfig['osc'] = {};
+  if (env.BEYOND_HOST) {
+    osc.beyond = {
+      host: env.BEYOND_HOST,
+      port: toInt(env.BEYOND_PORT) ?? 7001,
+      gridOrder: env.BEYOND_GRID_ORDER === 'column' ? 'column' : 'row'
+    };
+  }
+  if (env.FB4_HOST) {
+    osc.fb4 = { host: env.FB4_HOST, port: toInt(env.FB4_PORT) ?? 8000 };
+  }
+  if (env.ROUTING_CONFIG) osc.routingConfig = env.ROUTING_CONFIG;
+  if (Object.keys(osc).length > 0) out.osc = osc;
+
+  // Debug
+  const debug: Partial<WavegridConfig['debug']> = {};
+  if (env.DEBUG_OSC) debug.osc = env.DEBUG_OSC !== '0' && env.DEBUG_OSC !== '';
+  const debugUiPort = toInt(env.DEBUG_UI_PORT);
+  if (debugUiPort != null) debug.uiPort = debugUiPort;
+  if (Object.keys(debug).length > 0) {
+    out.debug = { ...DEFAULT_CONFIG.debug, ...debug };
+  }
+
   return out;
 }
 
@@ -49,7 +96,10 @@ export function createWavegridLoader() {
   return createConfigLoader<WavegridConfig>({
     tool: 'wavegrid',
     defaults: DEFAULT_CONFIG,
-    envLayer
+    envLayer,
+    // Layer the active project's config (written by @wavegrid/settings to
+    // ~/.wavegrid/config/config.json) below any local ./wavegrid.json.
+    userStash: true
   });
 }
 
