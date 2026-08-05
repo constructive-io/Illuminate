@@ -1,55 +1,66 @@
 # @wavegrid/cli
 
-The `wavegrid` command-line tool — scaffold a layout configuration and run an
-installation (server + receiver, in-process) from a single command. New physical
-arrangements are pure configuration: no shape-specific code. The CLI bakes in
-the server and receiver as dependencies, so a fresh `npm i -g @wavegrid/cli`
-plus a `wavegrid.json` is all an operator needs — no monorepo checkout, no pnpm.
+The `wavegrid` command-line tool — create a laser installation as a **project**
+in a centralized store, and run it (server + receiver, in-process) from a single
+command. New physical arrangements are pure configuration: no shape-specific
+code. The CLI bakes in the server and receiver as dependencies, so a fresh
+`npm i -g @wavegrid/cli` is all an operator needs — no monorepo checkout, no pnpm.
+
+Projects, secrets, users, runtime state, and logs live in a per-user store at
+`~/.wavegrid` (via [`appstash`](https://www.npmjs.com/package/appstash)). Set
+`APPSTASH_BASE_DIR` to relocate the whole store; the config layer resolves the
+same way, so the store and config never diverge.
 
 ## Install
 
 ```bash
 npm i -g @wavegrid/cli
-# then, in a directory containing a wavegrid.json:
-wavegrid start
+wavegrid init                 # create a project + generate its secrets
+wavegrid users add            # add a UI login (prompted)
+wavegrid start                # run server + receiver
 ```
 
 ## Commands
 
-### `wavegrid init`
+| Command | Purpose |
+| --- | --- |
+| `wavegrid init [name]` | Create a project in the store; **generates secrets once**; optionally add a first user + a local `wavegrid.json`. |
+| `wavegrid start` | Load the active project and run server + receiver in-process. |
+| `wavegrid projects` | List projects, marking the active one. |
+| `wavegrid use <name>` | Set the active project. |
+| `wavegrid config` | Print the resolved config + provenance (secret values masked). |
+| `wavegrid secrets list` | List required secrets and whether each is set (never values). |
+| `wavegrid secrets init` | Generate any missing secrets (`--force` rotates). |
+| `wavegrid users add [name]` | Add/replace a UI login user (password hashed). |
+| `wavegrid users rm <name>` | Remove a UI login user. |
+| `wavegrid users list` | List UI usernames. |
+| `wavegrid env export` | Write a `.env` for the current project (`--file` to override). |
 
-Interactively scaffold a `wavegrid.json` in the current directory.
-Prompts for the layout shape (a built-in preset, or a custom `grid` / `ring` /
-`filledRing` with parameters), the run mode, and server/UI ports (the UI port is
-recorded for the separate UI app; the CLI itself does not launch the UI).
+Every command acts on the active project unless you pass `--project <name>`
+(or set `WAVEGRID_PROJECT`).
 
-```bash
-wavegrid init
-```
+### Secrets & setup are explicit and one-time
+
+Secrets (`jwtSecret`, `receiverKey`) are generated **only** during `wavegrid init`
+/ `wavegrid secrets init`, stored `0600` in the project. Runtime never invents or
+defaults a secret: `wavegrid start` and the UI fail with an actionable error if a
+required secret is missing. Re-running `init`/`secrets init` preserves existing
+values unless `--force` is given.
 
 ### `wavegrid start`
 
-Load the resolved configuration and run the installation **in-process** — the
-server and receiver together in a single Node process, wired to talk to each
-other over a local WebSocket (an ephemeral receiver key is generated if none is
-set). In **simple** mode (auto-selected when the cannon count is under the
-single-laptop threshold) this is the whole installation on one machine —
-LAN-only, no internet required. In **distributed** mode it runs the same pair
-but the receiver shards via `SHARD_START` / `SHARD_END`. The artist UI is a
-separate app that reads the same `wavegrid.json`; it is not launched here.
+Runs the server and receiver together in a single Node process. In **simple**
+mode (auto-selected when the cannon count is under the single-laptop threshold)
+this is the whole installation on one machine — LAN-only, no internet required.
+In **distributed** mode it runs the same pair but the receiver shards via the
+project's `receiver.shard` (`SHARD_START` / `SHARD_END`). The artist UI is a
+separate app that reads the same store; it is not launched here.
 
-```bash
-wavegrid start
-```
+### `wavegrid config` (or `wavegrid --print-config`)
 
-### `wavegrid print-config` (or `wavegrid --print-config`)
-
-Resolve the configuration and print it with per-key provenance so it is obvious
-which layer supplied each value (defaults → preset → file → env → overrides).
-
-```bash
-wavegrid print-config
-```
+Resolves the configuration and prints it with per-key provenance so it is obvious
+which layer supplied each value (defaults → store → file → env → flags), plus a
+set/unset status for each required secret. Secret values are never printed.
 
 ## Configuration
 

@@ -1,13 +1,17 @@
 {
-  "name": "@wavegrid/cli",
-  "version": "0.2.0",
+  "name": "@wavegrid/settings",
+  "version": "0.5.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
-  "description": "wavegrid CLI — scaffold a layout config and run an installation (server + receiver, in-process) from a single command",
+  "description": "Centralized Wavegrid settings — appstash-backed projects, secrets, and users; one store shared by the CLI, server, receiver and UI",
   "main": "index.js",
   "module": "esm/index.js",
   "types": "index.d.ts",
-  "bin": {
-    "wavegrid": "bin.js"
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./esm/index.js",
+      "require": "./index.js"
+    }
   },
   "homepage": "https://github.com/constructive-io/Illuminate",
   "license": "SEE LICENSE IN LICENSE",
@@ -29,24 +33,18 @@
     "build:dev": "makage build --dev",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",
     "test": "jest --passWithNoTests",
-    "test:watch": "jest --watch",
-    "dev": "ts-node src/bin.ts"
+    "test:watch": "jest --watch"
   },
   "keywords": [
     "wavegrid",
-    "cli",
-    "laser",
-    "inquirerer",
-    "confstash"
+    "settings",
+    "appstash",
+    "config",
+    "secrets"
   ],
   "dependencies": {
     "@wavegrid/layout": "workspace:*",
-    "@wavegrid/receiver": "workspace:*",
-    "@wavegrid/server": "workspace:*",
-    "@wavegrid/settings": "workspace:*",
-    "confstash": "^0.1.2",
-    "inquirerer": "^4.8.1",
-    "yanse": "^0.2.1"
+    "appstash": "^0.8.0"
   },
   "devDependencies": {
     "makage": "^0.3.0"

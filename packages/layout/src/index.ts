@@ -1,10 +1,16 @@
 // Types
 export type {
+  BeyondConfig,
+  DebugConfig,
+  Fb4Config,
   Fixture,
   Layout,
   LayoutSpec,
+  OscConfig,
+  ReceiverConfig,
   RunMode,
   ServerConfig,
+  ShardConfig,
   Topology,
   UiConfig,
   WavegridConfig

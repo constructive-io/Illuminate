@@ -46,9 +46,12 @@ export function buildLayoutSpec(a: InitAnswers): LayoutSpec {
   }
 }
 
-/** Assemble a WavegridConfig, omitting values left at their defaults. */
-export function buildConfig(a: InitAnswers): WavegridConfig {
-  const config: WavegridConfig = {
+/** A stored/authored config is a partial — confstash fills the rest from defaults. */
+export type ProjectFileConfig = Partial<WavegridConfig> & { layout: LayoutSpec };
+
+/** Assemble a config, omitting values left at their defaults. */
+export function buildConfig(a: InitAnswers): ProjectFileConfig {
+  const config: ProjectFileConfig = {
     layout: buildLayoutSpec(a),
     mode: a.mode,
     simpleModeMax: a.simpleModeMax ?? 40,
@@ -65,7 +68,7 @@ export function buildConfig(a: InitAnswers): WavegridConfig {
   return config;
 }
 
-export function serializeConfig(config: WavegridConfig): string {
+export function serializeConfig(config: Partial<WavegridConfig>): string {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
@@ -96,6 +99,6 @@ export function findConfigFile(startDir: string): string | null {
   }
 }
 
-export function readConfigFile(path: string): WavegridConfig {
-  return JSON.parse(readFileSync(path, 'utf8')) as WavegridConfig;
+export function readConfigFile(path: string): ProjectFileConfig {
+  return JSON.parse(readFileSync(path, 'utf8')) as ProjectFileConfig;
 }

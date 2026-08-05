@@ -38,7 +38,9 @@ export function startServer(resolved: ResolvedConfig = loadWavegridConfig()): Se
   const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
 
   // ── State persistence ─────────────────────────────────────────────
-  const STATE_DIR = resolve(process.cwd(), '.state');
+  // The CLI points WG_STATE_DIR at the per-project store; standalone runs
+  // fall back to a local .state dir.
+  const STATE_DIR = process.env.WG_STATE_DIR || resolve(process.cwd(), '.state');
   const STATE_FILE = resolve(STATE_DIR, `server-${PORT}.json`);
 
 interface PersistedState {

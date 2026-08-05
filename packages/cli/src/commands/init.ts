@@ -12,18 +12,36 @@ import {
   serializeConfig,
   type ShapeKind
 } from '../config-file';
+import { getStore } from '../project';
 
 interface RawArgv {
   [key: string]: unknown;
 }
 
+interface FullInitAnswers extends InitAnswers {
+  projectName: string;
+  createUser?: boolean;
+  username?: string;
+  password?: string;
+  writeLocal?: boolean;
+}
+
 /**
- * `wavegrid init` — prompt for a shape + run mode and write a config file.
- * Everything the CLI produces is plain configuration; there is no
- * shape-specific executable code.
+ * `wavegrid init [name]` — create a project in the centralized store, generate
+ * its secrets ONCE, and optionally add a first UI user + a local wavegrid.json.
+ * Everything the CLI produces is plain configuration + generated secrets; there
+ * is no shape-specific executable code.
  */
 export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process.cwd()): Promise<string> {
+  const defaultName = typeof argv.project === 'string' ? argv.project : 'default';
+
   const questions: Question[] = [
+    {
+      type: 'text',
+      name: 'projectName',
+      message: 'Project name',
+      default: defaultName
+    },
     {
       type: 'list',
       name: 'shape',
@@ -37,28 +55,28 @@ export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process
       message: 'Preset',
       options: knownPresets(),
       default: 'grid-7x7',
-      when: (a: Partial<InitAnswers>) => a.shape === 'preset'
+      when: (a: Partial<FullInitAnswers>) => a.shape === 'preset'
     },
     {
       type: 'number',
       name: 'cols',
       message: 'Grid columns',
       default: 7,
-      when: (a: Partial<InitAnswers>) => a.shape === 'grid'
+      when: (a: Partial<FullInitAnswers>) => a.shape === 'grid'
     },
     {
       type: 'number',
       name: 'rows',
       message: 'Grid rows',
       default: 7,
-      when: (a: Partial<InitAnswers>) => a.shape === 'grid'
+      when: (a: Partial<FullInitAnswers>) => a.shape === 'grid'
     },
     {
       type: 'number',
       name: 'count',
       message: 'Number of cannons',
       default: 6,
-      when: (a: Partial<InitAnswers>) => a.shape === 'ring' || a.shape === 'filledRing'
+      when: (a: Partial<FullInitAnswers>) => a.shape === 'ring' || a.shape === 'filledRing'
     },
     {
       type: 'list',
@@ -78,28 +96,75 @@ export async function runInit(argv: RawArgv, prompter: Inquirerer, cwd = process
       name: 'uiPort',
       message: 'UI port',
       default: 3003
+    },
+    {
+      type: 'confirm',
+      name: 'createUser',
+      message: 'Create a UI login user now?',
+      default: false
+    },
+    {
+      type: 'text',
+      name: 'username',
+      message: 'Username',
+      when: (a: Partial<FullInitAnswers>) => a.createUser === true
+    },
+    {
+      type: 'password',
+      name: 'password',
+      message: 'Password',
+      when: (a: Partial<FullInitAnswers>) => a.createUser === true
+    },
+    {
+      type: 'confirm',
+      name: 'writeLocal',
+      message: 'Also write a local wavegrid.json here?',
+      default: false
     }
   ];
 
-  const answers = (await prompter.prompt(argv, questions)) as unknown as InitAnswers;
+  const answers = (await prompter.prompt(argv, questions)) as unknown as FullInitAnswers;
 
   const normalized: InitAnswers = {
     ...answers,
     shape: answers.shape as ShapeKind
   };
+  const projectName = answers.projectName || defaultName;
 
   const config = buildConfig(normalized);
   const layout = resolveLayout(config.layout);
-  const path = join(cwd, CONFIG_FILENAME);
-  writeFileSync(path, serializeConfig(config));
+
+  const store = getStore();
+  store.createProject(projectName, config);
+  const gen = store.generateSecrets(projectName);
+
+  if (answers.createUser && answers.username && answers.password) {
+    store.addUser(projectName, answers.username, answers.password);
+  }
+
+  let localPath: string | undefined;
+  if (answers.writeLocal) {
+    localPath = join(cwd, CONFIG_FILENAME);
+    writeFileSync(localPath, serializeConfig(config));
+  }
 
   console.log('');
-  console.log(c.green(`  ✓ Wrote ${CONFIG_FILENAME}`));
-  console.log(`  → Layout: ${c.cyan(layout.name)} (${layout.topology}, ${layout.count} cannons)`);
-  console.log(`  → Mode:   ${c.cyan(config.mode)}`);
+  console.log(c.green(`  ✓ Created project ${c.bold(projectName)}`));
+  console.log(`  → Layout:  ${c.cyan(layout.name)} (${layout.topology}, ${layout.count} cannons)`);
+  console.log(`  → Mode:    ${c.cyan(config.mode ?? 'auto')}`);
+  console.log(`  → Store:   ${c.gray(store.paths.root)}`);
+  if (gen.generated.length) {
+    console.log(`  → Secrets: ${c.green('generated')} ${c.gray(`(${gen.generated.join(', ')})`)}`);
+  } else {
+    console.log(`  → Secrets: ${c.gray('already present')}`);
+  }
+  if (answers.createUser && answers.username) {
+    console.log(`  → User:    ${c.cyan(answers.username)}`);
+  }
+  if (localPath) console.log(`  → Wrote:   ${c.cyan(localPath)}`);
   console.log('');
-  console.log(`  Start it with ${c.bold('wavegrid start')}`);
+  console.log(`  Start it with ${c.bold(`wavegrid start${projectName === 'default' ? '' : ` --project ${projectName}`}`)}`);
   console.log('');
 
-  return path;
+  return projectName;
 }
