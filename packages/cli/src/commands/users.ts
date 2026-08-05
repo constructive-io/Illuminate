@@ -27,16 +27,18 @@ export async function runUsersAdd(flags: Flags, positional: string | undefined, 
   const store = getStore();
   const project = resolveProjectName(store, flags);
 
-  const seed: Record<string, unknown> = {};
-  if (positional) seed.username = positional;
-  else if (typeof flags.username === 'string') seed.username = flags.username;
-  if (typeof flags.password === 'string') seed.password = flags.password;
+  // Let the username come from the bare positional (`wavegrid users add alice`)
+  // via inquirerer's `_: true`, or the named `--username`/`--password` flags.
+  const argv: Record<string, unknown> = {};
+  if (positional) argv._ = [positional];
+  if (typeof flags.username === 'string') argv.username = flags.username;
+  if (typeof flags.password === 'string') argv.password = flags.password;
 
   const questions: Question[] = [
-    { type: 'text', name: 'username', message: 'Username' },
+    { type: 'text', name: 'username', message: 'Username', _: true },
     { type: 'password', name: 'password', message: 'Password' }
   ];
-  const answers = (await prompter.prompt(seed, questions)) as unknown as { username: string; password: string };
+  const answers = (await prompter.prompt(argv, questions)) as unknown as { username: string; password: string };
 
   if (!answers.username || !answers.password) {
     throw new Error('A username and password are required.');
