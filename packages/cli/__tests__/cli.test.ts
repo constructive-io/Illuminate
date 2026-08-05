@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { parseArgs } from '../src/cli';
 import { buildConfig, CONFIG_FILENAME, serializeConfig } from '../src/config-file';
-import { childEnv, runStart, servicesForMode } from '../src/commands/start';
+import { runStart, servicesForMode } from '../src/commands/start';
 
 describe('parseArgs', () => {
   it('extracts the command and flags', () => {
@@ -28,20 +28,19 @@ describe('parseArgs', () => {
 });
 
 describe('servicesForMode', () => {
-  it('runs the local trio for simple mode', () => {
-    expect(servicesForMode('simple').map((s) => s.label)).toEqual(['server', 'ui', 'receiver']);
+  it('runs server + receiver in-process for simple mode', () => {
+    expect(servicesForMode('simple').map((s) => s.label)).toEqual(['server', 'receiver']);
   });
 
   it('flags the receiver as sharded for distributed mode', () => {
-    expect(servicesForMode('distributed').map((s) => s.label)).toEqual(['server', 'ui', 'receiver (shard)']);
+    expect(servicesForMode('distributed').map((s) => s.label)).toEqual(['server', 'receiver (shard)']);
   });
 });
 
-function scratchWorkspace(preset: string): string {
+function scratchDir(preset: string): string {
   const root = mkdtempSync(join(tmpdir(), 'wg-ws-'));
-  writeFileSync(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
   writeFileSync(join(root, CONFIG_FILENAME), serializeConfig(buildConfig({ shape: 'preset', preset, mode: 'auto' })));
-  const cwd = join(root, 'packages', 'app');
+  const cwd = join(root, 'nested');
   mkdirSync(cwd, { recursive: true });
   return cwd;
 }
@@ -56,38 +55,23 @@ describe('runStart (dry-run)', () => {
     process.env = { ...saved };
   });
 
-  it('selects simple mode under the threshold', () => {
-    const cwd = scratchWorkspace('ring-6');
-    const result = runStart({ cwd, dryRun: true });
+  it('selects simple mode under the threshold', async () => {
+    const cwd = scratchDir('ring-6');
+    const result = await runStart({ cwd, dryRun: true });
     expect(result.runMode).toBe('simple');
-    expect(result.services.map((s) => s.label)).toEqual(['server', 'ui', 'receiver']);
+    expect(result.services.map((s) => s.label)).toEqual(['server', 'receiver']);
   });
 
-  it('selects distributed mode above the threshold', () => {
-    const cwd = scratchWorkspace('grid-7x7');
-    const result = runStart({ cwd, dryRun: true });
+  it('selects distributed mode above the threshold', async () => {
+    const cwd = scratchDir('grid-7x7');
+    const result = await runStart({ cwd, dryRun: true });
     expect(result.runMode).toBe('distributed');
+    expect(result.services.map((s) => s.label)).toEqual(['server', 'receiver (shard)']);
   });
 
-  it('throws when no workspace root is found', () => {
-    const orphan = mkdtempSync(join(tmpdir(), 'wg-orphan-'));
-    expect(() => runStart({ cwd: orphan, dryRun: true })).toThrow(/workspace root/);
-  });
-});
-
-describe('childEnv', () => {
-  const saved = { ...process.env };
-  afterEach(() => {
-    process.env = { ...saved };
-  });
-
-  it('forces the resolved mode + layout + ports for child services', () => {
-    const cwd = scratchWorkspace('ring-6');
-    const env = childEnv(cwd);
-    expect(env.WAVEGRID_MODE).toBe('simple');
-    expect(env.WAVEGRID_LAYOUT).toBe('ring-6');
-    expect(env.PORT).toBe('3000');
-    expect(env.UI_PORT).toBe('3003');
-    expect(env.SIMULATOR_URL).toBe('ws://localhost:3000');
+  it('discovers config by walking up from a nested cwd', async () => {
+    const cwd = scratchDir('ring-6');
+    const result = await runStart({ cwd, dryRun: true });
+    expect(result.runMode).toBe('simple');
   });
 });

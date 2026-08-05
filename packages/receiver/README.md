@@ -47,7 +47,7 @@ BEYOND_HOST=192.168.50.10 pnpm dev:receiver
 ### Programmatic
 
 ```typescript
-import { Receiver, WebSocketInput, ConsoleOutput } from 'wavegrid';
+import { Receiver, WebSocketInput, ConsoleOutput } from '@wavegrid/receiver';
 
 const receiver = new Receiver({
   input: new WebSocketInput({ url: 'ws://localhost:3000' }),

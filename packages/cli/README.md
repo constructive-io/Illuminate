@@ -1,15 +1,17 @@
 # @wavegrid/cli
 
-The `wavegrid` command-line tool — scaffold a layout configuration and launch an
-installation (server + UI + receiver) from a single command. New physical
-arrangements are pure configuration: no shape-specific code.
+The `wavegrid` command-line tool — scaffold a layout configuration and run an
+installation (server + receiver, in-process) from a single command. New physical
+arrangements are pure configuration: no shape-specific code. The CLI bakes in
+the server and receiver as dependencies, so a fresh `npm i -g @wavegrid/cli`
+plus a `wavegrid.json` is all an operator needs — no monorepo checkout, no pnpm.
 
 ## Install
 
 ```bash
-pnpm add -g @wavegrid/cli
-# or run from the workspace
-pnpm --filter @wavegrid/cli run dev -- <command>
+npm i -g @wavegrid/cli
+# then, in a directory containing a wavegrid.json:
+wavegrid start
 ```
 
 ## Commands
@@ -18,7 +20,8 @@ pnpm --filter @wavegrid/cli run dev -- <command>
 
 Interactively scaffold a `wavegrid.json` in the current directory.
 Prompts for the layout shape (a built-in preset, or a custom `grid` / `ring` /
-`filledRing` with parameters), the run mode, and server/UI ports.
+`filledRing` with parameters), the run mode, and server/UI ports (the UI port is
+recorded for the separate UI app; the CLI itself does not launch the UI).
 
 ```bash
 wavegrid init
@@ -26,11 +29,14 @@ wavegrid init
 
 ### `wavegrid start`
 
-Load the resolved configuration and launch the installation. In **simple** mode
-(auto-selected when the cannon count is under the single-laptop threshold) it
-runs server + UI + receiver together on one machine — LAN-only, no internet
-required. In **distributed** mode it still boots the local trio but expects
-per-laptop receivers to be sharded via `SHARD_START` / `SHARD_END`.
+Load the resolved configuration and run the installation **in-process** — the
+server and receiver together in a single Node process, wired to talk to each
+other over a local WebSocket (an ephemeral receiver key is generated if none is
+set). In **simple** mode (auto-selected when the cannon count is under the
+single-laptop threshold) this is the whole installation on one machine —
+LAN-only, no internet required. In **distributed** mode it runs the same pair
+but the receiver shards via `SHARD_START` / `SHARD_END`. The artist UI is a
+separate app that reads the same `wavegrid.json`; it is not launched here.
 
 ```bash
 wavegrid start

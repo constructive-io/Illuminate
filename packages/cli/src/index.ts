@@ -1,7 +1,7 @@
 export { run } from './cli';
 export { runInit } from './commands/init';
 export { runPrintConfig } from './commands/print-config';
-export { childEnv, runStart, servicesForMode, type ServiceSpec, type StartOptions } from './commands/start';
+export { runStart, servicesForMode, type ServiceSpec, type StartOptions, type StartResult } from './commands/start';
 export {
   buildConfig,
   buildLayoutSpec,

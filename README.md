@@ -54,7 +54,7 @@ pnpm build
 |---------|------|-------------|
 | `packages/server` | `@wavegrid/server` | Grid state engine and master controller UI |
 | `packages/ui` | `@wavegrid/ui` | Next.js artist UI — Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio |
-| `packages/receiver` | `wavegrid` | Receiver brain — LP filter, sine fallback, pluggable adapter pattern |
+| `packages/receiver` | `@wavegrid/receiver` | Receiver brain — LP filter, sine fallback, pluggable adapter pattern |
 | `packages/osc` | `@wavegrid/osc` | OSC output adapters for BEYOND and FB4 laser hardware |
 | `packages/webgl` | `@wavegrid/webgl` | Three.js 3D Civic Center viewer — volumetric laser beams, bloom, camera presets |
 

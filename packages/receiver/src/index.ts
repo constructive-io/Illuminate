@@ -23,3 +23,7 @@ export { buildPrelude } from './sandbox-prelude';
 // Receiver
 export type { ReceiverConfig, ReceiverState, ReceiverStatus, ShardConfig } from './receiver';
 export { Receiver } from './receiver';
+
+// Entry point
+export type { ReceiverHandle } from './main';
+export { startReceiver } from './main';

@@ -1,4 +1,4 @@
-import { type Layout, loadWavegridConfig } from '@wavegrid/layout';
+import { type Layout, loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
 import * as fs from 'fs';
 import http from 'http';
 import { resolve } from 'path';
@@ -13,24 +13,33 @@ import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
 import { applyScene, scenes } from './scenes';
 
-// ── Resolved layout: the single source of truth for geometry ──────
-// Loaded once at boot from config/env and broadcast to every client so
-// nothing re-derives positions from a column count.
-const resolved = loadWavegridConfig();
-const layout: Layout = resolved.layout;
-const NUM_CANNONS = layout.count;
-const GRID_COLUMNS = layout.cols;
-const GRID_ROWS = layout.rows;
-const RUN_MODE = resolved.runMode;
+export interface ServerHandle {
+  server: http.Server;
+  grid: ReturnType<typeof createGrid>;
+  stop: () => void;
+}
 
-const PORT = resolved.config.server.port;
-const TICK_MS = 1000 / 60; // 60fps interpolation
+/**
+ * Start the wavegrid server. Accepts an already-resolved config (so an
+ * embedding process like the CLI can pass the layout it resolved) and
+ * otherwise loads it from cwd/env. Returns a handle with a stop() for
+ * clean in-process shutdown.
+ */
+export function startServer(resolved: ResolvedConfig = loadWavegridConfig()): ServerHandle {
+  const layout: Layout = resolved.layout;
+  const NUM_CANNONS = layout.count;
+  const GRID_COLUMNS = layout.cols;
+  const GRID_ROWS = layout.rows;
+  const RUN_MODE = resolved.runMode;
 
-const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
+  const PORT = resolved.config.server.port;
+  const TICK_MS = 1000 / 60; // 60fps interpolation
 
-// ── State persistence ─────────────────────────────────────────────
-const STATE_DIR = resolve(process.cwd(), '.state');
-const STATE_FILE = resolve(STATE_DIR, `server-${PORT}.json`);
+  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
+
+  // ── State persistence ─────────────────────────────────────────────
+  const STATE_DIR = resolve(process.cwd(), '.state');
+  const STATE_FILE = resolve(STATE_DIR, `server-${PORT}.json`);
 
 interface PersistedState {
   currentAnimation: string | null;
@@ -568,7 +577,7 @@ function handleMessage(msg: any) {
 const COMMAND_KEEPALIVE_FRAMES = 120; // ~2 seconds at 60fps
 let framesSinceLastCommand = 0;
 
-setInterval(() => {
+const tickTimer = setInterval(() => {
   if (!calibrationMode && currentAnimation && animations[currentAnimation]) {
     animations[currentAnimation](grid, animationTick, currentAttack, layout);
     animationTick += animSpeed;
@@ -631,4 +640,17 @@ server.listen(PORT, resolved.config.server.host, () => {
   console.log('');
 });
 
-export { grid,server };
+const stop = () => {
+  clearInterval(tickTimer);
+  if (saveTimer) clearTimeout(saveTimer);
+  wss.close();
+  server.close();
+};
+
+return { server, grid, stop };
+}
+
+// Run directly (dev script / node bin). The CLI imports startServer instead.
+if (typeof require !== 'undefined' && require.main === module) {
+  startServer();
+}
