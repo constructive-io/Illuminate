@@ -2,7 +2,7 @@
   "name": "@wavegrid/cli",
   "version": "0.1.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
-  "description": "wavegrid CLI — scaffold a layout config and launch an installation (server + ui + receiver) from a single command",
+  "description": "wavegrid CLI — scaffold a layout config and run an installation (server + receiver, in-process) from a single command",
   "main": "index.js",
   "module": "esm/index.js",
   "types": "index.d.ts",
@@ -41,6 +41,8 @@
   ],
   "dependencies": {
     "@wavegrid/layout": "workspace:*",
+    "@wavegrid/receiver": "workspace:*",
+    "@wavegrid/server": "workspace:*",
     "confstash": "^0.1.2",
     "inquirerer": "^4.8.1",
     "yanse": "^0.2.1"

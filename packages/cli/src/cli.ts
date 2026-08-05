@@ -15,7 +15,7 @@ ${c.bold('Usage')}
 
 ${c.bold('Commands')}
   init            Scaffold a wavegrid.json (prompts for shape + mode)
-  start           Load the config and launch server + ui + receiver
+  start           Load the config and run server + receiver in-process
   print-config    Print the resolved config with per-key provenance
 
 ${c.bold('Options')}
@@ -94,7 +94,7 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     break;
   }
   case 'start':
-    runStart();
+    await runStart();
     break;
   case 'print-config':
     runPrintConfig();
