@@ -2,26 +2,27 @@ import {
   createFilteredGrid,
   tickFilter,
   applyUpstreamState,
-  angleDelta,
-  DEFAULT_NUM_CANNONS
+  angleDelta
 } from '../src/filter';
+
+const N = 49;
 
 describe('filter', () => {
   it('should create a grid with 49 cannons', () => {
-    const grid = createFilteredGrid();
-    expect(grid).toHaveLength(DEFAULT_NUM_CANNONS);
+    const grid = createFilteredGrid(N);
+    expect(grid).toHaveLength(N);
     expect(grid[0].h).toBe(0);
     expect(grid[0].targetH).toBe(0);
   });
 
   it('should not change when current equals target', () => {
-    const grid = createFilteredGrid();
+    const grid = createFilteredGrid(N);
     const changed = tickFilter(grid);
     expect(changed).toBe(false);
   });
 
   it('should converge toward target after multiple ticks', () => {
-    const grid = createFilteredGrid();
+    const grid = createFilteredGrid(N);
     grid[0].targetH = 120;
     grid[0].targetS = 80;
     grid[0].targetB = 70;
@@ -35,7 +36,7 @@ describe('filter', () => {
   });
 
   it('should use receiver alpha (0.06) for smoother transitions', () => {
-    const grid = createFilteredGrid();
+    const grid = createFilteredGrid(N);
     grid[0].targetB = 100;
 
     // One tick with receiver alpha
@@ -43,7 +44,7 @@ describe('filter', () => {
     const afterOne = grid[0].b;
 
     // Should have moved less than simulator alpha (0.08)
-    const grid2 = createFilteredGrid();
+    const grid2 = createFilteredGrid(N);
     grid2[0].targetB = 100;
     tickFilter(grid2, 0.08);
     const afterOneFast = grid2[0].b;
@@ -53,7 +54,7 @@ describe('filter', () => {
   });
 
   it('should apply upstream state as targets', () => {
-    const grid = createFilteredGrid();
+    const grid = createFilteredGrid(N);
     const upstream = [{ h: 0, s: 100, b: 100 }];
     applyUpstreamState(grid, upstream);
 

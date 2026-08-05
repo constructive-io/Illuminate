@@ -1,6 +1,11 @@
+import { gridLayout } from '@wavegrid/layout';
+
 import { handleCommand, tickCommandMode, applyPaint, createDefaultAnimationState, AnimationState, remapGridForOutput } from '../src/command-engine';
 import { createFilteredGrid, FilteredCannon } from '../src/filter';
 import { CommandMessage } from '../src/command-types';
+
+const layout2x2 = gridLayout({ cols: 2, rows: 2 });
+const layout7x7 = gridLayout({ cols: 7, rows: 7 });
 
 function makeState(overrides: Partial<AnimationState> = {}): AnimationState {
   return { ...createDefaultAnimationState(), ...overrides };
@@ -97,18 +102,18 @@ describe('tickCommandMode', () => {
       const state = makeState({ currentAnimation: 'rainbow', tick: 0, speed: 1 });
 
       // First tick: animation evaluated at tick=0, then tick becomes 1
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
       expect(state.tick).toBe(1);
 
       // Second tick: animation evaluated at tick=1, then tick becomes 2
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
       expect(state.tick).toBe(2);
     });
 
     it('increments tick by speed value', () => {
       const grid = makeGrid(4);
       const state = makeState({ currentAnimation: 'rainbow', tick: 0, speed: 2.0 });
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
       expect(state.tick).toBe(2.0);
     });
 
@@ -116,7 +121,7 @@ describe('tickCommandMode', () => {
       const grid = makeGrid(4);
       const state = makeState({ currentAnimation: null, tick: 5 });
       // tick still increments — the tick counter runs regardless
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
       expect(state.tick).toBe(6);
     });
 
@@ -128,7 +133,7 @@ describe('tickCommandMode', () => {
       // If tick is incremented AFTER eval (fix), first eval sees tick=0 → hue=0
       const grid = makeGrid(4);
       const state = makeState({ currentAnimation: 'rainbow', tick: 0, speed: 1, attack: 1.0 });
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
       // Cell 0 should have hue=0 (evaluated at tick=0, not tick=1)
       expect(grid[0].targetH).toBe(0);
     });
@@ -145,7 +150,7 @@ describe('tickCommandMode', () => {
 
       // Tick without any animation active
       const state = makeState({ currentAnimation: null, currentScene: null });
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
 
       // Paint targets should survive
       expect(grid[0].targetH).toBe(0);
@@ -167,7 +172,7 @@ describe('tickCommandMode', () => {
         patternActive: true
       });
 
-      tickCommandMode(grid, state, 2);
+      tickCommandMode(grid, state, layout2x2);
 
       // Targets should be unchanged (animation was skipped due to patternActive)
       expect(grid[0].targetH).toBe(42);
@@ -209,7 +214,7 @@ describe('heart-breathe animation', () => {
   it('sets heart-shaped pixels to red with breathing brightness', () => {
     const grid = makeGrid(49);
     const state = makeState({ currentAnimation: 'heart-breathe', tick: 0, speed: 1, attack: 1.0 });
-    tickCommandMode(grid, state, 7);
+    tickCommandMode(grid, state, layout7x7);
 
     // Heart bitmap on pixel: row 0, col 1 = index 1
     expect(grid[1].targetH).toBe(0);
@@ -226,13 +231,13 @@ describe('heart-breathe animation', () => {
   it('brightness oscillates with tick', () => {
     const grid1 = makeGrid(49);
     const state1 = makeState({ currentAnimation: 'heart-breathe', tick: 0, attack: 1.0 });
-    tickCommandMode(grid1, state1, 7);
+    tickCommandMode(grid1, state1, layout7x7);
     const b0 = grid1[1].targetB;
 
     // Advance to a tick where sin is positive (tick ~52 → sin(52*0.03) ≈ sin(1.56) ≈ 1)
     const grid2 = makeGrid(49);
     const state2 = makeState({ currentAnimation: 'heart-breathe', tick: 52, attack: 1.0 });
-    tickCommandMode(grid2, state2, 7);
+    tickCommandMode(grid2, state2, layout7x7);
     const b52 = grid2[1].targetB;
 
     expect(b52).toBeGreaterThan(b0);

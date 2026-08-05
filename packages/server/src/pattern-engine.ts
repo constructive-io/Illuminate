@@ -6,6 +6,8 @@
  * come from the trusted UI so this is acceptable for preview purposes.
  */
 
+import type { Layout } from '@wavegrid/layout';
+
 interface HSBColor {
   h: number;
   s: number;
@@ -41,12 +43,14 @@ export class ServerPatternEngine {
   private gridSize: number;
   private cols: number;
   private rows: number;
+  private layout: Layout;
   private _speed: number = 1.0;
 
-  constructor(cols: number, rows: number) {
-    this.cols = cols;
-    this.rows = rows;
-    this.gridSize = cols * rows;
+  constructor(layout: Layout) {
+    this.layout = layout;
+    this.cols = layout.cols;
+    this.rows = layout.rows;
+    this.gridSize = layout.count;
   }
 
   /** Set speed multiplier for pattern time (1.0 = normal). */
@@ -223,6 +227,7 @@ export class ServerPatternEngine {
     const cols = this.cols;
     const rows = this.rows;
     const count = this.gridSize;
+    const fixtures = this.layout.fixtures;
 
     return {
       t: elapsed,
@@ -254,24 +259,17 @@ export class ServerPatternEngine {
         }
       },
       uv(idx: number): [number, number] {
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        return [col / (cols - 1 || 1), row / (rows - 1 || 1)];
+        const f = fixtures[idx];
+        return f ? [f.u, f.v] : [0, 0];
       },
       xy(idx: number): [number, number] {
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        return [col, row];
+        const f = fixtures[idx];
+        if (!f) return [0, 0];
+        return f.col >= 0 ? [f.col, f.row] : [f.x, f.y];
       },
       polar(idx: number): [number, number] {
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        const cx = (cols - 1) / 2;
-        const cy = (rows - 1) / 2;
-        const dx = col - cx;
-        const dy = row - cy;
-        const mr = Math.hypot(cx, cy) || 1;
-        return [Math.hypot(dx, dy) / mr, Math.atan2(dy, dx)];
+        const f = fixtures[idx];
+        return f ? [f.radius, f.angle] : [0, 0];
       },
       noise(x: number, y: number, z: number): number {
         // Simple deterministic hash-based noise (0-1 range)

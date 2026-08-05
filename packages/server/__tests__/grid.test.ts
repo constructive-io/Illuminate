@@ -1,8 +1,10 @@
-import { compositeLayer, createGrid, tickGrid, setCannonTarget, setAllTargets, NUM_CANNONS, mapUiToGrid, mapGridToUi, remapGridForUi, defaultOrientation } from '../src/grid';
+import { compositeLayer, createGrid, tickGrid, setCannonTarget, setAllTargets, mapUiToGrid, mapGridToUi, remapGridForUi, defaultOrientation } from '../src/grid';
+
+const NUM_CANNONS = 49;
 
 describe('grid', () => {
   it('should create a grid of 49 cannons', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     expect(grid).toHaveLength(NUM_CANNONS);
     expect(grid[0].h).toBe(0);
     expect(grid[0].s).toBe(0);
@@ -10,7 +12,7 @@ describe('grid', () => {
   });
 
   it('should interpolate toward target on tick', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     setCannonTarget(grid, 0, 120, 80, 60);
 
     // After one tick, should move toward target but not reach it
@@ -20,7 +22,7 @@ describe('grid', () => {
   });
 
   it('should converge to target after many ticks', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     setCannonTarget(grid, 0, 0, 50, 50);
 
     for (let i = 0; i < 200; i++) {
@@ -32,7 +34,7 @@ describe('grid', () => {
   });
 
   it('should handle hue wrap-around (shortest path)', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     // Start at hue 350, target hue 10 — should go 350→0→10 (not 350→180→10)
     grid[0].h = 350;
     grid[0].targetH = 350;
@@ -47,7 +49,7 @@ describe('grid', () => {
   });
 
   it('should set all targets at once', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     setAllTargets(grid, 100, 50, 30);
 
     for (const c of grid) {
@@ -58,14 +60,14 @@ describe('grid', () => {
   });
 
   it('should report no change when grid is at target', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     // Grid starts at target, so tick should report no change
     const changed = tickGrid(grid);
     expect(changed).toBe(false);
   });
 
   it('should report change when grid is moving toward target', () => {
-    const grid = createGrid();
+    const grid = createGrid(NUM_CANNONS);
     setCannonTarget(grid, 0, 120, 80, 60);
     const changed = tickGrid(grid);
     expect(changed).toBe(true);

@@ -7,9 +7,10 @@
  */
 
 import { applyScene, evaluateAnimation, setTarget } from '@wavegrid/animations';
+import type { Layout } from '@wavegrid/layout';
 
 import { AnimationState, CommandMessage, createDefaultAnimationState, Rotation } from './command-types';
-import { DEFAULT_GRID_COLUMNS, FilteredCannon } from './filter';
+import { FilteredCannon } from './filter';
 
 /**
  * Process a command message and update the animation state.
@@ -117,29 +118,28 @@ export function handleCommand(state: AnimationState, cmd: CommandMessage): boole
 export function tickCommandMode(
   grid: FilteredCannon[],
   state: AnimationState,
-  gridColumns: number = DEFAULT_GRID_COLUMNS
+  layout: Layout
 ): void {
   // Evaluate animation if one is active (skip if pattern is active)
   if (!state.patternActive) {
     if (state.currentAnimation) {
-      evaluateAnimation(grid, state.currentAnimation, state.tick, state.attack, gridColumns);
+      evaluateAnimation(grid, state.currentAnimation, state.tick, state.attack, layout);
     } else if (state.currentScene) {
-      applyScene(grid, state.currentScene, gridColumns);
+      applyScene(grid, state.currentScene, layout);
     }
   }
 
   // Advance the animation tick (after evaluation, matching server order)
   state.tick += state.speed;
 
-  // Apply shift (wrap-around pixel remapping)
-  if (state.shiftVx !== 0 || state.shiftVy !== 0) {
-    const rows = Math.ceil(grid.length / gridColumns);
+  // Apply shift (wrap-around pixel remapping) — grid layouts only
+  if ((state.shiftVx !== 0 || state.shiftVy !== 0) && layout.cols > 0 && layout.rows > 0) {
     state.shiftAccX += state.shiftVx / 60;
     state.shiftAccY += state.shiftVy / 60;
     const stepsX = Math.trunc(state.shiftAccX);
     const stepsY = Math.trunc(state.shiftAccY);
     if (stepsX !== 0 || stepsY !== 0) {
-      shiftGridTargets(grid, gridColumns, rows, stepsX, stepsY);
+      shiftGridTargets(grid, layout.cols, layout.rows, stepsX, stepsY);
       state.shiftAccX -= stepsX;
       state.shiftAccY -= stepsY;
     }
@@ -201,6 +201,8 @@ function shiftGridTargets(
  * uses in mapUiToGrid — mapping a logical index to a physical index.
  */
 export function remapGridForOutput<T>(grid: T[], columns: number, rows: number, state: AnimationState): T[] {
+  // Orientation transforms only apply to grid layouts; rings pass through.
+  if (columns <= 0 || rows <= 0) return grid;
   if (state.rotation === 0 && !state.flipH && !state.flipV) return grid;
   const result = new Array<T>(grid.length);
   for (let li = 0; li < grid.length; li++) {

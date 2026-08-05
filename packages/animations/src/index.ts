@@ -1,13 +1,12 @@
 // Types
 export type { AnimationFn, GridCell, SceneGenerator } from './types';
-export { DEFAULT_GRID_COLUMNS } from './types';
 
 // Helpers
 export {
   angleDelta,
   clamp,
-  getPerimeterIndices,
   hexToRgb,
+  isArtGrid,
   PRIDE_COLORS,
   prideColorAt,
   rgbToHsb,

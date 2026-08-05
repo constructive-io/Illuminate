@@ -1,12 +1,21 @@
-import { createFilteredGrid, DEFAULT_NUM_CANNONS } from '../src/filter';
+import { gridLayout, ringLayout } from '@wavegrid/layout';
+
 import { computeFallbackFrame, DEFAULT_FALLBACK_CONFIG } from '../src/fallback';
+import { createFilteredGrid } from '../src/filter';
+
+const layout = gridLayout({ cols: 7, rows: 7 });
+const N = layout.count;
+
+function makeGrid() {
+  return createFilteredGrid(N);
+}
 
 describe('fallback', () => {
   it('should set targets for all 49 cannons', () => {
-    const grid = createFilteredGrid();
-    computeFallbackFrame(grid, 0);
+    const grid = makeGrid();
+    computeFallbackFrame(grid, 0, DEFAULT_FALLBACK_CONFIG, layout);
 
-    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
+    for (let i = 0; i < N; i++) {
       expect(grid[i].targetH).toBeGreaterThanOrEqual(0);
       expect(grid[i].targetH).toBeLessThan(360);
       expect(grid[i].targetS).toBeGreaterThanOrEqual(0);
@@ -17,50 +26,55 @@ describe('fallback', () => {
   });
 
   it('should produce different values at different ticks', () => {
-    const grid = createFilteredGrid();
-    computeFallbackFrame(grid, 0);
+    const grid = makeGrid();
+    computeFallbackFrame(grid, 0, DEFAULT_FALLBACK_CONFIG, layout);
     const t0h = grid[0].targetH;
 
-    computeFallbackFrame(grid, 100);
+    computeFallbackFrame(grid, 100, DEFAULT_FALLBACK_CONFIG, layout);
     const t100h = grid[0].targetH;
 
     expect(t0h).not.toBeCloseTo(t100h, 1);
   });
 
   it('should produce spatial variation across the grid', () => {
-    const grid = createFilteredGrid();
-    computeFallbackFrame(grid, 50);
+    const grid = makeGrid();
+    computeFallbackFrame(grid, 50, DEFAULT_FALLBACK_CONFIG, layout);
 
-    // Corner cannons should have different values
-    const topLeft = grid[0].targetH;
-    const bottomRight = grid[DEFAULT_NUM_CANNONS - 1].targetH;
-    // They could coincidentally be close, but with the diagonal wave
-    // they should generally differ
     const hues = grid.map(c => c.targetH);
     const uniqueHues = new Set(hues.map(h => Math.round(h)));
     expect(uniqueHues.size).toBeGreaterThan(3);
   });
 
   it('should respect config base hue', () => {
-    const grid = createFilteredGrid();
+    const grid = makeGrid();
     const config = { ...DEFAULT_FALLBACK_CONFIG, baseHue: 0, hueSpread: 10 };
-    computeFallbackFrame(grid, 0, config);
+    computeFallbackFrame(grid, 0, config, layout);
 
-    // All hues should be near 0 (within spread)
-    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
+    for (let i = 0; i < N; i++) {
       const h = grid[i].targetH;
       expect(h < 20 || h > 340).toBe(true);
     }
   });
 
   it('should produce smooth wave-like brightness', () => {
-    const grid = createFilteredGrid();
-    computeFallbackFrame(grid, 0);
+    const grid = makeGrid();
+    computeFallbackFrame(grid, 0, DEFAULT_FALLBACK_CONFIG, layout);
 
-    // Brightness should be within configured range
-    for (let i = 0; i < DEFAULT_NUM_CANNONS; i++) {
+    for (let i = 0; i < N; i++) {
       expect(grid[i].targetB).toBeGreaterThanOrEqual(DEFAULT_FALLBACK_CONFIG.brightnessMin - 1);
       expect(grid[i].targetB).toBeLessThanOrEqual(DEFAULT_FALLBACK_CONFIG.brightnessMax + 1);
+    }
+  });
+
+  it('works on a ring layout using fixture geometry', () => {
+    const ring = ringLayout({ count: 6 });
+    const grid = createFilteredGrid(ring.count);
+    computeFallbackFrame(grid, 25, DEFAULT_FALLBACK_CONFIG, ring);
+    for (let i = 0; i < ring.count; i++) {
+      expect(grid[i].targetH).toBeGreaterThanOrEqual(0);
+      expect(grid[i].targetH).toBeLessThan(360);
+      expect(grid[i].targetB).toBeGreaterThanOrEqual(0);
+      expect(grid[i].targetB).toBeLessThanOrEqual(100);
     }
   });
 });

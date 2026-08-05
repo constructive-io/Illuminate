@@ -10,10 +10,16 @@
  *   - `onParam(name, value, ctx)` — optional, called on param change
  *   - `meta`        — optional object with { name, params }
  */
-export function buildPrelude(cols: number, rows: number): string {
+import type { Layout } from '@wavegrid/layout';
+
+export function buildPrelude(layout: Layout): string {
+  // Embed the resolved fixture geometry so patterns get true positions for
+  // any topology (grid, ring, filled ring) instead of re-deriving from cols.
+  const fx = layout.fixtures.map(f => [f.u, f.v, f.x, f.y, f.radius, f.angle, f.col, f.row]);
   return `
-// ─── Grid constants ────────────────────────────────────────────
-var COLS = ${cols}, ROWS = ${rows}, COUNT = COLS * ROWS;
+// ─── Layout geometry ───────────────────────────────────────────
+var COLS = ${layout.cols}, ROWS = ${layout.rows}, COUNT = ${layout.count};
+var __FX = ${JSON.stringify(fx)};
 
 // ─── HSB target buffer: [h, s, b, h, s, b, ...] ───────────────
 var __buf = []; for (var __i = 0; __i < COUNT * 3; __i++) __buf.push(0);
@@ -72,22 +78,11 @@ function __buildCtx() {
     get frame() { return __st.frame; },
     get p()     { return __st.p; },
 
-    // Grid indexing
-    xy:    function(i) { return [i % COLS, (i / COLS) | 0]; },
+    // Fixture geometry (from the resolved layout)
+    xy:    function(i) { var f = __FX[i]; if (!f) return [0, 0]; return f[6] >= 0 ? [f[6], f[7]] : [f[2], f[3]]; },
     index: function(x, y) { return ((y | 0) * COLS) + (x | 0); },
-    uv:    function(i) {
-      return [
-        COLS > 1 ? (i % COLS) / (COLS - 1) : 0,
-        ROWS > 1 ? ((i / COLS) | 0) / (ROWS - 1) : 0
-      ];
-    },
-    polar: function(i) {
-      var x = i % COLS, y = (i / COLS) | 0;
-      var cx = (COLS - 1) / 2, cy = (ROWS - 1) / 2;
-      var dx = x - cx, dy = y - cy;
-      var mr = Math.hypot(cx, cy) || 1;
-      return [Math.hypot(dx, dy) / mr, Math.atan2(dy, dx)];
-    },
+    uv:    function(i) { var f = __FX[i]; return f ? [f[0], f[1]] : [0, 0]; },
+    polar: function(i) { var f = __FX[i]; return f ? [f[4], f[5]] : [0, 0]; },
 
     // Color setters — HSB: h=0-360, s=0-100, b=0-100
     set: set,

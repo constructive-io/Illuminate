@@ -35,7 +35,9 @@
     "laser",
     "shared"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "@wavegrid/layout": "workspace:*"
+  },
   "devDependencies": {
     "makage": "^0.3.0"
   }

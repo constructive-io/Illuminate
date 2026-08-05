@@ -7,6 +7,7 @@
  * feeding into the existing LP filter / brightness pipeline.
  */
 
+import type { Layout } from '@wavegrid/layout';
 import { getQuickJS, QuickJSContext, QuickJSHandle, QuickJSRuntime } from 'quickjs-emscripten';
 
 import { buildPrelude } from './sandbox-prelude';
@@ -60,15 +61,14 @@ export interface SandboxEngine {
  * Create a sandbox engine. Requires an async init step to load QuickJS WASM.
  */
 export async function createSandboxEngine(
-  cols: number,
-  rows: number,
+  layout: Layout,
   opts?: Partial<SandboxConfig>,
   onLog?: (msg: string) => void
 ): Promise<SandboxEngine> {
   const cfg = { ...DEFAULT_CONFIG, ...opts };
   const QuickJS = await getQuickJS();
-  const prelude = buildPrelude(cols, rows);
-  const count = cols * rows;
+  const prelude = buildPrelude(layout);
+  const count = layout.count;
 
   let runtime: QuickJSRuntime | null = null;
   let vm: QuickJSContext | null = null;

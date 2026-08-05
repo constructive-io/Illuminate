@@ -1,4 +1,6 @@
-import { DEFAULT_GRID_COLUMNS, GridCell } from './types';
+import type { Layout } from '@wavegrid/layout';
+
+import { GridCell } from './types';
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -114,12 +116,11 @@ export function setTarget(grid: GridCell[], index: number, h?: number, s?: numbe
   }
 }
 
-export function getPerimeterIndices(numCannons: number, cols: number = DEFAULT_GRID_COLUMNS): number[] {
-  const rows = Math.ceil(numCannons / cols);
-  const indices: number[] = [];
-  for (let c = 0; c < cols; c++) indices.push(c);
-  for (let r = 1; r < rows; r++) indices.push(r * cols + (cols - 1));
-  for (let c = cols - 2; c >= 0; c--) indices.push((rows - 1) * cols + c);
-  for (let r = rows - 2; r >= 1; r--) indices.push(r * cols);
-  return indices.filter(i => i < numCannons);
+/**
+ * True when a layout is the classic 7×7 grid the pixel-art scenes/animations
+ * (heart, SF, "I ♥ SF") were drawn for. On any other shape those bitmaps have
+ * no meaning, so callers fall back to a plain wash.
+ */
+export function isArtGrid(layout: Layout): boolean {
+  return layout.hasGridCoords && layout.cols === 7 && layout.rows >= 7;
 }

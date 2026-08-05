@@ -18,16 +18,12 @@ export interface FilteredCannon extends CannonState {
   targetB: number;
 }
 
-export const DEFAULT_NUM_CANNONS = 49;
-export const DEFAULT_GRID_COLUMNS = 7;
-
 export const DEFAULT_RECEIVER_ALPHA = 0.06;
 
 /**
- * Create a filtered grid of the given size.
- * Defaults to 49 cannons for the 7×7 Civic Center installation.
+ * Create a filtered grid with one cell per fixture in the layout.
  */
-export function createFilteredGrid(numCannons: number = DEFAULT_NUM_CANNONS): FilteredCannon[] {
+export function createFilteredGrid(numCannons: number): FilteredCannon[] {
   return Array.from({ length: numCannons }, () => ({
     h: 0,
     s: 0,
