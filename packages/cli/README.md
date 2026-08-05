@@ -24,7 +24,7 @@ wavegrid start                # run server + receiver
 
 | Command | Purpose |
 | --- | --- |
-| `wavegrid init [name]` | Create a project in the store; **generates secrets once**; optionally add a first user + a local `wavegrid.json`. |
+| `wavegrid init [name]` | Create a project in the store; **generates secrets once**; optionally add a first user. |
 | `wavegrid start` | Load the active project and run server + receiver in-process. |
 | `wavegrid projects` | List projects, marking the active one. |
 | `wavegrid use <name>` | Set the active project. |

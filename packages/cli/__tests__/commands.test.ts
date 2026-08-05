@@ -89,8 +89,7 @@ describe('runInit', () => {
       mode: 'auto',
       createUser: true,
       username: 'artist',
-      password: 'hunter2',
-      writeLocal: false
+      password: 'hunter2'
     };
     const name = await runInit(argv, autoPrompter());
     expect(name).toBe('ring-demo');
@@ -113,7 +112,7 @@ describe('buildEnvLines', () => {
   it('emits generated secrets for the active project', async () => {
     const cwd = isolate();
     await runInit(
-      { projectName: 'p', shape: 'preset', preset: 'ring-6', mode: 'auto', createUser: false, writeLocal: false },
+      { projectName: 'p', shape: 'preset', preset: 'ring-6', mode: 'auto', createUser: false },
       autoPrompter()
     );
     const text = buildEnvLines({}, cwd).join('\n');
