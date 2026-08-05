@@ -5,7 +5,7 @@ import { runConfigSet } from './commands/config-set';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
-import { pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
+import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runPrintConfig } from './commands/print-config';
 import { runProjects, runUse } from './commands/projects';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
@@ -42,6 +42,18 @@ ${c.bold('Options')}
   -h, --help          Show this help
   -v, --version       Show version
 `;
+
+const COMMANDS: SubCommand[] = [
+  { value: 'init', description: 'Create a project in the store (generates secrets once)' },
+  { value: 'start', description: 'Load the active project and run server + receiver' },
+  { value: 'projects', description: 'List projects in the store' },
+  { value: 'use', description: 'Set the active project' },
+  { value: 'config', description: 'Print the resolved config + provenance (secrets masked)' },
+  { value: 'secrets', description: 'List or generate required secrets' },
+  { value: 'users', description: 'List, add, or remove UI login users' },
+  { value: 'env', description: 'Write a .env for the current project' },
+  { value: 'doctor', description: 'Diagnose this laptop + the whole installation' }
+];
 
 const SECRETS_SUBS: SubCommand[] = [
   { value: 'list', description: 'List required secrets and whether each is set' },
@@ -96,16 +108,12 @@ function coerce(value: string): string | number | boolean {
   return value;
 }
 
-function makePrompter(): { prompter: Inquirerer; nonInteractive: boolean } {
-  const nonInteractive = !process.stdin.isTTY;
-  const prompter = new Inquirerer({ noTty: nonInteractive, useDefaults: nonInteractive });
-  return { prompter, nonInteractive };
-}
+const KNOWN_COMMANDS = ['init', 'start', 'projects', 'use', 'config', 'print-config', 'secrets', 'users', 'env', 'doctor'];
 
 /**
  * Resolve a command-group subcommand: use the one given on the CLI, else prompt
  * a menu (interactive), else print the subcommand list (no TTY). The passed
- * prompter is the shared one for the whole command — a follow-up action prompt
+ * prompter is the shared one for the whole run — a follow-up action prompt
  * (e.g. `users add`) reuses it rather than opening a second Inquirerer, which
  * would leave stdin in a bad state and hang.
  */
@@ -123,7 +131,7 @@ async function resolveSub(
 }
 
 export async function run(argvInput: string[] = process.argv.slice(2)): Promise<void> {
-  const { command, positionals, flags } = parseArgs(argvInput);
+  const { command: given, positionals, flags } = parseArgs(argvInput);
 
   if (flags.version || flags.v) {
     console.log(VERSION);
@@ -134,47 +142,60 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     return;
   }
 
-  const knownCommands = ['init', 'start', 'projects', 'use', 'config', 'print-config', 'secrets', 'users', 'env', 'doctor'];
   const showHelp = flags.help || flags.h;
-  if (!command || (showHelp && !knownCommands.includes(command))) {
+  // Explicit help, or an unknown command with --help, just prints usage.
+  if (showHelp && (!given || !KNOWN_COMMANDS.includes(given))) {
     console.log(HELP);
     return;
   }
 
-  switch (command) {
-  case 'init': {
-    const { prompter } = makePrompter();
-    if (positionals[1]) flags.project = positionals[1];
-    try {
+  // One prompter for the whole run: a top-level menu chains into a command's
+  // own prompts on the SAME instance (closing + reopening hangs stdin).
+  const nonInteractive = !process.stdin.isTTY;
+  const prompter = new Inquirerer({ noTty: nonInteractive, useDefaults: nonInteractive });
+  // `start` runs a long-lived server; leave its interactive prompter attached
+  // (closing it mid-run interferes with Ctrl-C handling of the running server).
+  let keepOpen = false;
+
+  try {
+    let command = given;
+    if (!command) {
+      // Bare `wavegrid`: interactive menu, or usage when there's no TTY.
+      if (nonInteractive) {
+        console.log(HELP);
+        return;
+      }
+      command = (await pickCommand(prompter, COMMANDS)) ?? undefined;
+      if (!command) {
+        console.log(HELP);
+        return;
+      }
+    }
+
+    switch (command) {
+    case 'init': {
+      if (positionals[1]) flags.project = positionals[1];
       await runInit(flags, prompter);
-    } finally {
-      prompter.close();
+      break;
     }
-    break;
-  }
-  case 'start': {
-    const { prompter, nonInteractive } = makePrompter();
-    try {
+    case 'start': {
+      keepOpen = !nonInteractive;
       await runStart({ flags, prompter: nonInteractive ? undefined : prompter });
-    } finally {
-      if (nonInteractive) prompter.close();
+      break;
     }
-    break;
-  }
-  case 'projects':
-    runProjects();
-    break;
-  case 'use':
-    runUse(positionals[1]);
-    break;
-  case 'config':
-  case 'print-config':
-    if (positionals[1] === 'set') runConfigSet(positionals[2], positionals[3], flags);
-    else runPrintConfig(process.cwd(), flags);
-    break;
-  case 'secrets': {
-    const { prompter, nonInteractive } = makePrompter();
-    try {
+    case 'projects':
+      runProjects();
+      break;
+    case 'use':
+      await runUse(positionals[1], nonInteractive ? undefined : prompter);
+      break;
+    case 'config':
+    case 'print-config':
+      if (positionals[1] === 'set') {
+        await runConfigSet(positionals[2], positionals[3], flags, nonInteractive ? undefined : prompter);
+      } else runPrintConfig(process.cwd(), flags);
+      break;
+    case 'secrets': {
       const sub = (await resolveSub(positionals[1], 'secrets', SECRETS_SUBS, prompter, nonInteractive)) ?? undefined;
       if (sub == null) break;
       if (sub === 'init') runSecretsInit(flags);
@@ -183,43 +204,39 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
         console.log(c.red(`Unknown secrets subcommand: ${sub}`));
         process.exitCode = 1;
       }
-    } finally {
-      prompter.close();
+      break;
     }
-    break;
-  }
-  case 'users': {
-    const { prompter, nonInteractive } = makePrompter();
-    try {
+    case 'users': {
       const sub = (await resolveSub(positionals[1], 'users', USERS_SUBS, prompter, nonInteractive)) ?? undefined;
       if (sub == null) break;
       if (sub === 'add') await runUsersAdd(flags, positionals[2], prompter);
-      else if (sub === 'rm' || sub === 'remove') runUsersRemove(flags, positionals[2]);
-      else if (sub === 'list') runUsersList(flags);
+      else if (sub === 'rm' || sub === 'remove') {
+        await runUsersRemove(flags, positionals[2], nonInteractive ? undefined : prompter);
+      } else if (sub === 'list') runUsersList(flags);
       else {
         console.log(c.red(`Unknown users subcommand: ${sub}`));
         process.exitCode = 1;
       }
-    } finally {
-      prompter.close();
+      break;
     }
-    break;
-  }
-  case 'env': {
-    const sub = positionals[1];
-    if (sub === 'export' || sub == null) runEnvExport(flags);
-    else {
-      console.log(c.red(`Unknown env subcommand: ${sub}`));
+    case 'env': {
+      const sub = positionals[1];
+      if (sub === 'export' || sub == null) runEnvExport(flags);
+      else {
+        console.log(c.red(`Unknown env subcommand: ${sub}`));
+        process.exitCode = 1;
+      }
+      break;
+    }
+    case 'doctor':
+      await runDoctor(flags);
+      break;
+    default:
+      console.log(c.red(`Unknown command: ${command}`));
+      console.log(HELP);
       process.exitCode = 1;
     }
-    break;
-  }
-  case 'doctor':
-    await runDoctor(flags);
-    break;
-  default:
-    console.log(c.red(`Unknown command: ${command}`));
-    console.log(HELP);
-    process.exitCode = 1;
+  } finally {
+    if (!keepOpen) prompter.close();
   }
 }

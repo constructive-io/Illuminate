@@ -20,25 +20,40 @@ export interface SubCommand {
  * Inquirerer works, but closing it and opening a second one leaves stdin in a
  * bad state and hangs the next prompt.
  */
-export async function pickSubcommand(
+export async function pickFromMenu(
   prompter: Inquirerer | undefined,
-  group: string,
+  message: string,
   subs: SubCommand[]
 ): Promise<string | null> {
   if (!prompter) return null;
+  const pad = Math.max(6, ...subs.map((s) => s.value.length));
   const answer = (await prompter.prompt({}, [
     {
       type: 'autocomplete',
-      name: 'sub',
-      message: `wavegrid ${group} — what do you want to do?`,
+      name: 'choice',
+      message,
       options: subs.map((s) => ({
-        name: `${c.cyan(s.value.padEnd(6))} ${c.gray(s.description)}`,
+        name: `${c.cyan(s.value.padEnd(pad))} ${c.gray(s.description)}`,
         value: s.value
       })),
       required: true
     }
-  ])) as unknown as { sub: string };
-  return answer.sub;
+  ])) as unknown as { choice: string };
+  return answer.choice;
+}
+
+/** Menu for a bare command group, e.g. `wavegrid users`. */
+export function pickSubcommand(
+  prompter: Inquirerer | undefined,
+  group: string,
+  subs: SubCommand[]
+): Promise<string | null> {
+  return pickFromMenu(prompter, `wavegrid ${group} — what do you want to do?`, subs);
+}
+
+/** Top-level menu for bare `wavegrid`. */
+export function pickCommand(prompter: Inquirerer | undefined, subs: SubCommand[]): Promise<string | null> {
+  return pickFromMenu(prompter, 'wavegrid — what do you want to do?', subs);
 }
 
 /** Print a group's subcommands (used when there's no TTY to prompt). */
