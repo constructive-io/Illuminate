@@ -9,7 +9,9 @@
  * installation is breathing on its own.
  */
 
-import { DEFAULT_GRID_COLUMNS, FilteredCannon } from './filter';
+import type { Layout } from '@wavegrid/layout';
+
+import { FilteredCannon } from './filter';
 
 export interface FallbackConfig {
   /** Base hue center for the wave (0–360). Default 220 (civic blue). */
@@ -52,7 +54,7 @@ export function computeFallbackFrame(
   grid: FilteredCannon[],
   tick: number,
   config: FallbackConfig = DEFAULT_FALLBACK_CONFIG,
-  gridColumns: number = DEFAULT_GRID_COLUMNS
+  layout?: Layout
 ) {
   const {
     baseHue,
@@ -65,18 +67,13 @@ export function computeFallbackFrame(
   } = config;
 
   const brightRange = brightnessMax - brightnessMin;
-  const cols = Math.max(1, gridColumns);
+  const fixtures = layout?.fixtures;
 
   for (let i = 0; i < grid.length; i++) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-
-    const maxCol = Math.max(1, cols - 1);
-    const maxRow = Math.max(1, Math.ceil(grid.length / cols) - 1);
-
-    // Normalize to -1..1
-    const nx = (col / maxCol) * 2 - 1;
-    const ny = (row / maxRow) * 2 - 1;
+    const f = fixtures?.[i];
+    // Normalized fixture position → -1..1 (works for grids, rings, filled rings)
+    const nx = f ? f.u * 2 - 1 : 0;
+    const ny = f ? f.v * 2 - 1 : 0;
 
     // Primary diagonal wave → hue
     const wave1 = Math.sin(

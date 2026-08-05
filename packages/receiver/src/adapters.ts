@@ -216,7 +216,7 @@ export class WebSocketInput extends EventEmitter implements InputAdapter {
           } else if (msg.type === 'command' && msg.action) {
             this.emit('command', msg);
           }
-        } catch (_e) {
+        } catch {
           // ignore malformed messages
         }
       });
@@ -230,7 +230,7 @@ export class WebSocketInput extends EventEmitter implements InputAdapter {
       this.ws.on('error', () => {
         this.scheduleReconnect();
       });
-    } catch (_e) {
+    } catch {
       this.scheduleReconnect();
     }
   }

@@ -1,3 +1,5 @@
+import type { Fixture, Layout } from '@wavegrid/layout';
+
 /**
  * Minimal grid cell interface used by animations and scenes.
  * Both server's CannonTarget and receiver's FilteredCannon satisfy this.
@@ -11,8 +13,11 @@ export interface GridCell {
   targetB: number;
 }
 
-export type AnimationFn = (grid: GridCell[], tick: number, attack: number, gridColumns?: number) => void;
+/**
+ * An animation mutates cell targets for one tick. It reads geometry from the
+ * layout (per-fixture `u/v/angle/radius/row/col`), never from a column count.
+ */
+export type AnimationFn = (grid: GridCell[], tick: number, attack: number, layout: Layout) => void;
 
-export type SceneGenerator = (index: number, total: number, gridColumns: number) => { h: number; s: number; b: number };
-
-export const DEFAULT_GRID_COLUMNS = 7;
+/** A scene assigns a color to a single fixture. */
+export type SceneGenerator = (fixture: Fixture, layout: Layout) => { h: number; s: number; b: number };

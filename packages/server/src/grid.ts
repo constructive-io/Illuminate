@@ -10,13 +10,6 @@ export interface CannonTarget extends CannonState {
   targetB: number;
 }
 
-export const DEFAULT_NUM_CANNONS = 49;
-export const DEFAULT_GRID_COLUMNS = 7;
-
-// Legacy aliases for backwards compatibility
-export const NUM_CANNONS = DEFAULT_NUM_CANNONS;
-export const GRID_SIZE = DEFAULT_GRID_COLUMNS;
-
 /**
  * Smoothing factor per tick (0–1).
  * Lower = smoother/slower transitions (more low-pass filtering).
@@ -24,7 +17,7 @@ export const GRID_SIZE = DEFAULT_GRID_COLUMNS;
  */
 export const DEFAULT_ALPHA = 0.08;
 
-export function createGrid(numCannons: number = DEFAULT_NUM_CANNONS): CannonTarget[] {
+export function createGrid(numCannons: number): CannonTarget[] {
   return Array.from({ length: numCannons }, () => ({
     h: 0,
     s: 0,
@@ -119,6 +112,7 @@ export function resetGrid(grid: CannonTarget[], h: number = 0, s: number = 0, b:
  * Positive dx = shift right, positive dy = shift down.
  */
 export function shiftGrid(grid: CannonTarget[], cols: number, rows: number, dx: number, dy: number): void {
+  if (cols <= 0 || rows <= 0) return; // no grid coordinates (e.g. a ring)
   const snapshot = grid.map(c => ({ h: c.targetH, s: c.targetS, b: c.targetB }));
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -210,6 +204,7 @@ export function defaultOrientation(): Orientation {
  * UI sends index in its own coordinate space; we remap to the physical grid.
  */
 export function mapUiToGrid(uiIndex: number, columns: number, rows: number, orient: Orientation): number {
+  if (columns <= 0 || rows <= 0) return uiIndex; // ring/1D layouts have no grid transform
   let r = Math.floor(uiIndex / columns);
   let c = uiIndex % columns;
 
@@ -234,6 +229,7 @@ export function mapUiToGrid(uiIndex: number, columns: number, rows: number, orie
  * Map a server grid index back to UI coordinate space for broadcasts.
  */
 export function mapGridToUi(gridIndex: number, columns: number, rows: number, orient: Orientation): number {
+  if (columns <= 0 || rows <= 0) return gridIndex; // ring/1D layouts have no grid transform
   const gr = Math.floor(gridIndex / columns);
   const gc = gridIndex % columns;
 

@@ -18,16 +18,16 @@ import { AnimationPalette, ScenePalette } from '@/components/palette';
 import { PatternsTab } from '@/components/patterns-tab';
 import { PlaylistTab } from '@/components/playlist-tab';
 import { PrideTab } from '@/components/pride-tab';
-import { UsaTab } from '@/components/usa-tab';
-import { VideoTab } from '@/components/video-tab';
 import { SequencesTab } from '@/components/sequences-tab';
 import { SettingsTab } from '@/components/settings-tab';
 import { ShiftDial } from '@/components/shift-dial';
+import { UsaTab } from '@/components/usa-tab';
+import { VideoTab } from '@/components/video-tab';
 import { useAudio } from '@/lib/use-audio';
 import { useAuth } from '@/lib/use-auth';
 import { useConfig } from '@/lib/use-config';
 import { useIsPhone } from '@/lib/use-media-query';
-import { type PlaylistState,useSocket } from '@/lib/use-socket';
+import { type PlaylistState, useSocket } from '@/lib/use-socket';
 
 type PanelLayout = 'bottom' | 'right';
 type TrailFadeEntry = {
@@ -436,6 +436,7 @@ export default function Home() {
 
   const NUM_CANNONS = config?.numCannons ?? 49;
   const GRID_COLUMNS = config?.gridColumns ?? 7;
+  const FIXTURES = config?.layout?.fixtures;
 
   const [tab, setTab] = useState<GridMode>(() => {
     if (typeof window === 'undefined') return 'paint';
@@ -514,7 +515,7 @@ export default function Home() {
   const [activeAnim, setActiveAnim] = useState<string | null>(null);
   const [activePattern, setActivePattern] = useState<string | null>(null);
   const [animSpeed, setAnimSpeed] = useState(1.0);
-  const [shiftActive, setShiftActive] = useState(false);
+  const [, setShiftActive] = useState(false);
   const [dropsConfig, setDropsConfig] = useState({
     spectrumStart: 0,
     spectrumEnd: 180,
@@ -945,6 +946,7 @@ export default function Home() {
           <GridDisplay
             grid={gridData}
             columns={GRID_COLUMNS}
+            fixtures={FIXTURES}
             currentHue={hue}
             currentSat={sat}
             currentBright={bright}
@@ -1088,6 +1090,7 @@ export default function Home() {
           <GridDisplay
             grid={gridData}
             columns={GRID_COLUMNS}
+            fixtures={FIXTURES}
             currentHue={hue}
             currentSat={sat}
             currentBright={bright}

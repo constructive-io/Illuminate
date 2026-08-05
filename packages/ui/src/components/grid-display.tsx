@@ -6,9 +6,21 @@ import type { CannonColor, Orientation } from '@/lib/use-socket';
 
 export type GridMode = 'paint' | 'gradient' | 'drops' | 'scenes' | 'animations' | 'audio' | 'video' | 'flags' | 'pride' | 'usa' | 'patterns' | 'playlist' | 'sequences' | 'debug';
 
+export interface FixturePos {
+  u: number;
+  v: number;
+}
+
 interface GridDisplayProps {
   grid: CannonColor[];
   columns: number;
+  /**
+   * Normalized fixture positions (u,v in 0..1) from the resolved layout.
+   * When present, orbs are drawn and hit-tested at their true positions so
+   * rings render as rings and filled circles as circles. Grids fall back to
+   * evenly-spaced fixtures, matching the classic rectangular view.
+   */
+  fixtures?: FixturePos[];
   currentHue: number;
   currentSat: number;
   currentBright: number;
@@ -55,6 +67,7 @@ function hslRgb(h: number, s: number, l: number): [number, number, number] {
 export function GridDisplay({
   grid,
   columns,
+  fixtures,
   currentHue,
   currentSat,
   currentBright,
@@ -73,9 +86,57 @@ export function GridDisplay({
   const paintingRef = useRef(false);
   const lastPaintedRef = useRef(-1);
   const gradientStartRef = useRef(-1);
-  const sizeRef = useRef({ cellSize: 0, gridOffset: 0, canvasW: 0, canvasH: 0 });
+  const sizeRef = useRef({ gridOffset: 0, canvasW: 0, canvasH: 0 });
+  // Pixel centers + orb size for each cannon, recomputed each draw.
+  const geomRef = useRef<{ centers: { x: number; y: number }[]; cellSize: number }>({ centers: [], cellSize: 0 });
 
-  const rows = Math.ceil(grid.length / columns);
+  const isGrid = columns > 0;
+  const rows = isGrid ? Math.ceil(grid.length / columns) : 1;
+
+  // Compute pixel positions for every cannon. When fixtures are provided we
+  // place orbs at their true normalized positions (rings render as rings);
+  // otherwise fall back to an evenly-spaced rectangular grid.
+  const computeGeom = useCallback((size: number) => {
+    const gridOffset = 10;
+    const drawArea = Math.max(0, size - 20);
+    const count = grid.length;
+    const centers: { x: number; y: number }[] = [];
+
+    if (fixtures && fixtures.length >= count && count > 0) {
+      // Nearest-neighbour spacing in normalized space → orb size + margin.
+      let minD = Infinity;
+      for (let i = 0; i < count; i++) {
+        for (let j = i + 1; j < count; j++) {
+          const dx = fixtures[i].u - fixtures[j].u;
+          const dy = fixtures[i].v - fixtures[j].v;
+          const d = Math.hypot(dx, dy);
+          if (d > 1e-6 && d < minD) minD = d;
+        }
+      }
+      if (!Number.isFinite(minD) || minD <= 0) minD = 1 / Math.max(1, Math.sqrt(count));
+      const margin = drawArea * minD * 0.5;
+      const inner = Math.max(0, drawArea - 2 * margin);
+      for (let i = 0; i < count; i++) {
+        centers.push({
+          x: gridOffset + margin + fixtures[i].u * inner,
+          y: gridOffset + margin + fixtures[i].v * inner
+        });
+      }
+      return { centers, cellSize: drawArea * minD };
+    }
+
+    const cols = isGrid ? columns : count;
+    const cellSize = Math.max(0, drawArea / Math.max(cols, rows));
+    for (let i = 0; i < count; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      centers.push({
+        x: gridOffset + col * cellSize + cellSize / 2,
+        y: gridOffset + row * cellSize + cellSize / 2
+      });
+    }
+    return { centers, cellSize };
+  }, [grid.length, columns, rows, fixtures, isGrid]);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -95,9 +156,8 @@ export function GridDisplay({
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const cellSize = Math.max(0, (size - 20) / Math.max(columns, rows));
-    sizeRef.current = { cellSize, gridOffset: 10, canvasW: size, canvasH: size };
-  }, [columns, rows]);
+    sizeRef.current = { gridOffset: 10, canvasW: size, canvasH: size };
+  }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -105,17 +165,21 @@ export function GridDisplay({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { cellSize, gridOffset, canvasW, canvasH } = sizeRef.current;
+    const { canvasW, canvasH } = sizeRef.current;
     ctx.clearRect(0, 0, canvasW, canvasH);
+
+    const geom = computeGeom(canvasW);
+    geomRef.current = geom;
+    const { centers, cellSize } = geom;
     if (cellSize <= 0) return;
 
     const r = cellSize * 0.34;
 
     for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / columns);
-      const col = i % columns;
-      const cx = gridOffset + col * cellSize + cellSize / 2;
-      const cy = gridOffset + row * cellSize + cellSize / 2;
+      const center = centers[i];
+      if (!center) continue;
+      const cx = center.x;
+      const cy = center.y;
       const c = grid[i];
       const lightness = Math.max(5, c.b * 0.5);
 
@@ -164,26 +228,22 @@ export function GridDisplay({
 
       ctx.beginPath();
       for (let i = 0; i < motionPath.length; i++) {
-        const pidx = motionPath[i];
-        const prow = Math.floor(pidx / columns);
-        const pcol = pidx % columns;
-        const px = gridOffset + pcol * cellSize + cellSize / 2;
-        const py = gridOffset + prow * cellSize + cellSize / 2;
+        const p = centers[motionPath[i]];
+        if (!p) continue;
         if (i === 0) {
-          ctx.moveTo(px, py);
+          ctx.moveTo(p.x, p.y);
         } else {
-          ctx.lineTo(px, py);
+          ctx.lineTo(p.x, p.y);
         }
       }
       ctx.stroke();
 
       // Draw dots at each point
       for (let i = 0; i < motionPath.length; i++) {
-        const pidx = motionPath[i];
-        const prow = Math.floor(pidx / columns);
-        const pcol = pidx % columns;
-        const px = gridOffset + pcol * cellSize + cellSize / 2;
-        const py = gridOffset + prow * cellSize + cellSize / 2;
+        const p = centers[motionPath[i]];
+        if (!p) continue;
+        const px = p.x;
+        const py = p.y;
         const isFirst = i === 0;
         const isLast = i === motionPath.length - 1;
         const dotR = isFirst || isLast ? 5 : 3;
@@ -195,13 +255,14 @@ export function GridDisplay({
 
       ctx.restore();
     }
-  }, [grid, columns, motionPath]);
+  }, [grid, motionPath, computeGeom]);
 
   const cannonAtXY = useCallback((clientX: number, clientY: number): number => {
     const canvas = canvasRef.current;
     if (!canvas) return -1;
     const rect = canvas.getBoundingClientRect();
-    const { cellSize, gridOffset, canvasW } = sizeRef.current;
+    const { canvasW } = sizeRef.current;
+    const { centers, cellSize } = geomRef.current;
 
     // Convert client coords to normalized canvas coords (0..canvasW)
     let x = (clientX - rect.left) * (canvasW / rect.width);
@@ -227,19 +288,28 @@ export function GridDisplay({
       if (viewFlip.flipV) y = canvasW - y;
     }
 
-    const col = Math.floor((x - gridOffset) / cellSize);
-    const row = Math.floor((y - gridOffset) / cellSize);
-    if (col < 0 || col >= columns || row < 0 || row >= rows) return -1;
-    const idx = row * columns + col;
-    return idx < grid.length ? idx : -1;
-  }, [columns, rows, grid.length, viewFlip]);
+    // Pick the nearest fixture within a cell radius.
+    if (cellSize <= 0 || centers.length === 0) return -1;
+    let best = -1;
+    let bestD = (cellSize * 0.6) ** 2;
+    for (let i = 0; i < centers.length && i < grid.length; i++) {
+      const dx = centers[i].x - x;
+      const dy = centers[i].y - y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= bestD) {
+        bestD = d2;
+        best = i;
+      }
+    }
+    return best;
+  }, [grid.length, viewFlip]);
 
   const getAffectedCannons = useCallback((centerIdx: number): { idx: number; falloff: number }[] => {
     const result: { idx: number; falloff: number }[] = [{ idx: centerIdx, falloff: 1 }];
-    const cRow = Math.floor(centerIdx / columns);
-    const cCol = centerIdx % columns;
-
-    if (brushSize > 1) {
+    // Brush spread is a grid-neighbourhood concept; only meaningful for grids.
+    if (isGrid && brushSize > 1) {
+      const cRow = Math.floor(centerIdx / columns);
+      const cCol = centerIdx % columns;
       const reach = brushSize - 1;
       for (let dr = -reach; dr <= reach; dr++) {
         for (let dc = -reach; dc <= reach; dc++) {
@@ -261,7 +331,7 @@ export function GridDisplay({
       seen.add(m.idx);
       return true;
     });
-  }, [columns, rows, brushSize, softEdge, grid.length]);
+  }, [isGrid, columns, rows, brushSize, softEdge, grid.length]);
 
   const handleStart = useCallback((e: React.PointerEvent) => {
     paintingRef.current = true;

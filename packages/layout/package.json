@@ -1,0 +1,57 @@
+{
+  "name": "@wavegrid/layout",
+  "version": "0.1.0",
+  "author": "Dan Lynch <pyramation@gmail.com>",
+  "description": "Config-driven fixture layouts — grids, rings, and filled rings — the single source of truth for cannon geometry",
+  "main": "index.js",
+  "module": "esm/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./esm/index.js",
+      "require": "./index.js"
+    },
+    "./client": {
+      "types": "./client.d.ts",
+      "import": "./esm/client.js",
+      "require": "./client.js"
+    }
+  },
+  "homepage": "https://github.com/constructive-io/Illuminate",
+  "license": "SEE LICENSE IN LICENSE",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constructive-io/Illuminate"
+  },
+  "bugs": {
+    "url": "https://github.com/constructive-io/Illuminate/issues"
+  },
+  "scripts": {
+    "clean": "makage clean",
+    "prepack": "npm run build",
+    "build": "makage build",
+    "build:dev": "makage build --dev",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "wavegrid",
+    "layout",
+    "grid",
+    "ring",
+    "topology",
+    "laser"
+  ],
+  "dependencies": {
+    "confstash": "^0.1.2"
+  },
+  "devDependencies": {
+    "makage": "^0.3.0"
+  }
+}

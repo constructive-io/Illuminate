@@ -1,0 +1,51 @@
+{
+  "name": "@wavegrid/cli",
+  "version": "0.1.0",
+  "author": "Dan Lynch <pyramation@gmail.com>",
+  "description": "wavegrid CLI — scaffold a layout config and launch an installation (server + ui + receiver) from a single command",
+  "main": "index.js",
+  "module": "esm/index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "wavegrid": "bin.js"
+  },
+  "homepage": "https://github.com/constructive-io/Illuminate",
+  "license": "SEE LICENSE IN LICENSE",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constructive-io/Illuminate"
+  },
+  "bugs": {
+    "url": "https://github.com/constructive-io/Illuminate/issues"
+  },
+  "scripts": {
+    "clean": "makage clean",
+    "prepack": "npm run build",
+    "build": "makage build",
+    "build:dev": "makage build --dev",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --fix",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "dev": "ts-node src/bin.ts"
+  },
+  "keywords": [
+    "wavegrid",
+    "cli",
+    "laser",
+    "inquirerer",
+    "confstash"
+  ],
+  "dependencies": {
+    "@wavegrid/layout": "workspace:*",
+    "confstash": "^0.1.2",
+    "inquirerer": "^4.8.1",
+    "yanse": "^0.2.1"
+  },
+  "devDependencies": {
+    "makage": "^0.3.0"
+  }
+}

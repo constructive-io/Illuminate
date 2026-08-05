@@ -13,6 +13,7 @@
  */
 
 import { setTarget } from '@wavegrid/animations';
+import { type Layout, presets } from '@wavegrid/layout';
 
 import { ConsoleOutput, InputAdapter, OutputAdapter, WebSocketInput } from './adapters';
 import { AnimationState, applyPaint, createDefaultAnimationState, handleCommand, remapGridForOutput, tickCommandMode } from './command-engine';
@@ -21,8 +22,6 @@ import { computeFallbackFrame, DEFAULT_FALLBACK_CONFIG, FallbackConfig } from '.
 import {
   CannonState,
   createFilteredGrid,
-  DEFAULT_GRID_COLUMNS,
-  DEFAULT_NUM_CANNONS,
   DEFAULT_RECEIVER_ALPHA,
   FilteredCannon,
   resetFilteredGrid,
@@ -57,10 +56,8 @@ export interface ReceiverConfig {
    * affects which cannons are sent to the output adapter.
    */
   shard?: ShardConfig;
-  /** Total number of cannons in the grid. Default 49. */
-  numCannons: number;
-  /** Number of columns in the grid (for fallback spatial mapping). Default 7. */
-  gridColumns: number;
+  /** Resolved layout — the single source of geometry (fixtures, cols/rows, count). */
+  layout: Layout;
 }
 
 export const DEFAULT_RECEIVER_CONFIG: ReceiverConfig = {
@@ -70,8 +67,7 @@ export const DEFAULT_RECEIVER_CONFIG: ReceiverConfig = {
   fallbackDelay: 3000,
   fallback: DEFAULT_FALLBACK_CONFIG,
   tickMs: 1000 / 60,
-  numCannons: DEFAULT_NUM_CANNONS,
-  gridColumns: DEFAULT_GRID_COLUMNS
+  layout: presets['grid-7x7']()
 };
 
 export type ReceiverStatus = 'connected' | 'reconnecting' | 'fallback';
@@ -114,7 +110,7 @@ export class Receiver {
   /** Lazily create the grid on first command. */
   private ensureGrid(): FilteredCannon[] {
     if (!this.grid) {
-      this.grid = createFilteredGrid(this.config.numCannons);
+      this.grid = createFilteredGrid(this.config.layout.count);
     }
     return this.grid;
   }
@@ -127,8 +123,7 @@ export class Receiver {
       s: c.s,
       b: c.b
     }));
-    const rows = Math.ceil(g.length / this.config.gridColumns);
-    const remapped = remapGridForOutput(full, this.config.gridColumns, rows, this._animState);
+    const remapped = remapGridForOutput(full, this.config.layout.cols, this.config.layout.rows, this._animState);
     const shard = this.config.shard;
     if (!shard) return remapped;
     return remapped.slice(shard.start, shard.end + 1);
@@ -252,12 +247,12 @@ export class Receiver {
         }
 
         if (this._fallbackActive) {
-          computeFallbackFrame(this.grid, this.tick, this.config.fallback, this.config.gridColumns);
+          computeFallbackFrame(this.grid, this.tick, this.config.fallback, this.config.layout);
         } else {
           if (this._animState.patternActive && this._sandbox?.loaded) {
             this.tickPattern();
           }
-          tickCommandMode(this.grid, this._animState, this.config.gridColumns);
+          tickCommandMode(this.grid, this._animState, this.config.layout);
         }
 
         // Always tick the low-pass filter — this ensures smooth output
@@ -285,10 +280,7 @@ export class Receiver {
     if (this._sandbox) return this._sandbox;
     if (this._sandboxReady) return this._sandboxReady;
 
-    const cols = this.config.gridColumns;
-    const rows = Math.ceil(this.config.numCannons / cols);
-
-    this._sandboxReady = createSandboxEngine(cols, rows, undefined, (msg) => {
+    this._sandboxReady = createSandboxEngine(this.config.layout, undefined, (msg) => {
       console.log('  ◈ [pattern]', msg);
     });
 

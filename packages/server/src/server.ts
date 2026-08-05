@@ -1,3 +1,4 @@
+import { type Layout, loadWavegridConfig } from '@wavegrid/layout';
 import * as fs from 'fs';
 import http from 'http';
 import { resolve } from 'path';
@@ -6,33 +7,25 @@ import { WebSocket,WebSocketServer } from 'ws';
 
 import { animations } from './animations';
 import type { BlendMode, CannonState, Orientation, Rotation } from './grid';
+import {compositeLayer, createGrid, DEFAULT_ALPHA, defaultOrientation, mapUiToGrid, remapGridForUi, resetGrid, setAllTargets, setCannonTarget, shiftGrid, tickGrid } from './grid';
 import { verifyJwt } from './jwt';
-import {compositeLayer, createGrid, DEFAULT_ALPHA, DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS, defaultOrientation, mapUiToGrid, remapGridForUi, resetGrid, setAllTargets, setCannonTarget, shiftGrid, tickGrid } from './grid';
 import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
 import { applyScene, scenes } from './scenes';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+// ── Resolved layout: the single source of truth for geometry ──────
+// Loaded once at boot from config/env and broadcast to every client so
+// nothing re-derives positions from a column count.
+const resolved = loadWavegridConfig();
+const layout: Layout = resolved.layout;
+const NUM_CANNONS = layout.count;
+const GRID_COLUMNS = layout.cols;
+const GRID_ROWS = layout.rows;
+const RUN_MODE = resolved.runMode;
+
+const PORT = resolved.config.server.port;
 const TICK_MS = 1000 / 60; // 60fps interpolation
 
-// Parse GRID=COLSxROWS shorthand (e.g. "7x2" → 7 cols, 2 rows, 14 cannons).
-function parseGrid(): { numCannons: number; gridColumns: number } {
-  const gridEnv = process.env.GRID;
-  if (gridEnv) {
-    const m = gridEnv.match(/^(\d+)x(\d+)$/i);
-    if (m) {
-      const cols = parseInt(m[1], 10);
-      const rows = parseInt(m[2], 10);
-      return { numCannons: cols * rows, gridColumns: cols };
-    }
-  }
-  return {
-    numCannons: process.env.NUM_CANNONS ? parseInt(process.env.NUM_CANNONS, 10) : DEFAULT_NUM_CANNONS,
-    gridColumns: process.env.GRID_COLUMNS ? parseInt(process.env.GRID_COLUMNS, 10) : DEFAULT_GRID_COLUMNS
-  };
-}
-
-const { numCannons: NUM_CANNONS, gridColumns: GRID_COLUMNS } = parseGrid();
 const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
 
 // ── State persistence ─────────────────────────────────────────────
@@ -104,10 +97,9 @@ let shiftVx = 0;
 let shiftVy = 0;
 let shiftAccX = 0;
 let shiftAccY = 0;
-const GRID_ROWS = Math.ceil(NUM_CANNONS / GRID_COLUMNS);
 let activePlaylist: PlaylistDef | null = null;
 let playlistCurrentStep = 0;
-const patternEngine = new ServerPatternEngine(GRID_COLUMNS, GRID_ROWS);
+const patternEngine = new ServerPatternEngine(layout);
 
 // Restore persisted state on boot
 const restored = loadPersistedState();
@@ -271,6 +263,9 @@ function cancelPlaylistIfActive() {
 }
 
 wss.on('connection', (ws) => {
+  // Send the resolved layout first — the single source of truth for geometry —
+  // so UI and receiver render/route from the same fixtures the server uses.
+  ws.send(JSON.stringify({ type: 'layout', layout, runMode: RUN_MODE }));
   // Send initial state + orientation
   const initGrid = remapGridForUi(
     grid.map(c => ({ h: c.h, s: c.s, b: c.b })),
@@ -306,7 +301,7 @@ wss.on('connection', (ws) => {
     try {
       const msg = JSON.parse(raw.toString());
       handleMessage(msg);
-    } catch (_e) {
+    } catch {
       // ignore malformed messages
     }
   });
@@ -339,7 +334,7 @@ function handleMessage(msg: any) {
       currentAnimation = null;
       cancelPlaylistIfActive();
       patternEngine.stop();
-      applyScene(grid, msg.name, GRID_COLUMNS);
+      applyScene(grid, msg.name, layout);
       broadcastCommand({ action: 'setScene', name: msg.name });
       scheduleSave();
     }
@@ -575,7 +570,7 @@ let framesSinceLastCommand = 0;
 
 setInterval(() => {
   if (!calibrationMode && currentAnimation && animations[currentAnimation]) {
-    animations[currentAnimation](grid, animationTick, currentAttack, GRID_COLUMNS);
+    animations[currentAnimation](grid, animationTick, currentAttack, layout);
     animationTick += animSpeed;
   } else if (!calibrationMode && patternEngine.active) {
     // Render evalPattern locally for UI preview — write to targets so tickGrid lerps smoothly
@@ -623,15 +618,15 @@ setInterval(() => {
   }
 }, TICK_MS);
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, resolved.config.server.host, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
-  console.log(`║   Wavegrid · ${GRID_COLUMNS}×${GRID_ROWS} Grid Server${' '.repeat(Math.max(0, 18 - String(GRID_COLUMNS).length - String(GRID_ROWS).length))}║`);
-  console.log(`║   ${NUM_CANNONS} virtual cannons ready${' '.repeat(Math.max(0, 21 - String(NUM_CANNONS).length))}║`);
+  console.log('║   Wavegrid Server                         ║');
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
   console.log(`  → http://localhost:${PORT}`);
-  console.log(`  → Grid: ${NUM_CANNONS} cannons (${GRID_COLUMNS} columns)`);
+  console.log(`  → Layout: ${layout.name} (${layout.topology}, ${NUM_CANNONS} cannons)`);
+  console.log(`  → Run mode: ${RUN_MODE}`);
   console.log('  → Mode: command relay');
   console.log('');
 });

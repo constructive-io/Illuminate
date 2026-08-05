@@ -38,6 +38,7 @@
   ],
   "dependencies": {
     "@wavegrid/animations": "workspace:*",
+    "@wavegrid/layout": "workspace:*",
     "@wavegrid/osc": "workspace:*",
     "quickjs-emscripten": "0.31.0",
     "ws": "^8.18.0"

@@ -1,14 +1,20 @@
-import { getPerimeterIndices, prideColorAt, ROYGBIV, roygbivAt, setTarget, smooth } from './helpers';
-import { AnimationFn, DEFAULT_GRID_COLUMNS, GridCell } from './types';
+import type { Fixture, Layout } from '@wavegrid/layout';
 
+import { isArtGrid, prideColorAt, ROYGBIV, roygbivAt, setTarget, smooth } from './helpers';
+import { AnimationFn, GridCell } from './types';
+
+/**
+ * Every animation reads geometry from the layout's fixtures (normalized
+ * `u/v`, polar `angle/radius`, or grid `row/col`) rather than from a column
+ * count, so the same effect runs on a rectangle, a strip, or a circle.
+ */
 export const animations: Record<string, AnimationFn> = {
-  wave: (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    for (let i = 0; i < grid.length; i++) {
-      const col = i % cols;
-      const hue = (tick * 2 + col * 40) % 360;
-      const bright = 60 + Math.sin(tick * 0.05 + col * 0.8) * 20;
+  wave: (grid, tick, attack, layout) => {
+    layout.fixtures.forEach((f, i) => {
+      const hue = (tick * 2 + f.u * 280) % 360;
+      const bright = 60 + Math.sin(tick * 0.05 + f.u * 5.6) * 20;
       setTarget(grid, i, hue, 85, bright, attack);
-    }
+    });
   },
 
   breathe: (grid, tick, attack) => {
@@ -18,17 +24,15 @@ export const animations: Record<string, AnimationFn> = {
     }
   },
 
-  rainbow: (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const hue = (tick * 1.5 + (row + col) * 25) % 360;
+  rainbow: (grid, tick, attack, layout) => {
+    layout.fixtures.forEach((f, i) => {
+      const hue = (tick * 1.5 + (f.u + f.v) * 175) % 360;
       setTarget(grid, i, hue, 90, 80, attack);
-    }
+    });
   },
 
-  pacman: (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    const perimeter = getPerimeterIndices(grid.length, cols);
+  pacman: (grid, tick, attack, layout) => {
+    const perimeter = layout.perimeter;
     const pos = Math.floor(tick * 0.3) % perimeter.length;
     for (let i = 0; i < grid.length; i++) {
       setTarget(grid, i, 220, 60, 15, attack);
@@ -42,44 +46,30 @@ export const animations: Record<string, AnimationFn> = {
     }
   },
 
-  spiral: (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    const rows = Math.ceil(grid.length / cols);
-    const cx = (cols - 1) / 2;
-    const cy = (rows - 1) / 2;
-    const maxDistance = Math.max(1, Math.hypot(cx, cy));
+  spiral: (grid, tick, attack, layout) => {
     const time = tick / 60;
-
-    for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const dx = col - cx;
-      const dy = row - cy;
-      const phase = Math.atan2(dy, dx);
-      const distance = Math.hypot(dx, dy) / maxDistance;
+    layout.fixtures.forEach((f, i) => {
+      const phase = f.angle;
+      const distance = f.radius;
       const arms = Math.cos(phase * 3 - time * 1.55 + distance * 6.2);
       const tail = Math.cos(phase * 3 - time * 1.55 + distance * 6.2 - 0.72);
       const coreVoid = smooth((distance - 0.16) / 0.18);
       const intensity = (smooth((arms - 0.18) / 0.82) * 0.78 + smooth((tail - 0.2) / 0.8) * 0.24) * coreVoid;
       const color = prideColorAt(0.78 + phase / (Math.PI * 2) + time * 0.1 + tail * 0.08, time);
-
       setTarget(grid, i, color.h, color.s, intensity * 100, attack);
-    }
+    });
   },
 
-  rain: (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    const rows = Math.ceil(grid.length / cols);
-    for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const phase = (tick * 0.15 + col * 2.3 + col * col * 0.7) % rows;
-      const dist = Math.abs(row - phase);
-      const bright = dist < 1.5 ? 90 - dist * 30 : 10;
-      setTarget(grid, i, 200 + col * 8, 70, bright, attack);
-    }
+  rain: (grid, tick, attack, layout) => {
+    layout.fixtures.forEach((f, i) => {
+      const phase = (tick * 0.0025 + f.u * 2.3 + f.u * f.u * 0.7) % 1;
+      const dist = Math.abs(f.v - phase);
+      const bright = dist < 0.22 ? 90 - dist * 200 : 10;
+      setTarget(grid, i, 200 + f.u * 56, 70, bright, attack);
+    });
   },
 
-  'i-heart-sf': (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    const rows = Math.ceil(grid.length / cols);
+  'i-heart-sf': (grid, tick, attack, layout) => {
     const bitmaps = [
       // "I"
       [
@@ -112,7 +102,6 @@ export const animations: Record<string, AnimationFn> = {
         [1, 1, 0, 0, 1, 0, 0]
       ]
     ];
-    // Colors: I = gold, heart = red, SF = gold
     const colors = [
       { h: 45, s: 100, b: 100 },
       { h: 0, s: 100, b: 100 },
@@ -122,20 +111,15 @@ export const animations: Record<string, AnimationFn> = {
     const frame = Math.floor(tick / frameTicks) % 3;
     const bitmap = bitmaps[frame];
     const color = colors[frame];
-    for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const on = cols === 7 && rows >= 7 && bitmap[row]?.[col];
-      if (on) {
-        setTarget(grid, i, color.h, color.s, color.b, attack);
-      } else {
-        setTarget(grid, i, 220, 80, 8, attack);
-      }
-    }
+    const art = isArtGrid(layout);
+    layout.fixtures.forEach((f, i) => {
+      const on = art && bitmap[f.row]?.[f.col];
+      if (on) setTarget(grid, i, color.h, color.s, color.b, attack);
+      else setTarget(grid, i, 220, 80, 8, attack);
+    });
   },
 
-  'heart-breathe': (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-    const rows = Math.ceil(grid.length / cols);
+  'heart-breathe': (grid, tick, attack, layout) => {
     const bitmap = [
       [0, 1, 0, 0, 0, 1, 0],
       [1, 1, 1, 0, 1, 1, 1],
@@ -147,29 +131,23 @@ export const animations: Record<string, AnimationFn> = {
     ];
     const t = (Math.sin(tick * 0.03) + 1) / 2;
     const brightness = 5 + Math.pow(t, 0.4) * 95;
-    for (let i = 0; i < grid.length; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const on = cols === 7 && rows >= 7 && bitmap[row]?.[col];
-      if (on) {
-        setTarget(grid, i, 0, 100, brightness, attack);
-      } else {
-        setTarget(grid, i, 0, 0, 2, attack);
-      }
-    }
+    const art = isArtGrid(layout);
+    layout.fixtures.forEach((f, i) => {
+      const on = art && bitmap[f.row]?.[f.col];
+      if (on) setTarget(grid, i, 0, 100, brightness, attack);
+      else setTarget(grid, i, 0, 0, 2, attack);
+    });
   }
 };
 
 // ── ROYGBIV Pride animations ────
 
-animations['pride-flow'] = (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
-  const rows = Math.ceil(grid.length / cols);
+animations['pride-flow'] = (grid, tick, attack, layout) => {
   const speed = tick * 0.012;
-  for (let i = 0; i < grid.length; i++) {
-    const row = Math.floor(i / cols);
-    const color = roygbivAt(row / rows + speed);
+  layout.fixtures.forEach((f, i) => {
+    const color = roygbivAt(f.v + speed);
     setTarget(grid, i, color.h, color.s, 90, attack);
-  }
+  });
 };
 
 animations['pride-breathe'] = (grid, tick, attack) => {
@@ -181,24 +159,29 @@ animations['pride-breathe'] = (grid, tick, attack) => {
   }
 };
 
-animations['pride-rotate'] = (grid, tick, attack, cols = DEFAULT_GRID_COLUMNS) => {
+animations['pride-rotate'] = (grid, tick, attack, layout) => {
   const offset = Math.floor(tick * 0.08);
-  for (let i = 0; i < grid.length; i++) {
-    const col = i % cols;
-    const idx = ((col + offset) % ROYGBIV.length + ROYGBIV.length) % ROYGBIV.length;
+  layout.fixtures.forEach((f, i) => {
+    const band = bandIndex(f, layout);
+    const idx = ((band + offset) % ROYGBIV.length + ROYGBIV.length) % ROYGBIV.length;
     const color = ROYGBIV[idx];
     setTarget(grid, i, color.h, color.s, 90, attack);
-  }
+  });
 };
 
-animations['pride-ring'] = (grid, tick, attack) => {
-  const n = grid.length;
+animations['pride-ring'] = (grid, tick, attack, layout) => {
+  const n = layout.count;
   const speed = tick * 0.012;
-  for (let i = 0; i < n; i++) {
+  layout.fixtures.forEach((f, i) => {
     const color = roygbivAt(i / n + speed);
     setTarget(grid, i, color.h, color.s, 90, attack);
-  }
+  });
 };
+
+/** A discrete "column-ish" band: grid column when available, else fixture index. */
+function bandIndex(f: Fixture, layout: Layout): number {
+  return layout.hasGridCoords ? f.col : f.index;
+}
 
 export function getAnimationNames(): string[] {
   return Object.keys(animations);
@@ -213,10 +196,10 @@ export function evaluateAnimation(
   name: string,
   tick: number,
   attack: number,
-  gridColumns: number = DEFAULT_GRID_COLUMNS
+  layout: Layout
 ): boolean {
   const fn = animations[name];
   if (!fn) return false;
-  fn(grid, tick, attack, gridColumns);
+  fn(grid, tick, attack, layout);
   return true;
 }

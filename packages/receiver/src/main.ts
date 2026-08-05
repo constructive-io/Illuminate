@@ -17,13 +17,13 @@
  *   FB4_HOST/PORT      Quick single-target FB4 OSC (alternative to routing file)
  */
 
+import { loadWavegridConfig } from '@wavegrid/layout';
 import { BeyondOscOutput, createRoutedOutput, FB4OscOutput } from '@wavegrid/osc';
 import * as fs from 'fs';
 import { resolve } from 'path';
 
 import { ConsoleOutput, MultiOutput, OutputAdapter, WebSocketInput, WebSocketOutput } from './adapters';
 import { startDebugUI } from './debug-ui';
-import { DEFAULT_GRID_COLUMNS, DEFAULT_NUM_CANNONS } from './filter';
 import { Receiver, ShardConfig } from './receiver';
 
 const RAW_SIMULATOR_URL = process.env.SIMULATOR_URL || 'ws://localhost:3000';
@@ -34,12 +34,19 @@ const SIMULATOR_URL = RECEIVER_KEY
 const ALPHA = parseFloat(process.env.RECEIVER_ALPHA || '0.06');
 const FALLBACK_DELAY = parseInt(process.env.FALLBACK_DELAY || '3000', 10);
 const WS_OUTPUT_PORT = process.env.WS_OUTPUT_PORT ? parseInt(process.env.WS_OUTPUT_PORT, 10) : undefined;
-const NUM_CANNONS = process.env.NUM_CANNONS ? parseInt(process.env.NUM_CANNONS, 10) : DEFAULT_NUM_CANNONS;
-const GRID_COLUMNS = process.env.GRID_COLUMNS ? parseInt(process.env.GRID_COLUMNS, 10) : DEFAULT_GRID_COLUMNS;
+
+// Resolve the layout from config/env — the single source of geometry.
+const resolved = loadWavegridConfig();
+const layout = resolved.layout;
+const RUN_MODE = resolved.runMode;
+const NUM_CANNONS = layout.count;
+const GRID_COLUMNS = layout.cols;
 const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
 
+// Sharding is a distributed-mode concern only. In simple mode (one laptop)
+// the receiver always drives every fixture — no shard ranges required.
 let shard: ShardConfig | undefined;
-if (process.env.SHARD_START !== undefined && process.env.SHARD_END !== undefined) {
+if (RUN_MODE === 'distributed' && process.env.SHARD_START !== undefined && process.env.SHARD_END !== undefined) {
   shard = {
     start: parseInt(process.env.SHARD_START, 10),
     end: parseInt(process.env.SHARD_END, 10)
@@ -74,11 +81,13 @@ if (process.env.BEYOND_HOST) {
   const port = parseInt(process.env.BEYOND_PORT || '7001', 10);
   const gridOrder = (process.env.BEYOND_GRID_ORDER || 'row').toLowerCase();
   const projectorMap: Record<number, number> = {};
-  const rows = Math.ceil(NUM_CANNONS / GRID_COLUMNS);
+  // Column-major reordering is only meaningful for grid layouts.
+  const canColumnOrder = gridOrder === 'column' && GRID_COLUMNS > 0;
+  const rows = GRID_COLUMNS > 0 ? Math.ceil(NUM_CANNONS / GRID_COLUMNS) : 0;
   for (let i = 0; i < NUM_CANNONS; i++) {
     if (savedPhysicalMap) {
       projectorMap[i] = savedPhysicalMap[i];
-    } else if (gridOrder === 'column') {
+    } else if (canColumnOrder) {
       const r = Math.floor(i / GRID_COLUMNS);
       const c = i % GRID_COLUMNS;
       projectorMap[i] = c * rows + r;
@@ -123,8 +132,7 @@ const receiver = new Receiver({
   alpha: ALPHA,
   fallbackDelay: FALLBACK_DELAY,
   shard,
-  numCannons: NUM_CANNONS,
-  gridColumns: GRID_COLUMNS
+  layout
 });
 
 console.log('');
@@ -136,7 +144,7 @@ console.log('');
 console.log(`  → Input:  WebSocket @ ${SIMULATOR_URL}`);
 console.log(`  → Output: ${outputLabels.join(' + ')}`);
 console.log(`  → Alpha: ${ALPHA}  Fallback delay: ${FALLBACK_DELAY}ms`);
-console.log(`  → Grid: ${NUM_CANNONS} cannons (${GRID_COLUMNS} columns)`);
+console.log(`  → Layout: ${layout.name} (${layout.topology}, ${NUM_CANNONS} cannons) · ${RUN_MODE} mode`);
 console.log(`  → Shard: ${shard ? `cannons ${shard.start}–${shard.end} (${shard.end - shard.start + 1} of ${NUM_CANNONS})` : `all cannons (no shard)`}`);
 if (process.env.DEBUG_OSC) console.log('  → DEBUG_OSC: enabled (logging all OSC messages)');
 console.log('');
@@ -148,7 +156,8 @@ const DEBUG_UI_PORT = process.env.DEBUG_UI_PORT ? parseInt(process.env.DEBUG_UI_
 if (DEBUG_UI_PORT) {
   startDebugUI({
     port: DEBUG_UI_PORT,
-    gridColumns: GRID_COLUMNS,
+    // Rings have no columns — render them as a single row in the debug view.
+    gridColumns: GRID_COLUMNS > 0 ? GRID_COLUMNS : NUM_CANNONS,
     getGrid: () => receiver.rawGrid
   });
 }

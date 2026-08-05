@@ -1,13 +1,18 @@
+import { loadWavegridConfig } from '@wavegrid/layout';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { dirname, resolve } from 'path';
 
-const DEFAULT_NUM_CANNONS = 49;
-const DEFAULT_GRID_COLUMNS = 7;
 const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+// Physical light mapping is sized to the resolved installation layout.
+function layoutDims(): { numCannons: number; gridColumns: number } {
+  const { layout } = loadWavegridConfig();
+  return { numCannons: layout.count, gridColumns: layout.cols };
+}
 
 interface LightMapConfig {
   version: 1;
@@ -22,8 +27,9 @@ function identityMap(numCannons: number): number[] {
 }
 
 function normalizeConfig(input: Partial<LightMapConfig> | null): LightMapConfig {
-  const numCannons = input?.numCannons ?? DEFAULT_NUM_CANNONS;
-  const gridColumns = input?.gridColumns ?? DEFAULT_GRID_COLUMNS;
+  const dims = layoutDims();
+  const numCannons = input?.numCannons ?? dims.numCannons;
+  const gridColumns = input?.gridColumns ?? dims.gridColumns;
   const fallback = identityMap(numCannons);
   const source = Array.isArray(input?.physicalLights) ? input.physicalLights : fallback;
   const used = new Set<number>();
@@ -67,10 +73,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const dims = layoutDims();
   const config = normalizeConfig({
     version: 1,
-    numCannons: Number(body.numCannons) || DEFAULT_NUM_CANNONS,
-    gridColumns: Number(body.gridColumns) || DEFAULT_GRID_COLUMNS,
+    numCannons: Number(body.numCannons) || dims.numCannons,
+    gridColumns: Number(body.gridColumns) || dims.gridColumns,
     physicalLights: body.physicalLights,
     updatedAt: new Date().toISOString()
   });

@@ -35,7 +35,7 @@ export function startDebugUI(config: DebugUIConfig): http.Server {
       const data = grid.map(c => ({
         h: Math.round(c.h * 10) / 10,
         s: Math.round(c.s * 10) / 10,
-        b: Math.round(c.b * 10) / 10,
+        b: Math.round(c.b * 10) / 10
       }));
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ cols: gridColumns, grid: data }));
