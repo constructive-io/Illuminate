@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.0.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@0.6.0...@wavegrid/server@1.0.0) (2026-08-05)
+
+**Note:** Version bump only for package @wavegrid/server
+
 # [0.6.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@0.5.0...@wavegrid/server@0.6.0) (2026-08-05)
 
 ### Features
