@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.6.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@0.5.0...@wavegrid/server@0.6.0) (2026-08-05)
+
+### Features
+
+- **cli:** wavegrid doctor — local + whole-installation diagnostics ([623fafd](https://github.com/constructive-io/Illuminate/commit/623fafda6c76d45a3cd8a058ccda4860eae06903))
+
 # [0.5.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@0.4.0...@wavegrid/server@0.5.0) (2026-08-05)
 
 ### Features

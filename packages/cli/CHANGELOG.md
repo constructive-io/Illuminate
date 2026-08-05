@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.4.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@0.3.0...@wavegrid/cli@0.4.0) (2026-08-05)
+
+### Features
+
+- **cli:** drop the local wavegrid.json option from init (store-only) ([d337114](https://github.com/constructive-io/Illuminate/commit/d337114161ab4608bb5dbad13303a5b791eef6ab))
+- **cli:** wavegrid doctor — local + whole-installation diagnostics ([623fafd](https://github.com/constructive-io/Illuminate/commit/623fafda6c76d45a3cd8a058ccda4860eae06903))
+
 # [0.3.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@0.2.0...@wavegrid/cli@0.3.0) (2026-08-05)
 
 ### Features
