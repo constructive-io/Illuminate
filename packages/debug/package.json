@@ -1,6 +1,6 @@
 {
   "name": "@wavegrid/debug",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Dan Lynch <pyramation@gmail.com>",
   "description": "Interactive 7×7 grid debugger — toggle cannons on/off, assign zone mappings, export config JSON",
   "main": "index.js",
@@ -41,7 +41,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "makage": "^0.3.0",
-    "@types/ws": "^8.5.13"
+    "@types/ws": "^8.5.13",
+    "makage": "^0.3.0"
   }
 }
