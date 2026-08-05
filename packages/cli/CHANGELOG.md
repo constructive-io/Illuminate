@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.2.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.1.0...@wavegrid/cli@1.2.0) (2026-08-05)
+
+### Features
+
+- **cli:** interactive menus + graceful prompts across every command ([0735fe6](https://github.com/constructive-io/Illuminate/commit/0735fe6e292c6018b03d7d60153fcccc2a62f4d8))
+- **cli:** interactive subcommand menu for bare `users`/`secrets` ([2488745](https://github.com/constructive-io/Illuminate/commit/2488745fbcea96e7f9e4ddb7ba5f139b1e9b1026))
+
 # [1.1.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.0.0...@wavegrid/cli@1.1.0) (2026-08-05)
 
 ### Features
