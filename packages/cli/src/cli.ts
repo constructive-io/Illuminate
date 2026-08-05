@@ -1,6 +1,7 @@
 import { Inquirerer } from 'inquirerer';
 import c from 'yanse';
 
+import { runConfigSet } from './commands/config-set';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
@@ -25,6 +26,7 @@ ${c.bold('Commands')}
   projects            List projects in the store
   use <name>          Set the active project
   config              Print the resolved config + provenance (secrets masked)
+  config set <k> <v>  Set a project config field (layout, mode, port, host, ui-port)
   secrets list        List required secrets and whether each is set
   secrets init        Generate any missing secrets (--force to rotate)
   users list          List UI login users for the current project
@@ -135,7 +137,8 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     break;
   case 'config':
   case 'print-config':
-    runPrintConfig(process.cwd(), flags);
+    if (positionals[1] === 'set') runConfigSet(positionals[2], positionals[3], flags);
+    else runPrintConfig(process.cwd(), flags);
     break;
   case 'secrets': {
     const sub = positionals[1];
