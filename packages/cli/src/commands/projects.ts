@@ -1,3 +1,4 @@
+import type { Inquirerer } from 'inquirerer';
 import c from 'yanse';
 
 import { getStore } from '../project';
@@ -23,14 +24,44 @@ export function runProjects(): void {
   console.log('');
 }
 
-/** `wavegrid use <name>` — set the active project. */
-export function runUse(name: string | undefined): void {
-  if (!name) {
-    throw new Error('Usage: wavegrid use <project>');
-  }
+/**
+ * `wavegrid use [name]` — set the active project. With no name, prompt with a
+ * list of the store's projects (interactive); with no TTY, print usage.
+ */
+export async function runUse(name: string | undefined, prompter?: Inquirerer): Promise<void> {
   const store = getStore();
-  store.setActiveProject(name);
+
+  let target = name;
+  if (!target) {
+    const projects = store.listProjects();
+    if (projects.length === 0) {
+      console.log('');
+      console.log(c.gray('  No projects yet. Create one with `wavegrid init`.'));
+      console.log('');
+      return;
+    }
+    if (!prompter) {
+      console.log(c.red('  Usage: wavegrid use <project>'));
+      console.log(`  Projects: ${c.cyan(projects.join(', '))}`);
+      process.exitCode = 1;
+      return;
+    }
+    const active = store.getActiveProject();
+    const answer = (await prompter.prompt({}, [
+      {
+        type: 'autocomplete',
+        name: 'project',
+        message: 'Which project should be active?',
+        options: projects,
+        default: active ?? projects[0],
+        required: true
+      }
+    ])) as unknown as { project: string };
+    target = answer.project;
+  }
+
+  store.setActiveProject(target);
   console.log('');
-  console.log(c.green(`  ✓ Active project is now ${c.bold(name)}`));
+  console.log(c.green(`  ✓ Active project is now ${c.bold(target)}`));
   console.log('');
 }

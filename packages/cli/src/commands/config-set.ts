@@ -1,4 +1,5 @@
 import { resolveLayout, type WavegridConfig } from '@wavegrid/layout';
+import type { Inquirerer, Question } from 'inquirerer';
 import c from 'yanse';
 
 import { knownPresets } from '../config-file';
@@ -34,6 +35,15 @@ const SETTERS: Record<string, (config: Partial<WavegridConfig>, value: string) =
 // `preset` is an alias for `layout`.
 SETTERS.preset = SETTERS.layout;
 
+/** Canonical, user-facing keys (aliases like `preset` are accepted but hidden). */
+const KEY_CHOICES = [
+  { value: 'layout', description: 'Layout preset (grid/ring/filled ring)' },
+  { value: 'mode', description: 'Run mode: auto | simple | distributed' },
+  { value: 'port', description: 'Server port' },
+  { value: 'host', description: 'Server host/bind address' },
+  { value: 'ui-port', description: 'UI (Next.js) port' }
+];
+
 function intOrThrow(key: string, value: string): number {
   const n = parseInt(value, 10);
   if (!Number.isFinite(n) || String(n) !== value.trim()) {
@@ -42,33 +52,80 @@ function intOrThrow(key: string, value: string): number {
   return n;
 }
 
+/** Prompt for the value of a specific key, using the right input type. */
+async function promptValue(prompter: Inquirerer, key: string): Promise<string> {
+  let question: Question;
+  if (key === 'layout' || key === 'preset') {
+    question = { type: 'autocomplete', name: 'value', message: 'Layout preset', options: knownPresets(), required: true };
+  } else if (key === 'mode') {
+    question = { type: 'list', name: 'value', message: 'Run mode', options: ['auto', 'simple', 'distributed'], required: true };
+  } else if (key === 'port' || key === 'ui-port') {
+    question = { type: 'number', name: 'value', message: key === 'port' ? 'Server port' : 'UI port', required: true };
+  } else {
+    question = { type: 'text', name: 'value', message: 'Value', required: true };
+  }
+  const answer = (await prompter.prompt({}, [question])) as unknown as { value: unknown };
+  return String(answer.value);
+}
+
 /**
- * `wavegrid config set <key> <value>` — update a single field in the active
+ * `wavegrid config set [key] [value]` — update a single field in the active
  * (or `--project`) project's stored config. This is the supported way to
  * change layout/port/etc. after `init` without hand-editing the store JSON.
+ * Missing key/value are prompted interactively; with no TTY, print usage.
  */
-export function runConfigSet(key: string | undefined, value: string | undefined, flags: Flags = {}): void {
-  const setter = key ? SETTERS[key] : undefined;
-  if (!key || !setter) {
-    console.log(c.red(`  Usage: wavegrid config set <key> <value>`));
-    console.log(`  Keys: ${c.cyan(Object.keys(SETTERS).sort().join(', '))}`);
+export async function runConfigSet(
+  key: string | undefined,
+  value: string | undefined,
+  flags: Flags = {},
+  prompter?: Inquirerer
+): Promise<void> {
+  let resolvedKey = key;
+  if (!resolvedKey) {
+    if (!prompter) {
+      console.log(c.red(`  Usage: wavegrid config set <key> <value>`));
+      console.log(`  Keys: ${c.cyan(KEY_CHOICES.map((k) => k.value).join(', '))}`);
+      process.exitCode = 1;
+      return;
+    }
+    const answer = (await prompter.prompt({}, [
+      {
+        type: 'autocomplete',
+        name: 'key',
+        message: 'Which field do you want to set?',
+        options: KEY_CHOICES.map((k) => ({ name: `${c.cyan(k.value.padEnd(8))} ${c.gray(k.description)}`, value: k.value })),
+        required: true
+      }
+    ])) as unknown as { key: string };
+    resolvedKey = answer.key;
+  }
+
+  const setter = SETTERS[resolvedKey];
+  if (!setter) {
+    console.log(c.red(`  Unknown key "${resolvedKey}".`));
+    console.log(`  Keys: ${c.cyan(KEY_CHOICES.map((k) => k.value).join(', '))}`);
     process.exitCode = 1;
     return;
   }
-  if (value == null || value === '') {
-    console.log(c.red(`  Missing value for "${key}".`));
-    process.exitCode = 1;
-    return;
+
+  let resolvedValue = value;
+  if (resolvedValue == null || resolvedValue === '') {
+    if (!prompter) {
+      console.log(c.red(`  Missing value for "${resolvedKey}".`));
+      process.exitCode = 1;
+      return;
+    }
+    resolvedValue = await promptValue(prompter, resolvedKey);
   }
 
   const store = getStore();
   const project = resolveProjectName(store, flags);
   const config = store.getProjectConfig(project) ?? {};
-  setter(config, value);
+  setter(config, resolvedValue);
   store.saveProjectConfig(project, config);
 
   console.log('');
-  console.log(c.green(`  ✓ ${project}: set ${c.cyan(key)} = ${c.cyan(value)}`));
+  console.log(c.green(`  ✓ ${project}: set ${c.cyan(resolvedKey)} = ${c.cyan(resolvedValue)}`));
   console.log(c.gray(`  Run \`wavegrid config\` to see the resolved result.`));
   console.log('');
 }
