@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { app, BrowserWindow, nativeTheme } from 'electron';
+import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron';
 import started from 'electron-squirrel-startup';
 
 import { registerAllIpc } from '@/main/ipc';
@@ -10,6 +10,11 @@ import { runtime } from '@/main/runtime';
 if (started) app.quit();
 
 app.setName('Wavegrid Desktop');
+
+// Packaged macOS builds get their icon from the bundle's icns (forge.config
+// packagerConfig.icon); everywhere else — dev runs and win/linux windows — the
+// icon has to be applied at runtime.
+const appIcon = nativeImage.createFromPath(path.join(app.getAppPath(), 'assets', 'icon.png'));
 
 // One shared store (~/.wavegrid) can't tolerate two Desktop instances fighting
 // over it; quit a second launch and focus the existing window. Dev runs are
@@ -23,6 +28,7 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 600,
     show: false,
+    icon: appIcon,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -52,7 +58,12 @@ registerAllIpc();
 process.on('uncaughtException', (err) => console.error('[main] uncaughtException:', err));
 process.on('unhandledRejection', (reason) => console.error('[main] unhandledRejection:', reason));
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  if (process.platform === 'darwin' && !app.isPackaged && !appIcon.isEmpty()) {
+    app.dock?.setIcon(appIcon);
+  }
+  createWindow();
+});
 
 app.on('second-instance', () => {
   const win = runtime.mainWindow;

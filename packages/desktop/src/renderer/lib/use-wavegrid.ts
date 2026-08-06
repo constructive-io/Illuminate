@@ -30,16 +30,20 @@ export function useBrainStatus(): BrainStatus {
   return status;
 }
 
-/** The project registry, mirrored from the shared appstash store. */
+/** The project registry, mirrored from the shared appstash store. `loaded`
+ *  flips once the first fetch lands, so boot UI can wait on real data. */
 export function useProjects(): {
   projects: ProjectSummary[];
+  loaded: boolean;
   refresh: () => Promise<void>;
   use: (name: string) => Promise<void>;
   } {
   const [projects, setProjects] = React.useState<ProjectSummary[]>([]);
+  const [loaded, setLoaded] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     setProjects(await window.wavegrid.projects.list());
+    setLoaded(true);
   }, []);
 
   const use = React.useCallback(async (name: string) => {
@@ -50,7 +54,7 @@ export function useProjects(): {
     void refresh();
   }, [refresh]);
 
-  return { projects, refresh, use };
+  return { projects, loaded, refresh, use };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.
