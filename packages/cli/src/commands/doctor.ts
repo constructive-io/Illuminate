@@ -253,6 +253,16 @@ function renderSync(project: string, serverSync?: SystemStatus['sync']): void {
   const local = store.getSyncState(project);
   const revision = serverSync?.revision ?? local.revision;
   const hasEdits = revision > 0 || Object.keys(local.entries).length > 0;
+
+  // Explicitly-off sync is worth a one-liner (edits won't propagate); an
+  // untouched simple project with sync on stays silent — no pay-as-you-go noise.
+  if (store.getProjectConfig(project)?.sync?.enabled === false) {
+    console.log('');
+    console.log(c.bold(`  Config sync (${project})`));
+    console.log(`  ${c.yellow('○')} disabled ${c.gray('— edits stay local to each device (`wavegrid config set sync true` to replicate)')}`);
+    return;
+  }
+
   if (!hasEdits) return;
 
   const known = store.listDevices(project);

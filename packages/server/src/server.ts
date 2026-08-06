@@ -358,6 +358,16 @@ function resolveSyncTarget(): { store: ReturnType<typeof openStore>; project: st
   }
 }
 
+/** Whether this project replicates config edits (workstream F kill switch). */
+function syncEnabled(): boolean {
+  return resolved.config.sync?.enabled !== false;
+}
+
+/** A sync scope carrying project secrets — gated behind `sync.secrets`. */
+function isSecretScope(scope: string): boolean {
+  return scope === 'secrets' || scope.startsWith('secret:') || scope.startsWith('secrets:');
+}
+
 /** Broadcast an accepted config revision to every connected client. */
 function broadcastSync(update: SyncUpdateMessage): void {
   const payload = JSON.stringify(update);
@@ -369,6 +379,10 @@ function broadcastSync(update: SyncUpdateMessage): void {
 /** Serialize + persist a client's config push, then broadcast the revision. */
 function handleSyncPush(msg: SyncPushMessage): void {
   if (!msg.scope) return;
+  // Replication off: the edit stays local to the laptop that made it.
+  if (!syncEnabled()) return;
+  // Secrets never ride the sync channel unless explicitly opted in.
+  if (isSecretScope(msg.scope) && resolved.config.sync?.secrets !== true) return;
   const target = resolveSyncTarget();
   if (!target) return;
   try {

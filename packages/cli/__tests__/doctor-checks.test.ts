@@ -17,6 +17,7 @@ function config(osc: WavegridConfig['osc']): WavegridConfig {
     ui: { port: 3003 },
     receiver: { alpha: 0.06, fallbackDelay: 3000 },
     osc,
+    sync: { enabled: true, secrets: false },
     debug: { osc: false }
   };
 }

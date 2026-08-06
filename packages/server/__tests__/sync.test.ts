@@ -115,3 +115,119 @@ describe('server config sync (Phase D)', () => {
     d.ws.close();
   });
 });
+
+describe('server config sync — disabled + secrets gate', () => {
+  const saved = { ...process.env };
+  let handle: ServerHandle;
+  let port: number;
+
+  beforeAll(async () => {
+    const store = mkdtempSync(join(tmpdir(), 'wg-sync-off-store-'));
+    const state = mkdtempSync(join(tmpdir(), 'wg-sync-off-state-'));
+    process.env.APPSTASH_BASE_DIR = store;
+    process.env.WAVEGRID_PROJECT = 'off';
+    process.env.WG_STATE_DIR = state;
+    process.env.WG_RECEIVER_KEY = 'testkey';
+    delete process.env.WAVEGRID_LAYOUT;
+    delete process.env.WAVEGRID_MODE;
+    delete process.env.WG_SYNC_ENABLED;
+    delete process.env.WG_SYNC_SECRETS;
+
+    const s = openStore();
+    s.createProject('off', {
+      layout: { preset: 'grid-7x7' },
+      server: { host: '127.0.0.1', port: 0 },
+      sync: { enabled: false, secrets: false }
+    });
+    s.setActiveProject('off');
+
+    handle = startServer(loadWavegridConfig(), { uiDir: null, advertise: false });
+    await new Promise<void>((r) => {
+      if (handle.server.listening) return r();
+      handle.server.once('listening', () => r());
+    });
+    const addr = handle.server.address();
+    port = typeof addr === 'object' && addr ? addr.port : 0;
+  });
+
+  afterAll(async () => {
+    handle.stop();
+    process.env = { ...saved };
+  });
+
+  it('drops a push when sync is disabled (no revision, no broadcast)', async () => {
+    const a = await connect(port);
+    const b = await connect(port);
+    await wait(50);
+
+    send(a.ws, { type: 'sync_push', scope: 'project', config: { brightness: 0.9 }, deviceId: 'devA', baseRevision: 0 });
+    await wait(150);
+
+    expect(a.sync.find((m) => m.type === 'sync_update')).toBeUndefined();
+    expect(b.sync.find((m) => m.type === 'sync_update')).toBeUndefined();
+    expect(openStore().getSyncState('off').revision).toBe(0);
+
+    a.ws.close();
+    b.ws.close();
+  });
+});
+
+describe('server config sync — secrets scope gate', () => {
+  const saved = { ...process.env };
+  let handle: ServerHandle;
+  let port: number;
+
+  beforeAll(async () => {
+    const store = mkdtempSync(join(tmpdir(), 'wg-sync-sec-store-'));
+    const state = mkdtempSync(join(tmpdir(), 'wg-sync-sec-state-'));
+    process.env.APPSTASH_BASE_DIR = store;
+    process.env.WAVEGRID_PROJECT = 'sec';
+    process.env.WG_STATE_DIR = state;
+    process.env.WG_RECEIVER_KEY = 'testkey';
+    delete process.env.WAVEGRID_LAYOUT;
+    delete process.env.WAVEGRID_MODE;
+    delete process.env.WG_SYNC_ENABLED;
+    delete process.env.WG_SYNC_SECRETS;
+
+    const s = openStore();
+    // Sync on, but secrets NOT opted in.
+    s.createProject('sec', {
+      layout: { preset: 'grid-7x7' },
+      server: { host: '127.0.0.1', port: 0 },
+      sync: { enabled: true, secrets: false }
+    });
+    s.setActiveProject('sec');
+
+    handle = startServer(loadWavegridConfig(), { uiDir: null, advertise: false });
+    await new Promise<void>((r) => {
+      if (handle.server.listening) return r();
+      handle.server.once('listening', () => r());
+    });
+    const addr = handle.server.address();
+    port = typeof addr === 'object' && addr ? addr.port : 0;
+  });
+
+  afterAll(async () => {
+    handle.stop();
+    process.env = { ...saved };
+  });
+
+  it('replicates a normal scope but drops a secrets-scope push', async () => {
+    const a = await connect(port);
+    await wait(50);
+
+    // A secrets-scoped push is ignored (never persisted/broadcast).
+    send(a.ws, { type: 'sync_push', scope: 'secrets', config: { jwt: 'x' }, deviceId: 'devA', baseRevision: 0 });
+    await wait(120);
+    expect(a.sync.find((m) => m.type === 'sync_update')).toBeUndefined();
+    expect(openStore().getSyncState('sec').revision).toBe(0);
+
+    // A normal project scope still replicates.
+    send(a.ws, { type: 'sync_push', scope: 'project', config: { brightness: 0.5 }, deviceId: 'devA', baseRevision: 0 });
+    await wait(120);
+    expect(a.sync.find((m) => m.type === 'sync_update')).toBeTruthy();
+    expect(openStore().getSyncState('sec').revision).toBe(1);
+
+    a.ws.close();
+  });
+});

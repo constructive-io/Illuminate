@@ -11,8 +11,17 @@ export const DEFAULT_CONFIG: WavegridConfig = {
   ui: { port: 3003 },
   receiver: { alpha: 0.06, fallbackDelay: 3000 },
   osc: {},
+  sync: { enabled: true, secrets: false },
   debug: { osc: false }
 };
+
+function toBool(value: string | undefined): boolean | undefined {
+  if (value == null || value.trim() === '') return undefined;
+  const v = value.trim().toLowerCase();
+  if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return true;
+  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
+  return undefined;
+}
 
 function toInt(value: string | undefined): number | undefined {
   if (value == null || value.trim() === '') return undefined;
@@ -82,6 +91,15 @@ function envLayer(env: NodeJS.ProcessEnv): Partial<WavegridConfig> {
   }
   if (env.ROUTING_CONFIG) osc.routingConfig = env.ROUTING_CONFIG;
   if (Object.keys(osc).length > 0) out.osc = osc;
+
+  // Config sync — a runtime kill switch for replication (WG_SYNC_ENABLED=0)
+  // and the secrets gate (WG_SYNC_SECRETS=1).
+  const sync: Partial<WavegridConfig['sync']> = {};
+  const syncEnabled = toBool(env.WG_SYNC_ENABLED);
+  if (syncEnabled != null) sync.enabled = syncEnabled;
+  const syncSecrets = toBool(env.WG_SYNC_SECRETS);
+  if (syncSecrets != null) sync.secrets = syncSecrets;
+  if (Object.keys(sync).length > 0) out.sync = { ...DEFAULT_CONFIG.sync, ...sync };
 
   // Debug
   const debug: Partial<WavegridConfig['debug']> = {};

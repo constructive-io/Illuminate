@@ -136,6 +136,20 @@ export interface DebugConfig {
   uiPort?: number;
 }
 
+/**
+ * Config-sync behaviour. Sync is server-mediated (workstream F): the brain
+ * serializes writes and broadcasts revisions. Off means edits stay local to
+ * the laptop that made them — a one-laptop show never needs it on, and an
+ * operator can pin a device offline. Secrets never ride the sync channel
+ * unless `secrets` is explicitly enabled.
+ */
+export interface SyncConfig {
+  /** Master switch for config replication. Default on. */
+  enabled: boolean;
+  /** Allow project secrets to replicate over sync. Default off. */
+  secrets: boolean;
+}
+
 export interface WavegridConfig {
   layout: LayoutSpec;
   /**
@@ -150,5 +164,6 @@ export interface WavegridConfig {
   ui: UiConfig;
   receiver: ReceiverConfig;
   osc: OscConfig;
+  sync: SyncConfig;
   debug: DebugConfig;
 }
