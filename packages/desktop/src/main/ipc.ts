@@ -9,7 +9,26 @@ import {
   knownPresets,
   toEditable
 } from '@/main/project-config';
-import type { DeviceInfo, EditableConfig, NewProjectInput, ProjectSummary, ShardRange } from '@/types/ipc';
+import type {
+  DeviceInfo,
+  EditableConfig,
+  NewProjectInput,
+  ProjectSummary,
+  RequiredSecretInfo,
+  ShardRange
+} from '@/types/ipc';
+
+/** Map the store's RequiredSecret[] to the sanitized IPC shape. Never touches
+ *  secret values — only name/description/set cross the bridge. */
+function secretStatus(project: string): RequiredSecretInfo[] {
+  const store = openStore();
+  if (!store.hasProject(project)) return [];
+  return store.requiredSecrets(project).map((s) => ({
+    name: s.name,
+    description: s.description,
+    set: s.set
+  }));
+}
 
 function projectSummaries(): ProjectSummary[] {
   const store = openStore();
@@ -65,6 +84,32 @@ export function registerAllIpc(): void {
     const next = applyEditable(store.getProjectConfig(project), config);
     store.saveProjectConfig(project, next);
     return toEditable(next);
+  });
+
+  ipcMain.handle('users:list', (_e, project: string) => {
+    const store = openStore();
+    return store.hasProject(project) ? store.listUsers(project) : [];
+  });
+  ipcMain.handle('users:add', (_e, project: string, username: string, password: string) => {
+    const store = openStore();
+    // addUser hashes with scrypt and throws on empty username/password; the
+    // password is used here only to hash and is never echoed, returned, or logged.
+    if (store.hasProject(project)) store.addUser(project, username, password);
+    return store.hasProject(project) ? store.listUsers(project) : [];
+  });
+  ipcMain.handle('users:remove', (_e, project: string, username: string) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.removeUser(project, username);
+    return store.hasProject(project) ? store.listUsers(project) : [];
+  });
+
+  ipcMain.handle('secrets:status', (_e, project: string) => secretStatus(project));
+  ipcMain.handle('secrets:generate', (_e, project: string, force: boolean) => {
+    const store = openStore();
+    // Explicit, operator-triggered generation/rotation only. `generateSecrets`
+    // returns which names were generated/kept — never the values themselves.
+    if (store.hasProject(project)) store.generateSecrets(project, { force });
+    return secretStatus(project);
   });
 
   ipcMain.handle('devices:list', (_e, project: string) => devices(project));

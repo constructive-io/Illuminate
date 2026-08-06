@@ -57,6 +57,14 @@ export interface EditableConfig {
   cannonCount: number;
 }
 
+/** A required project secret and whether it is currently set. Only the name,
+ *  description, and presence flag ever cross IPC — never the secret value. */
+export interface RequiredSecretInfo {
+  name: string;
+  description: string;
+  set: boolean;
+}
+
 export interface ShardRange {
   start: number;
   end: number;
@@ -105,6 +113,17 @@ export interface WavegridApi {
     remove(name: string): Promise<ProjectSummary[]>;
     getConfig(project: string): Promise<EditableConfig | null>;
     saveConfig(project: string, config: EditableConfig): Promise<EditableConfig | null>;
+  };
+  users: {
+    list(project: string): Promise<string[]>;
+    add(project: string, username: string, password: string): Promise<string[]>;
+    remove(project: string, username: string): Promise<string[]>;
+  };
+  secrets: {
+    status(project: string): Promise<RequiredSecretInfo[]>;
+    /** Generate missing secrets (or rotate all with force). Returns the updated
+     *  status; secret values are never returned. */
+    generate(project: string, force: boolean): Promise<RequiredSecretInfo[]>;
   };
   devices: {
     list(project: string): Promise<DeviceInfo[]>;

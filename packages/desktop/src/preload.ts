@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, NewProjectInput, ProjectSummary, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, NewProjectInput, ProjectSummary, RequiredSecretInfo, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -25,6 +25,18 @@ const api: WavegridApi = {
     getConfig: (project) => ipcRenderer.invoke('projects:getConfig', project) as Promise<EditableConfig | null>,
     saveConfig: (project, config: EditableConfig) =>
       ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>
+  },
+  users: {
+    list: (project) => ipcRenderer.invoke('users:list', project) as Promise<string[]>,
+    add: (project, username, password) =>
+      ipcRenderer.invoke('users:add', project, username, password) as Promise<string[]>,
+    remove: (project, username) =>
+      ipcRenderer.invoke('users:remove', project, username) as Promise<string[]>
+  },
+  secrets: {
+    status: (project) => ipcRenderer.invoke('secrets:status', project) as Promise<RequiredSecretInfo[]>,
+    generate: (project, force) =>
+      ipcRenderer.invoke('secrets:generate', project, force) as Promise<RequiredSecretInfo[]>
   },
   devices: {
     list: (project) => ipcRenderer.invoke('devices:list', project) as Promise<DeviceInfo[]>,

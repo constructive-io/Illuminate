@@ -1,24 +1,34 @@
-import { Cpu, FolderKanban, MonitorPlay, SlidersHorizontal } from 'lucide-react';
+import { Cpu, FolderKanban, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
 import { type AppNavigationGroup,AppShell } from '@/components/ui/app-shell';
-import { useBrainStatus, useDevices, usePresets,useProjectConfig, useProjects } from '@/renderer/lib/use-wavegrid';
+import {
+  useBrainStatus,
+  useDevices,
+  usePresets,
+  useProjectConfig,
+  useProjects,
+  useProjectSecrets,
+  useProjectUsers
+} from '@/renderer/lib/use-wavegrid';
+import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
 import { DevicesRoute } from '@/renderer/routes/devices-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
 
-type Route = 'show' | 'projects' | 'config' | 'devices';
+type Route = 'show' | 'projects' | 'config' | 'access' | 'devices';
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
   projects: 'Projects',
   config: 'Config',
+  access: 'Users & Secrets',
   devices: 'Devices'
 };
 
-const ROUTES: Route[] = ['show', 'projects', 'config', 'devices'];
+const ROUTES: Route[] = ['show', 'projects', 'config', 'access', 'devices'];
 
 export function App() {
   const [route, setRoute] = React.useState<Route>('show');
@@ -38,6 +48,17 @@ export function App() {
   const editingProject = configProject ?? activeProject;
   const { config, loading: configLoading, refresh: refreshConfig, save: saveConfig } =
     useProjectConfig(editingProject);
+  const {
+    users,
+    refresh: refreshUsers,
+    add: addUser,
+    remove: removeUser
+  } = useProjectUsers(editingProject);
+  const {
+    secrets,
+    refresh: refreshSecrets,
+    generate: generateSecrets
+  } = useProjectSecrets(editingProject);
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -100,6 +121,15 @@ export function App() {
     setRoute('config');
   }, []);
 
+  const withBusy = React.useCallback(async (fn: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const onSaveConfig = React.useCallback(
     async (next: Parameters<typeof saveConfig>[0]) => {
       setBusy(true);
@@ -154,6 +184,13 @@ export function App() {
           isActive: route === 'config'
         },
         {
+          id: 'access',
+          label: 'Users & Secrets',
+          href: '#access',
+          icon: ShieldCheck,
+          isActive: route === 'access'
+        },
+        {
           id: 'devices',
           label: 'Devices',
           href: '#devices',
@@ -169,7 +206,11 @@ export function App() {
     if (route === 'projects') void refresh();
     if (route === 'devices') void refreshDevices();
     if (route === 'config') void refreshConfig();
-  }, [route, refresh, refreshDevices, refreshConfig]);
+    if (route === 'access') {
+      void refreshUsers();
+      void refreshSecrets();
+    }
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSecrets]);
 
   return (
     <AppShell
@@ -207,6 +248,17 @@ export function App() {
           config={config}
           loading={configLoading}
           onSave={onSaveConfig}
+          busy={busy}
+        />
+      )}
+      {route === 'access' && (
+        <AccessRoute
+          project={editingProject}
+          users={users}
+          secrets={secrets}
+          onAddUser={(u, p) => withBusy(() => addUser(u, p))}
+          onRemoveUser={(u) => void withBusy(() => removeUser(u))}
+          onGenerateSecrets={(force) => void withBusy(() => generateSecrets(force))}
           busy={busy}
         />
       )}

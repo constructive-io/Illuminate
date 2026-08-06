@@ -1,6 +1,14 @@
 import * as React from 'react';
 
-import type { BrainStatus, DeviceInfo, EditableConfig, NewProjectInput, ProjectSummary, ShardRange } from '@/types/ipc';
+import type {
+  BrainStatus,
+  DeviceInfo,
+  EditableConfig,
+  NewProjectInput,
+  ProjectSummary,
+  RequiredSecretInfo,
+  ShardRange
+} from '@/types/ipc';
 
 const EMPTY_STATUS: BrainStatus = {
   running: false,
@@ -116,6 +124,79 @@ export function useProjectConfig(project: string | null): {
   }, [refresh]);
 
   return { config, loading, refresh, save };
+}
+
+/** UI login users for a project (names only — password hashes never leave main).
+ *  add/remove write straight through to the scrypt-backed store. */
+export function useProjectUsers(project: string | null): {
+  users: string[];
+  refresh: () => Promise<void>;
+  add: (username: string, password: string) => Promise<void>;
+  remove: (username: string) => Promise<void>;
+  } {
+  const [users, setUsers] = React.useState<string[]>([]);
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setUsers([]);
+      return;
+    }
+    setUsers(await window.wavegrid.users.list(project));
+  }, [project]);
+
+  const add = React.useCallback(
+    async (username: string, password: string) => {
+      if (!project) return;
+      setUsers(await window.wavegrid.users.add(project, username, password));
+    },
+    [project]
+  );
+
+  const remove = React.useCallback(
+    async (username: string) => {
+      if (!project) return;
+      setUsers(await window.wavegrid.users.remove(project, username));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { users, refresh, add, remove };
+}
+
+/** Required-secret status for a project (name/description/set only). `generate`
+ *  triggers one-time generation, or rotation with force=true. */
+export function useProjectSecrets(project: string | null): {
+  secrets: RequiredSecretInfo[];
+  refresh: () => Promise<void>;
+  generate: (force: boolean) => Promise<void>;
+  } {
+  const [secrets, setSecrets] = React.useState<RequiredSecretInfo[]>([]);
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setSecrets([]);
+      return;
+    }
+    setSecrets(await window.wavegrid.secrets.status(project));
+  }, [project]);
+
+  const generate = React.useCallback(
+    async (force: boolean) => {
+      if (!project) return;
+      setSecrets(await window.wavegrid.secrets.generate(project, force));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { secrets, refresh, generate };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.
