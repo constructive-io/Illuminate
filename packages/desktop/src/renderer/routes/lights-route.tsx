@@ -1,4 +1,4 @@
-import { AlertTriangle, Lightbulb, RotateCcw, Save, Sparkles, Wand2, Zap } from 'lucide-react';
+import { AlertTriangle, FilePlus2, Lightbulb, RotateCcw, Save, Sparkles, Trash2, Wand2, Zap } from 'lucide-react';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +27,9 @@ interface LightsRouteProps {
   project: string | null;
   view: LightMapView | null;
   loading: boolean;
-  onRemap: (physicalLights: number[]) => void;
+  onSaveMap: (name: string, physicalLights: number[]) => void;
+  onActivate: (name: string | null) => void;
+  onDeleteMap: (name: string) => void;
   onAutoMap: (strategyId: string) => Promise<number[] | null>;
   onIdentify: (physicalIndex: number) => Promise<boolean>;
   onIdentifyClear: () => Promise<void>;
@@ -39,16 +41,19 @@ interface LightsRouteProps {
 /**
  * Light-map debugger. Identity is the default — a healthy rig needs no map. The
  * canvas lays fixtures out in their real geometry (grid or ring); tap one to
- * select it, then re-assign the physical output it's wired to (a swap that keeps
- * the map a valid permutation) or flash it on the live rig to see which laser it
- * is. Deterministic auto-map heuristics propose whole permutations to try. Every
- * change is a draft until Save, which writes the same light-map.json the brain reads.
+ * select it, then set the physical output it's wired to (duplicates are flagged,
+ * not auto-swapped) or flash it on the live rig to see which laser it is.
+ * Deterministic auto-map heuristics propose whole permutations to try. Maps are
+ * saved by name into the project's library; the active one is materialized into
+ * the same light-map.json the brain reads (or none = identity).
  */
 export function LightsRoute({
   project,
   view,
   loading,
-  onRemap,
+  onSaveMap,
+  onActivate,
+  onDeleteMap,
   onAutoMap,
   onIdentify,
   onIdentifyClear,
@@ -60,6 +65,7 @@ export function LightsRoute({
   const [selected, setSelected] = React.useState<number | null>(null);
   const [strategy, setStrategy] = React.useState('');
   const [identifyOn, setIdentifyOn] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
 
   React.useEffect(() => {
     if (view) setDraft(view.physicalLights);
@@ -135,6 +141,10 @@ export function LightsRoute({
 
   const resetIdentity = () => setDraft(Array.from({ length: N }, (_, i) => i));
 
+  const activeMap = view.activeMap;
+  const trimmedName = newName.trim();
+  const nameExists = view.maps.some((m) => m.name === trimmedName);
+
   const applyStrategy = async (id: string) => {
     if (!id) return;
     const candidate = await onAutoMap(id);
@@ -179,9 +189,13 @@ export function LightsRoute({
             <RotateCcw />
             Revert
           </Button>
-          <Button size='sm' disabled={busy || !dirty || hasConflicts} onClick={() => onRemap(draft)}>
+          <Button
+            size='sm'
+            disabled={busy || activeMap == null || !dirty || hasConflicts}
+            onClick={() => activeMap && onSaveMap(activeMap, draft)}
+          >
             <Save />
-            Save mapping
+            {activeMap ? `Save “${activeMap}”` : 'Save'}
           </Button>
         </div>
       </div>
@@ -196,6 +210,63 @@ export function LightsRoute({
           </span>
         </div>
       )}
+
+      {/* Mapping library: pick which saved correction is active (or none = identity). */}
+      <div className='flex flex-wrap items-end gap-3 rounded-md border p-3'>
+        <div className='flex flex-col gap-1'>
+          <span className='text-muted-foreground text-xs'>Active mapping</span>
+          <select
+            className='border-input bg-background h-9 min-w-48 rounded-md border px-2 text-sm'
+            value={activeMap ?? ''}
+            disabled={busy}
+            onChange={(e) => onActivate(e.target.value || null)}
+          >
+            <option value=''>None (identity — no correction)</option>
+            {view.maps.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {activeMap && (
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={busy}
+            onClick={() => onDeleteMap(activeMap)}
+          >
+            <Trash2 />
+            Delete “{activeMap}”
+          </Button>
+        )}
+        <Separator orientation='vertical' className='h-9' />
+        <div className='flex flex-col gap-1'>
+          <span className='text-muted-foreground text-xs'>Save current as</span>
+          <div className='flex items-center gap-2'>
+            <Input
+              className='h-9 w-44'
+              placeholder='new map name'
+              value={newName}
+              disabled={busy}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={busy || trimmedName.length === 0 || hasConflicts}
+              onClick={() => {
+                onSaveMap(trimmedName, draft);
+                onActivate(trimmedName);
+                setNewName('');
+              }}
+            >
+              <FilePlus2 />
+              {nameExists ? 'Overwrite' : 'Save as'}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <p className='text-muted-foreground text-sm'>
         Identity (physical = logical) is the default — you only need a map when the

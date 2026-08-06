@@ -103,8 +103,17 @@ export interface AutoMapStrategyInfo {
   description: string;
 }
 
+/** One entry in a project's saved-map library. */
+export interface LightMapEntry {
+  name: string;
+  numCannons: number;
+  updatedAt: string;
+  active: boolean;
+}
+
 /** The whole light-map debugger view for a project. `physicalLights` is the raw
- *  normalized mapping the editor mutates; `rows` is the resolved per-fixture view. */
+ *  normalized mapping the editor mutates (the active map, or identity); `rows` is
+ *  the resolved per-fixture view. */
 export interface LightMapView {
   project: string;
   layoutName: string;
@@ -113,10 +122,14 @@ export interface LightMapView {
   gridColumns: number;
   physicalLights: number[];
   rows: FixtureRow[];
-  /** True when the map is pure identity — no correction file needed. */
+  /** True when the active map is pure identity — no correction needed. */
   identity: boolean;
   /** Deterministic auto-map candidates valid for this layout. */
   strategies: AutoMapStrategyInfo[];
+  /** Saved named maps in the project's library. */
+  maps: LightMapEntry[];
+  /** The active map's name, or null for identity / no correction. */
+  activeMap: string | null;
 }
 
 /** A device that has joined a project — the project-scoped registry the CLI's
@@ -182,8 +195,12 @@ export interface WavegridApi {
   lights: {
     /** Resolve the full mapping-chain view for a project. */
     view(project: string): Promise<LightMapView | null>;
-    /** Persist a new physical mapping (normalized) and return the fresh view. */
-    remap(project: string, physicalLights: number[]): Promise<LightMapView | null>;
+    /** Create/overwrite a named map (re-materializes the runtime file if active). */
+    saveMap(project: string, name: string, physicalLights: number[]): Promise<LightMapView | null>;
+    /** Set the active map (name), or null for identity / no correction. */
+    activate(project: string, name: string | null): Promise<LightMapView | null>;
+    /** Delete a named map (falls back to identity if it was active). */
+    deleteMap(project: string, name: string): Promise<LightMapView | null>;
     /** Build (but do not save) a candidate map from a deterministic heuristic. */
     autoMap(project: string, strategyId: string): Promise<number[] | null>;
     /** Flash one physical light on the running rig so the operator can see which

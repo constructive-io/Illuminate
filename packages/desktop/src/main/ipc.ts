@@ -4,7 +4,7 @@ import { ipcMain } from 'electron';
 
 import { sendToBrain, startBrain, status, stopBrain } from '@/main/brain';
 import { type LaserSyncState, syncLaser } from '@/main/laser-view';
-import { buildLightMapView, readLightMap, writeLightMap } from '@/main/light-map';
+import { buildLightMapView } from '@/main/light-map';
 import {
   applyEditable,
   configForNewProject,
@@ -22,27 +22,23 @@ import type {
 } from '@/types/ipc';
 
 /** Resolve the light-map debugger view for a project from the shared store:
- *  layout + device shards + the normalized on-disk map. */
+ *  layout + device shards + the ACTIVE named map (or identity) + the library. */
 function lightMapView(project: string): LightMapView | null {
   const store = openStore();
   if (!store.hasProject(project)) return null;
   const config = store.getProjectConfig(project);
   const devices = store.listDevices(project).map((d) => ({ name: d.name, shard: d.shard }));
+  const activeMap = store.getActiveLightMap(project);
+  // The store is authoritative: the editor shows the active named map, or
+  // identity when none is active — not any stale runtime file.
+  const active = activeMap ? store.readLightMap(project, activeMap) : null;
   return buildLightMapView({
     project,
     config,
     devices,
-    stored: readLightMapForProject(project)
-  });
-}
-
-/** Read the normalized on-disk map for a project (dims come from its layout). */
-function readLightMapForProject(project: string) {
-  const store = openStore();
-  const layout = resolveLayout(store.getProjectConfig(project)?.layout ?? { preset: 'grid-7x7' });
-  return readLightMap(store.stateDir(project), {
-    numCannons: layout.count,
-    gridColumns: layout.cols
+    stored: active ? { physicalLights: active.physicalLights } : null,
+    maps: store.listLightMaps(project),
+    activeMap
   });
 }
 
@@ -153,17 +149,29 @@ export function registerAllIpc(): void {
   });
 
   ipcMain.handle('lights:view', (_e, project: string) => lightMapView(project));
-  ipcMain.handle('lights:remap', (_e, project: string, physicalLights: number[]) => {
+  ipcMain.handle('lights:saveMap', (_e, project: string, name: string, physicalLights: number[]) => {
     const store = openStore();
     if (!store.hasProject(project)) return null;
     const layout = resolveLayout(store.getProjectConfig(project)?.layout ?? { preset: 'grid-7x7' });
-    // Persist to the SAME file the running brain reads; normalization keeps the
-    // map a valid permutation (drops dupes/out-of-range, back-fills identity).
-    writeLightMap(
-      store.stateDir(project),
-      { numCannons: layout.count, gridColumns: layout.cols },
+    // Persist a named correction map. Normalization keeps it a valid permutation;
+    // if it is the active map the store re-materializes the runtime light-map.json.
+    store.saveLightMap(project, name, {
+      numCannons: layout.count,
+      gridColumns: layout.cols,
       physicalLights
-    );
+    });
+    return lightMapView(project);
+  });
+  ipcMain.handle('lights:activate', (_e, project: string, name: string | null) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    store.setActiveLightMap(project, name);
+    return lightMapView(project);
+  });
+  ipcMain.handle('lights:deleteMap', (_e, project: string, name: string) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    store.deleteLightMap(project, name);
     return lightMapView(project);
   });
   ipcMain.handle('lights:autoMap', (_e, project: string, strategyId: string) => {
