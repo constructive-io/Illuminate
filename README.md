@@ -12,31 +12,30 @@
 
 ## Overview
 
-**Wavegrid** is a modular laser grid controller for arrays of Laser Space Cannons on Global Truss F34 structures. It includes a grid state server, an artist-facing creative canvas, and OSC output adapters for BEYOND and FB4 hardware.
+**Wavegrid** is a modular, configuration-driven laser controller for arrays of Laser Space Cannons. It includes a grid state server, an artist-facing creative canvas, and OSC output adapters for BEYOND and FB4 hardware.
 
-Grid size defaults to 7x7 (49 cannons) but is fully configurable for any layout.
+Layouts are presets, not code: `grid-7x7`, `grid-7x2`, `ring-6`, `ring-25-filled`, or any custom shape. Everything — projects, config, secrets, users, state, logs — lives in one centralized store (`~/.wavegrid`), managed entirely through the CLI.
 
-## Run Locally 
-
-The stack is two processes. The **server serves the UI + API + WebSocket on one port** (the UI is a static Vite build — no separate UI server), and the receiver drives OSC. The browser derives its WebSocket URL from the page origin, so there is no `NEXT_PUBLIC_SIMULATOR_URL` / UI URL to configure.
-
-| Process | Script | Port | Role |
-|---|---|---|---|
-| Server | `pnpm dev:server` | `:3000` | grid state engine + UI + API + WebSocket |
-| Receiver | `pnpm dev:receiver` | — | brain → OSC to BEYOND |
-
-For a prod-parity run on localhost (builds the UI, then boots server + receiver in one terminal, `Ctrl-C` stops everything):
+## Running a Show (operators)
 
 ```sh
-deploy/local.sh                # build UI (Vite) + start server + receiver
-deploy/local.sh --skip-build   # reuse the last UI build
+npm i -g @wavegrid/cli
+
+wavegrid projects create ring-demo   # pick a layout preset + run mode; secrets generated once
+wavegrid projects users add admin    # UI login (scrypt-hashed, stored centrally)
+wavegrid start                       # server + UI + API + WebSocket + receiver, one process, LAN-only
+
+wavegrid doctor                      # diagnose anything — local checks + whole-installation view
 ```
 
-Then open **http://localhost:3000**. The receiver emits OSC only when `BEYOND_HOST` / `ROUTING_CONFIG` is set, so it's safe to run with no hardware attached.
+For a distributed show, run the brain and receivers separately: `wavegrid server` (server + UI + API + WebSocket, no receiver) on the host, and `wavegrid receiver --server ws://<host>:<port> --shard <a-b>` on each receiver laptop.
 
-For a real installation, prefer the CLI: `wavegrid start` (one laptop: server + UI + receiver) or `wavegrid server` + `wavegrid receiver` (distributed). See the operator skills under `.agents/skills/`.
+Bare `wavegrid` (or any command group) opens an interactive menu — every layer prompts. Full operator walkthroughs live in the agent skills (see [Agent Skills](#agent-skills)):
 
-## Getting Started
+- **Simple show** (one laptop, up to ~40 cannons): [`.agents/skills/wavegrid-simple-show`](.agents/skills/wavegrid-simple-show/SKILL.md)
+- **Distributed show** (multiple laptops, sharded receivers): [`.agents/skills/wavegrid-distributed-show`](.agents/skills/wavegrid-distributed-show/SKILL.md)
+
+## Getting Started (contributors)
 
 ```sh
 pnpm install
@@ -54,7 +53,10 @@ pnpm build
 | Package | Name | Description |
 |---------|------|-------------|
 | `packages/server` | `@wavegrid/server` | Grid state engine and master controller UI |
-| `packages/ui` | `@wavegrid/ui` | Next.js artist UI — Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio |
+| `packages/ui` | `@wavegrid/ui` | Artist UI — Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio |
+| `packages/layout` | `@wavegrid/layout` | Layout model — presets, fixture generators (grid/ring/filledRing), config resolution |
+| `packages/settings` | `@wavegrid/settings` | Centralized appstash store — projects, secrets, users, state, logs |
+| `packages/cli` | `@wavegrid/cli` | `wavegrid` CLI — projects, settings, start, doctor |
 | `packages/receiver` | `@wavegrid/receiver` | Receiver brain — LP filter, sine fallback, pluggable adapter pattern |
 | `packages/osc` | `@wavegrid/osc` | OSC output adapters for BEYOND and FB4 laser hardware |
 | `packages/webgl` | `@wavegrid/webgl` | Three.js 3D Civic Center viewer — volumetric laser beams, bloom, camera presets |
@@ -78,12 +80,12 @@ pnpm build
                                                     └──────────────┘
 ```
 
-- **Server** — grid state engine with exponential low-pass filtering. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change.
-- **UI** — a static Vite/React artist-facing creative instrument served by the server on its own port. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI.
+- **Server** — grid state engine with exponential low-pass filtering. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change. Layout-driven: resolves the active project's layout preset from the store, and serves the UI + API + WebSocket on one port.
+- **UI** — a static Vite/React artist-facing creative instrument served by the server on the same origin. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI. Renders whatever layout the server resolves — grids, rings, filled rings.
 - **Receiver** — the "brain" that controls physical hardware. Runs its own independent LP filter so output never jolts. On signal loss, smoothly transitions into ambient 3D sine waves. Pluggable input/output adapters.
 - **OSC** — output adapters for Pangolin BEYOND and FB4 laser hardware. HSB-to-RGB color conversion, per-cannon routing via JSON config.
 
-## Running
+## Running (development)
 
 ```sh
 # Start the stack (each in its own terminal)
@@ -97,29 +99,21 @@ pnpm dev:ui        # http://localhost:3003
 pnpm dev:webgl     # 3D Civic Center viewer at :3004
 ```
 
-## Configurable Grid Size
+Operators don't run these — they use `wavegrid start` (see [Running a Show](#running-a-show-operators)).
 
-Everything defaults to 7x7 (49 cannons). Layout is config-driven — pick a built-in preset (or author a custom layout) via the project config:
+## Layouts
+
+The physical arrangement is a **layout preset** stored in the project — never code. Built-in presets: `grid-7x7`, `grid-7x2`, `ring-6`, `ring-25-filled`. Pick one at `wavegrid projects create`, or change it later:
 
 ```sh
 wavegrid projects config set layout grid-7x7   # or ring-6, ring-25-filled, …
 ```
 
-The server resolves the layout once and broadcasts it; the UI and receiver render from it — no per-process `NUM_CANNONS`/`GRID_COLUMNS` to keep in sync.
+The server resolves the layout once and broadcasts it; the UI and receiver render from it — no per-process `NUM_CANNONS`/`GRID_COLUMNS` to keep in sync. The project *name* is just a label — the preset controls the shape.
 
 ## Sharding
 
-Split the grid across multiple receivers when hardware limits apply:
-
-```sh
-# Laptop A (40 cannons)
-SHARD_START=0 SHARD_END=39 pnpm dev:receiver
-
-# Laptop B (9 cannons)
-SHARD_START=40 SHARD_END=48 pnpm dev:receiver
-```
-
-Both connect to the same server. The UI stays unified.
+Split the cannons across multiple receiver laptops when hardware limits apply — each receiver drives its shard range, all connecting to the same server, the UI stays unified. `wavegrid doctor` shows shard coverage with gaps/overlaps across the whole installation. See the [distributed show skill](.agents/skills/wavegrid-distributed-show/SKILL.md) for the full multi-laptop walkthrough.
 
 ## Data Flow
 
@@ -143,15 +137,11 @@ The UI never sends OSC — only the **Receiver** talks to laser hardware:
 
 ### Local (all-in-one)
 
-For a live event where everything runs on a single machine at the venue:
+For a live event where everything runs on a single machine at the venue, use the CLI (see the [simple show skill](.agents/skills/wavegrid-simple-show/SKILL.md)):
 
 ```sh
-pnpm dev:server                          # :3000 (master controller)
-pnpm dev:ui                              # :3003 (artist UI)
-pnpm dev:receiver                        # brain → hardware
+wavegrid start        # server + receiver, one process; iPads connect to the UI on the LAN
 ```
-
-iPads connect to `http://<machine-ip>:3003` for the UI.
 
 ### Remote (cloud server + on-site hardware)
 
@@ -280,19 +270,26 @@ The receiver sends 5 OSC messages per changed cannon: `alpha` (255 = full overri
 
 ### User Authentication
 
-The UI has a login screen that protects access. Users live in the appstash store per project (scrypt-hashed), managed via the CLI:
+The UI has a login screen backed by the centralized store — users are scrypt-hashed, per project, managed entirely through the CLI:
 
 ```sh
-wavegrid projects users add admin
+wavegrid projects users add admin     # prompts for a password
 wavegrid projects users list
+wavegrid projects users rm <name>
 ```
 
-When a project has at least one user, the UI shows a login screen; the server verifies against the store and issues a JWT signed with the store-authoritative secret.
+When the active project has users, the UI requires login; with none, login is unavailable (503) — add a user first. Session tokens are JWTs signed with the project's store-held `jwtSecret` (generated once at project creation; the store is authoritative on both UI and server, so they can never desync).
 
 ### Environment Variables Reference
 
+Project config lives in the store (`wavegrid projects config`) — env vars are explicit overrides only. Config hijacking via generic vars is disabled: only namespaced `WAVEGRID_*` values are honored.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `WAVEGRID_PORT` / `WAVEGRID_HOST` | store value | Server bind override |
+| `WAVEGRID_PROJECT` | store active project | Project selection override |
+| `APPSTASH_BASE_DIR` | `~/.wavegrid` | Relocate the entire store |
+| `WG_RECEIVER_KEY` | store value | Receiver auth key (override to share across laptops) |
 | `SIMULATOR_URL` | `ws://localhost:3000` | WebSocket upstream for the receiver |
 | `BEYOND_HOST` | — | BEYOND PC IP (enables OSC output) |
 | `BEYOND_PORT` | `7001` | BEYOND OSC receive port |
@@ -303,6 +300,19 @@ When a project has at least one user, the UI shows a login screen; the server ve
 | `FALLBACK_DELAY` | `3000` | Ms before sine fallback on signal loss |
 | `FB4_HOST` / `FB4_PORT` | — | FB4 device IP and port (default port 8000) |
 | `ROUTING_CONFIG` | — | Path to JSON routing config file |
+
+## Agent Skills
+
+Repository skills in [`.agents/skills/`](.agents/skills/) document the canonical workflows for humans and AI agents:
+
+| Skill | What it covers |
+|---|---|
+| [`wavegrid-simple-show`](.agents/skills/wavegrid-simple-show/SKILL.md) | The one-laptop golden path: install, create a project, add users, `start`, doctor, troubleshooting |
+| [`wavegrid-distributed-show`](.agents/skills/wavegrid-distributed-show/SKILL.md) | Multi-laptop shows: brain + sharded receivers, device identity & discovery, provisioning, export/import, config sync |
+| [`testing-wavegrid-command-mode`](.agents/skills/testing-wavegrid-command-mode/SKILL.md) | Testing command-mode changes end-to-end (unit + WS integration) |
+| [`wavegrid-js-patterns`](.agents/skills/wavegrid-js-patterns/SKILL.md) | Writing dynamic JS patterns for receivers via `evalPattern` |
+
+The umbrella roadmap (one brain service, device identity/discovery, provisioning, export/import, sync) is tracked in [constructive-planning#1465](https://github.com/constructive-io/constructive-planning/issues/1465).
 
 ## Credits
 
