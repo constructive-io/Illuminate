@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/next-with-port.cjs dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/next-with-port.cjs start",
     "lint": "next lint",
     "test": "jest --passWithNoTests"
   },
