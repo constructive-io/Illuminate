@@ -1,8 +1,9 @@
+import { openStore } from '@wavegrid/settings';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { applyShardFlag } from '../src/commands/runtime';
+import { applyAssignedShard, applyShardFlag, parseShardRange } from '../src/commands/runtime';
 import { runReceiver } from '../src/commands/receiver';
 import { runServer } from '../src/commands/server';
 import { buildConfig, CONFIG_FILENAME, serializeConfig } from '../src/config-file';
@@ -40,6 +41,59 @@ describe('applyShardFlag', () => {
   it('rejects a reversed or malformed range', () => {
     expect(applyShardFlag('24-0')).toBe(false);
     expect(applyShardFlag('abc')).toBe(false);
+  });
+
+  it('treats `all` as no restriction (does not set env)', () => {
+    expect(applyShardFlag('all')).toBe(true);
+    expect(process.env.SHARD_START).toBeUndefined();
+  });
+});
+
+describe('parseShardRange', () => {
+  it('parses ranges, single indices, and clear-words', () => {
+    expect(parseShardRange('0-24')).toEqual({ start: 0, end: 24 });
+    expect(parseShardRange('7')).toEqual({ start: 7, end: 7 });
+    expect(parseShardRange('all')).toBeNull();
+    expect(parseShardRange('none')).toBeNull();
+    expect(parseShardRange('')).toBeNull();
+    expect(parseShardRange('24-0')).toBe('invalid');
+    expect(parseShardRange('nope')).toBe('invalid');
+  });
+});
+
+describe('applyAssignedShard', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  function storeWithDevice(shard: { start: number; end: number } | null) {
+    const store = openStore({ baseDir: mkdtempSync(join(tmpdir(), 'wg-assign-')) });
+    store.registerDevice('demo', { id: 'dev-1', name: 'stage-left' });
+    if (shard) store.assignShard('demo', 'dev-1', shard);
+    return store;
+  }
+
+  it('applies this device\'s assigned shard when no explicit shard is set', () => {
+    delete process.env.SHARD_START;
+    delete process.env.SHARD_END;
+    applyAssignedShard(storeWithDevice({ start: 0, end: 24 }), 'demo', 'dev-1');
+    expect(process.env.SHARD_START).toBe('0');
+    expect(process.env.SHARD_END).toBe('24');
+  });
+
+  it('does not override an explicit --shard (env already set)', () => {
+    process.env.SHARD_START = '10';
+    process.env.SHARD_END = '20';
+    applyAssignedShard(storeWithDevice({ start: 0, end: 5 }), 'demo', 'dev-1');
+    expect(process.env.SHARD_START).toBe('10');
+    expect(process.env.SHARD_END).toBe('20');
+  });
+
+  it('is a no-op when the device has no assigned shard', () => {
+    delete process.env.SHARD_START;
+    applyAssignedShard(storeWithDevice(null), 'demo', 'dev-1');
+    expect(process.env.SHARD_START).toBeUndefined();
   });
 });
 

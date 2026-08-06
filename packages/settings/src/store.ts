@@ -27,6 +27,7 @@ import {
   setActiveProject
 } from './projects';
 import {
+  assignShard,
   type DeviceRecord,
   type DeviceRegistration,
   getDeviceRecord,
@@ -102,6 +103,7 @@ export interface SettingsStore {
   getDeviceRecord(project: string, id: string): DeviceRecord | null;
   registerDevice(project: string, reg: DeviceRegistration): DeviceRecord;
   renameDevice(project: string, idOrName: string, newName: string): DeviceRecord | null;
+  assignShard(project: string, idOrName: string, shard: { start: number; end: number } | null): DeviceRecord | null;
   removeDevice(project: string, idOrName: string): boolean;
 
   // Portable project export/import (machine identity + IPs never travel)
@@ -152,6 +154,7 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     getDeviceRecord: (project, id) => getDeviceRecord(paths, project, id),
     registerDevice: (project, reg) => registerDevice(paths, project, reg),
     renameDevice: (project, idOrName, newName) => renameDevice(paths, project, idOrName, newName),
+    assignShard: (project, idOrName, shard) => assignShard(paths, project, idOrName, shard),
     removeDevice: (project, idOrName) => removeDevice(paths, project, idOrName),
 
     exportProject: (project, o) => exportProject(paths, project, o),

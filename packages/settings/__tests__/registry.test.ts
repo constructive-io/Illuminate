@@ -52,6 +52,19 @@ describe('project device registry', () => {
     expect(() => store.renameDevice('demo', 'dev-1', '  ')).toThrow(/empty/i);
   });
 
+  it('assigns and clears a device shard by id or name', () => {
+    const store = openStore({ baseDir: tmpBase() });
+    store.registerDevice('demo', { id: 'dev-1', name: 'one' });
+    expect(store.assignShard('demo', 'one', { start: 0, end: 24 })?.shard).toEqual({ start: 0, end: 24 });
+    expect(store.getDeviceRecord('demo', 'dev-1')?.shard).toEqual({ start: 0, end: 24 });
+    // re-assign by id
+    expect(store.assignShard('demo', 'dev-1', { start: 25, end: 49 })?.shard).toEqual({ start: 25, end: 49 });
+    // clear
+    expect(store.assignShard('demo', 'dev-1', null)?.shard).toBeNull();
+    // missing device
+    expect(store.assignShard('demo', 'ghost', { start: 0, end: 1 })).toBeNull();
+  });
+
   it('removes by id or name', () => {
     const store = openStore({ baseDir: tmpBase() });
     store.registerDevice('demo', { id: 'dev-1', name: 'one' });
