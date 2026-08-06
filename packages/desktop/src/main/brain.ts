@@ -1,0 +1,149 @@
+/**
+ * The one brain, owned by the Electron main process. This is the desktop
+ * equivalent of `wavegrid start`: it reuses @wavegrid/settings (the appstash
+ * store) and @wavegrid/server / @wavegrid/receiver in-process, so Desktop and
+ * the CLI drive the exact same store and runtime — no second server, no
+ * duplicated business logic.
+ */
+import { createRequire } from 'node:module';
+import { networkInterfaces } from 'node:os';
+import { join } from 'node:path';
+
+import { loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
+import type { ReceiverHandle } from '@wavegrid/receiver';
+import type { ServerHandle } from '@wavegrid/server';
+import { openStore, type SettingsStore } from '@wavegrid/settings';
+
+import { runtime, sendToRenderer } from '@/main/runtime';
+import type { BrainStatus } from '@/types/ipc';
+
+const require = createRequire(import.meta.url);
+
+interface RunningBrain {
+  project: string;
+  url: string;
+  runMode: BrainStatus['runMode'];
+  server: ServerHandle;
+  receiver: ReceiverHandle | null;
+}
+
+let current: RunningBrain | null = null;
+
+/** IPv4 LAN addresses — the URLs operators point iPads / receivers at. */
+function lanAddresses(): string[] {
+  const out: string[] = [];
+  const ifaces = networkInterfaces();
+  for (const entries of Object.values(ifaces)) {
+    for (const net of entries ?? []) {
+      if (net.family === 'IPv4' && !net.internal) out.push(net.address);
+    }
+  }
+  return out;
+}
+
+/** Locate the built @wavegrid/ui `dist/` so the brain serves the real laser UI. */
+function resolveUiDir(): string | undefined {
+  if (process.env.WG_UI_DIR) return process.env.WG_UI_DIR;
+  try {
+    return join(require.resolve('@wavegrid/ui/package.json'), '..', 'dist');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Wire the env the in-process server reads (mirrors the CLI's `applyServerEnv`).
+ * The store is authoritative for the JWT secret — a stale ambient value would
+ * desync UI/server and 401 the WebSocket upgrade.
+ */
+function applyServerEnv(store: SettingsStore, project: string): void {
+  store.generateSecrets(project); // idempotent: fills any missing secrets
+  process.env.WG_JWT_SECRET = store.requireSecret(project, 'jwtSecret');
+  if (!process.env.WG_RECEIVER_KEY) process.env.WG_RECEIVER_KEY = store.requireSecret(project, 'receiverKey');
+  process.env.WG_STATE_DIR = store.stateDir(project);
+  const uiDir = resolveUiDir();
+  if (uiDir) process.env.WG_UI_DIR = uiDir;
+}
+
+function applyReceiverEnv(store: SettingsStore, project: string): void {
+  if (!process.env.WG_RECEIVER_KEY) process.env.WG_RECEIVER_KEY = store.requireSecret(project, 'receiverKey');
+  process.env.WG_STATE_DIR = store.stateDir(project);
+  process.env.RECEIVER_LOG = join(store.logsDir(project), 'receiver.log');
+  const device = store.getDevice();
+  process.env.WG_DEVICE_ID = device.id;
+  process.env.WG_DEVICE_NAME = device.name;
+}
+
+export function status(): BrainStatus {
+  const s: BrainStatus = current
+    ? {
+      running: true,
+      url: current.url,
+      project: current.project,
+      runMode: current.runMode,
+      lanUrls: lanAddresses().map((ip) => `http://${ip}:${new URL(current!.url).port}`)
+    }
+    : { running: false, url: null, project: null, runMode: null, lanUrls: [] };
+  runtime.lastStatus = s;
+  return s;
+}
+
+function broadcast(): BrainStatus {
+  const s = status();
+  sendToRenderer('brain:status', s);
+  return s;
+}
+
+export async function startBrain(project: string): Promise<BrainStatus> {
+  if (current) await stopBrain();
+
+  const store = openStore();
+  if (!store.hasProject(project)) throw new Error(`Unknown project: ${project}`);
+  if (store.getActiveProject() !== project) store.setActiveProject(project);
+
+  const resolved: ResolvedConfig = loadWavegridConfig();
+  applyServerEnv(store, project);
+  applyReceiverEnv(store, project);
+
+  const { startServer } = await import('@wavegrid/server');
+  const server = startServer(resolved);
+  // Let the server bind before the receiver dials in.
+  await new Promise((r) => setTimeout(r, 250));
+
+  let receiver: ReceiverHandle | null = null;
+  try {
+    const { startReceiver } = await import('@wavegrid/receiver');
+    receiver = startReceiver(resolved);
+  } catch (err) {
+    // A receiver failure (no OSC target, network) must not take down the show:
+    // the brain + laser UI still run console-only.
+    console.error('[brain] receiver failed to start:', err);
+  }
+
+  const port = resolved.config.server.port;
+  current = {
+    project,
+    url: `http://127.0.0.1:${port}`,
+    runMode: resolved.runMode,
+    server,
+    receiver
+  };
+  return broadcast();
+}
+
+export async function stopBrain(): Promise<BrainStatus> {
+  if (current) {
+    try {
+      current.receiver?.stop();
+    } catch (err) {
+      console.error('[brain] receiver stop failed:', err);
+    }
+    try {
+      current.server.stop();
+    } catch (err) {
+      console.error('[brain] server stop failed:', err);
+    }
+    current = null;
+  }
+  return broadcast();
+}
