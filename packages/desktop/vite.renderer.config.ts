@@ -7,7 +7,10 @@ import { defineConfig } from 'vite';
 // dynamically (same pattern as constructive-desktop).
 export default defineConfig(async () => ({
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') }
+    alias: { '@': path.resolve(__dirname, 'src') },
+    // Forge's plugin-vite defaults to preserveSymlinks: true, which breaks
+    // transitive-dep resolution under pnpm's symlinked node_modules.
+    preserveSymlinks: false
   },
   plugins: [react(), (await import('@tailwindcss/vite')).default()]
 }));
