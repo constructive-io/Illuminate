@@ -60,7 +60,11 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
   const RUN_MODE = resolved.runMode;
   const NUM_CANNONS = layout.count;
   const GRID_COLUMNS = layout.cols;
-  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
+  // Light-map lives in the per-project state dir (WG_STATE_DIR, set by the CLI),
+  // the same path the server + /api/light-map + desktop debugger read/write.
+  // Standalone runs fall back to a local .state dir — never a repo-relative path.
+  const STATE_DIR = process.env.WG_STATE_DIR || resolve(process.cwd(), '.state');
+  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(STATE_DIR, 'light-map.json');
 
   // Sharding is a distributed-mode concern only. In simple mode (one laptop)
   // the receiver always drives every fixture — no shard ranges required.
@@ -82,9 +86,9 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
 
   // ─── OSC output adapters (from @wavegrid/osc) ───
   if (process.env.ROUTING_CONFIG) {
-    const configPath = resolve(process.env.ROUTING_CONFIG.startsWith('/')
-      ? process.env.ROUTING_CONFIG
-      : resolve(process.cwd(), '../../', process.env.ROUTING_CONFIG));
+    // Absolute paths are used as-is; relative paths resolve against cwd
+    // (never a monorepo-relative `../../`, which breaks a global install).
+    const configPath = resolve(process.cwd(), process.env.ROUTING_CONFIG);
     const raw = fs.readFileSync(configPath, 'utf8');
     const routingConfig = savedPhysicalMap
       ? applyPhysicalMapToRoutingConfig(JSON.parse(raw), savedPhysicalMap)
