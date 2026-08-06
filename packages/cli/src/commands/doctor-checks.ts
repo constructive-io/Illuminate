@@ -81,7 +81,7 @@ export function checkOsc(config: WavegridConfig): Check {
     name: 'OSC target',
     status: 'warn',
     detail: 'no OSC target — receiver logs to console only',
-    remedy: 'set osc.beyond / osc.fb4 / osc.routingConfig to drive real hardware'
+    remedy: 'run `wavegrid projects osc` to point it at BEYOND/FB4 and drive real hardware'
   };
 }
 
