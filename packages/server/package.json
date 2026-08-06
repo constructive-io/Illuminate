@@ -39,6 +39,8 @@
   "dependencies": {
     "@wavegrid/animations": "workspace:*",
     "@wavegrid/layout": "workspace:*",
+    "@wavegrid/settings": "workspace:*",
+    "@wavegrid/ui": "workspace:*",
     "ws": "^8.18.0"
   },
   "devDependencies": {

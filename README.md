@@ -23,10 +23,12 @@ npm i -g @wavegrid/cli
 
 wavegrid projects create ring-demo   # pick a layout preset + run mode; secrets generated once
 wavegrid projects users add admin    # UI login (scrypt-hashed, stored centrally)
-wavegrid start                       # server + receiver, one process, LAN-only
+wavegrid start                       # server + UI + API + WebSocket + receiver, one process, LAN-only
 
 wavegrid doctor                      # diagnose anything — local checks + whole-installation view
 ```
+
+For a distributed show, run the brain and receivers separately: `wavegrid server` (server + UI + API + WebSocket, no receiver) on the host, and `wavegrid receiver --server ws://<host>:<port> --shard <a-b>` on each receiver laptop.
 
 Bare `wavegrid` (or any command group) opens an interactive menu — every layer prompts. Full operator walkthroughs live in the agent skills (see [Agent Skills](#agent-skills)):
 
@@ -78,18 +80,20 @@ pnpm build
                                                     └──────────────┘
 ```
 
-- **Server** — grid state engine with exponential low-pass filtering. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change. Layout-driven: resolves the active project's layout preset from the store.
-- **UI** — artist-facing creative instrument. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI. Renders whatever layout the server resolves — grids, rings, filled rings.
+- **Server** — grid state engine with exponential low-pass filtering. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change. Layout-driven: resolves the active project's layout preset from the store, and serves the UI + API + WebSocket on one port.
+- **UI** — a static Vite/React artist-facing creative instrument served by the server on the same origin. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI. Renders whatever layout the server resolves — grids, rings, filled rings.
 - **Receiver** — the "brain" that controls physical hardware. Runs its own independent LP filter so output never jolts. On signal loss, smoothly transitions into ambient 3D sine waves. Pluggable input/output adapters.
 - **OSC** — output adapters for Pangolin BEYOND and FB4 laser hardware. HSB-to-RGB color conversion, per-cannon routing via JSON config.
 
 ## Running (development)
 
 ```sh
-# Start the full stack (each in its own terminal)
-pnpm dev:server    # Server at :3000 (master controller)
-pnpm dev:ui        # UI at :3003 (artist UI)
+# Start the stack (each in its own terminal)
+pnpm dev:server    # Server at :3000 — also serves the UI + API + WebSocket
 pnpm dev:receiver  # Receiver (brain)
+
+# The UI in watch mode (Vite dev server; proxies /api to :3000)
+pnpm dev:ui        # http://localhost:3003
 
 # Optional
 pnpm dev:webgl     # 3D Civic Center viewer at :3004
@@ -102,10 +106,10 @@ Operators don't run these — they use `wavegrid start` (see [Running a Show](#r
 The physical arrangement is a **layout preset** stored in the project — never code. Built-in presets: `grid-7x7`, `grid-7x2`, `ring-6`, `ring-25-filled`. Pick one at `wavegrid projects create`, or change it later:
 
 ```sh
-wavegrid projects config set layout ring-6
+wavegrid projects config set layout grid-7x7   # or ring-6, ring-25-filled, …
 ```
 
-The server resolves the layout and broadcasts it; UI and receivers follow. The project *name* is just a label — the preset controls the shape.
+The server resolves the layout once and broadcasts it; the UI and receiver render from it — no per-process `NUM_CANNONS`/`GRID_COLUMNS` to keep in sync. The project *name* is just a label — the preset controls the shape.
 
 ## Sharding
 
@@ -154,7 +158,14 @@ When the UI/Server run on a cloud server and the laser hardware is on-site:
 └───────────────────────────────────┘              └──────────────────────────────┘
 ```
 
-**On the cloud server** (e.g. DigitalOcean): run the server (and UI) there — `wavegrid server` once the unified brain ships ([#1465](https://github.com/constructive-io/constructive-planning/issues/1465)); today, `pnpm dev:server` + `SIMULATOR_URL=ws://203.0.113.50:3000 pnpm start:ui`. Ensure the server/UI ports are open in the firewall.
+**On the cloud server** (e.g. DigitalOcean):
+
+```sh
+# Server — grid state engine + UI + API + WebSocket, all on one port
+pnpm dev:server
+```
+
+Open **http://203.0.113.50:3000** in the browser (replace `203.0.113.50` with your server's public IP). The browser derives its WebSocket URL from the page origin, so there is no UI URL to configure. Ensure port **3000** is open in the firewall.
 
 **On the Pangolin PC** (on-site, Windows — same network as BEYOND):
 
@@ -284,8 +295,6 @@ Project config lives in the store (`wavegrid projects config`) — env vars are 
 | `BEYOND_PORT` | `7001` | BEYOND OSC receive port |
 | `BEYOND_GRID_ORDER` | `row` | Grid-to-zone mapping: `row` or `column` |
 | `SHARD_START` / `SHARD_END` | — | Cannon index range for this receiver |
-| `NUM_CANNONS` | `49` | Total cannons in grid |
-| `GRID_COLUMNS` | `7` | Number of columns |
 | `DEBUG_OSC` | — | Set to `1` to log every OSC message |
 | `RECEIVER_ALPHA` | `0.06` | LP filter smoothing factor |
 | `FALLBACK_DELAY` | `3000` | Ms before sine fallback on signal loss |

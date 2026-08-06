@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 # Cloud server launcher (machine #1, the internet box at CLOUD_IP).
-# Runs the server + ui under PM2 so they stay up unattended.
+# Runs the server under PM2 (which serves the UI + API + WS) so it stays up.
 #
-#   deploy/cloud.sh start     start (or reload) server + ui under PM2
-#   deploy/cloud.sh stop      stop both
-#   deploy/cloud.sh restart   restart both (picks up code/.env changes)
+#   deploy/cloud.sh start     start (or reload) the server under PM2
+#   deploy/cloud.sh stop      stop it
+#   deploy/cloud.sh restart   restart it (picks up code/.env changes)
 #   deploy/cloud.sh logs      tail combined logs
 #   deploy/cloud.sh status    show process list
 #   deploy/cloud.sh setup     install pm2 if missing + enable boot persistence
-#   deploy/cloud.sh deploy    production build the UI (env baked in) + restart
+#   deploy/cloud.sh deploy    build all packages (incl. the UI) + restart
 set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 ECO="$DEPLOY_DIR/ecosystem.config.js"
 
-# Production-build the UI with NEXT_PUBLIC_SIMULATOR_URL baked in from .env.
+# Build every package, including the UI (Vite → dist/) that the server serves.
 build_ui() {
   # shellcheck disable=SC1091
-  . "$DEPLOY_DIR/load-env.sh" >/dev/null   # sets ILLUMINATE_DIR + NEXT_PUBLIC_SIMULATOR_URL
-  echo "Building UI with NEXT_PUBLIC_SIMULATOR_URL=$NEXT_PUBLIC_SIMULATOR_URL …"
-  ( cd "$ILLUMINATE_DIR" && pnpm build:ui )
+  . "$DEPLOY_DIR/load-env.sh" >/dev/null   # sets ILLUMINATE_DIR
+  echo "Building all packages (incl. UI) …"
+  ( cd "$ILLUMINATE_DIR" && pnpm build )
 }
 
 ensure_pm2() {

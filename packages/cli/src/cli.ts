@@ -8,7 +8,9 @@ import { runInit } from './commands/init';
 import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runPrintConfig } from './commands/print-config';
 import { runProjects, runUse } from './commands/projects';
+import { runReceiver } from './commands/receiver';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
+import { runServer } from './commands/server';
 import { runSettingsEnvironment, runSettingsInitialize } from './commands/settings';
 import { runStart } from './commands/start';
 import { runUsersAdd, runUsersList, runUsersRemove } from './commands/users';
@@ -37,8 +39,14 @@ ${c.bold('Settings')} — global store
   settings initialize           Create/ensure the global store scaffold
 
 ${c.bold('Run')}
-  start                         Run the active project (server + receiver)
+  start                         Run the active project — server + UI + receiver (one laptop)
+  server                        Run the brain only — server + UI + API + WebSocket (no receiver)
+  receiver                      Run a receiver only — connects to a brain, drives its shard
   doctor                        Diagnose this laptop + the whole installation
+
+${c.bold('Receiver options')}
+  --server <ws-url>   Brain to connect to (e.g. ws://192.168.1.42:3333)
+  --shard <a-b>       Cannon range this receiver drives (e.g. 0-24)
 
 ${c.bold('Options')}
   --project <name>    Act on a specific project (else the active one)
@@ -53,7 +61,9 @@ ${c.gray('Shortcuts: `init`, `config`, `secrets`, `users`, `env` work as aliases
 const COMMANDS: SubCommand[] = [
   { value: 'projects', description: 'Manage projects: list, create, use, config, secrets, users, env' },
   { value: 'settings', description: 'Global store: environment, initialize' },
-  { value: 'start', description: 'Run the active project (server + receiver)' },
+  { value: 'start', description: 'Run the active project — server + UI + receiver (one laptop)' },
+  { value: 'server', description: 'Run the brain only — server + UI + API + WebSocket (no receiver)' },
+  { value: 'receiver', description: 'Run a receiver only — connects to a brain, drives its shard' },
   { value: 'doctor', description: 'Diagnose this laptop + the whole installation' }
 ];
 
@@ -133,6 +143,8 @@ function coerce(value: string): string | number | boolean {
 const KNOWN_COMMANDS = [
   'init',
   'start',
+  'server',
+  'receiver',
   'projects',
   'settings',
   'config',
@@ -329,6 +341,16 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     case 'start': {
       keepOpen = !nonInteractive;
       await runStart({ flags, prompter: nonInteractive ? undefined : prompter });
+      break;
+    }
+    case 'server': {
+      keepOpen = !nonInteractive;
+      await runServer({ flags, prompter: nonInteractive ? undefined : prompter });
+      break;
+    }
+    case 'receiver': {
+      keepOpen = !nonInteractive;
+      await runReceiver({ flags, prompter: nonInteractive ? undefined : prompter });
       break;
     }
     case 'projects':

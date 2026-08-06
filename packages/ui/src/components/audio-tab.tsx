@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useRef } from 'react';
 
 import { AUDIO_PALETTES, type AudioEngine, type AudioMode, type AudioPalette, type BlendMode } from '@/lib/use-audio';

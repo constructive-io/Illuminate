@@ -6,7 +6,7 @@
 
 # @wavegrid/ui
 
-Next.js 15 frontend for the Wavegrid laser grid controller. Built with React 19 and Tailwind CSS v4.
+Static Vite + React frontend for the Wavegrid laser grid controller, served by `@wavegrid/server` on one origin. Built with React 19 and Tailwind CSS v4.
 
 ## Features
 
@@ -31,28 +31,29 @@ Next.js 15 frontend for the Wavegrid laser grid controller. Built with React 19 
 
 ## Running
 
+In production the server serves the built UI — there is no separate UI server. Build it once and the server picks it up:
+
 ```bash
-pnpm dev:ui        # → http://localhost:3003
+pnpm --filter @wavegrid/ui build   # → packages/ui/dist (served by @wavegrid/server)
 ```
 
-Requires the Server running on `:3000`:
+For a hot-reload dev loop, run the server and the Vite dev server side by side:
 ```bash
-pnpm dev:server    # start the server first
-pnpm dev:ui        # then the UI
+pnpm dev:server    # :3000 — API + WebSocket
+pnpm dev:ui        # http://localhost:3003 — proxies /api to :3000
 ```
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NEXT_PUBLIC_NUM_CANNONS` | `49` | Total number of cannons in the grid |
-| `NEXT_PUBLIC_GRID_COLUMNS` | `7` | Number of columns in the grid layout |
-| `NEXT_PUBLIC_SIMULATOR_URL` | `ws://localhost:3000` | WebSocket URL of the Server |
+The UI is configuration-free: it fetches the resolved layout and its same-origin
+WebSocket URL from the server's `GET /api/config` at runtime. There are no
+build-time env vars — layout (cannon count, columns) comes from the server's
+project config, and the WebSocket URL is derived from the page origin.
 
 ## Tech Stack
 
-- Next.js 15 (App Router, standalone output)
+- Vite (static SPA build)
 - React 19
-- Tailwind CSS v4 (CSS-first config)
+- Tailwind CSS v4 (CSS-first config, `@tailwindcss/vite`)
 - Web Audio API (FFT analysis, BPM detection)
 - TypeScript 5

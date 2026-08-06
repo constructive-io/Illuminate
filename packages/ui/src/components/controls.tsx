@@ -1,5 +1,3 @@
-'use client';
-
 interface SliderProps {
   label: string;
   value: number;

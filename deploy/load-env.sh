@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Load env vars into the current shell, then run the dev servers manually.
+# Load env vars into the current shell, then run the dev server manually.
 #
-#   shell one:   source deploy/load-env.sh && pnpm dev:server
-#   shell two:   source deploy/load-env.sh && pnpm dev:ui
+#   source deploy/load-env.sh && pnpm dev:server   # serves UI + API + WS
+#   source deploy/load-env.sh && pnpm dev:receiver # pangolin/receiver box
 #
 # Works in bash and zsh. Must be *sourced* (not executed) so exports stick.
 
@@ -28,23 +28,21 @@ if [ -f "$_envfile" ]; then
   set +a
 fi
 
-# Derive URLs/ports from CLOUD_IP so the IP is the single source of truth.
+# The server binds WAVEGRID_PORT and serves the UI + WebSocket on it. The
+# receiver's upstream is derived from CLOUD_IP (the single source of truth).
 : "${SIM_PORT:=3000}"
-: "${PORT:=$SIM_PORT}"; export PORT SIM_PORT
+: "${WAVEGRID_PORT:=$SIM_PORT}"; export WAVEGRID_PORT SIM_PORT
 if [ -n "${CLOUD_IP:-}" ]; then
-  : "${NEXT_PUBLIC_SIMULATOR_URL:=ws://${CLOUD_IP}:${SIM_PORT}}"
   : "${SIMULATOR_URL:=ws://${CLOUD_IP}:${SIM_PORT}}"
-  export NEXT_PUBLIC_SIMULATOR_URL SIMULATOR_URL
+  export SIMULATOR_URL
 fi
 
 echo "WaveGrid env loaded from: $_envfile"
-echo "  ILLUMINATE_DIR            = $ILLUMINATE_DIR"
-echo "  CLOUD_IP                  = ${CLOUD_IP:-<unset>}"
-echo "  PORT                      = $PORT"
-echo "  NEXT_PUBLIC_SIMULATOR_URL = ${NEXT_PUBLIC_SIMULATOR_URL:-<unset>}"
-echo "  SIMULATOR_URL             = ${SIMULATOR_URL:-<unset>}"
+echo "  ILLUMINATE_DIR  = $ILLUMINATE_DIR"
+echo "  CLOUD_IP        = ${CLOUD_IP:-<unset>}"
+echo "  WAVEGRID_PORT   = $WAVEGRID_PORT"
+echo "  SIMULATOR_URL   = ${SIMULATOR_URL:-<unset>}"
 echo
 echo "Now run:"
-echo "  pnpm dev:server     # cloud shell one"
-echo "  pnpm dev:ui         # cloud shell two"
+echo "  pnpm dev:server     # cloud box (serves UI + API + WebSocket)"
 echo "  pnpm dev:receiver   # pangolin (or use deploy/receiver.cmd on Windows)"

@@ -1,7 +1,12 @@
-'use client';
-
 import { type Layout, presets } from '@wavegrid/layout/client';
 import { useEffect, useState } from 'react';
+
+/** Same-origin WebSocket URL — the server serves this UI and the WS on one port. */
+function sameOriginWs(): string {
+  if (typeof window === 'undefined') return 'ws://localhost:3000';
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${window.location.host}`;
+}
 
 export interface GridConfig {
   simulatorUrl: string;
@@ -26,7 +31,7 @@ export function useConfig(): GridConfig | null {
       .catch(() => {
         const layout = presets['grid-7x7']();
         setConfig({
-          simulatorUrl: 'ws://localhost:3000',
+          simulatorUrl: sameOriginWs(),
           layout,
           numCannons: layout.count,
           gridColumns: layout.cols

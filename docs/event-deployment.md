@@ -5,8 +5,7 @@
 ```mermaid
 graph LR
     subgraph Cloud["☁️ Cloud Server (DigitalOcean)"]
-        SIM["Server :3000"]
-        UI["UI :3003"]
+        SIM["Server :3000 (UI + API + WS)"]
     end
 
     subgraph iPad["📱 iPads (artists)"]
@@ -18,8 +17,7 @@ graph LR
         BEYOND["BEYOND :7001"]
     end
 
-    BROWSER -- "http://‹CLOUD_IP›:3003" --> UI
-    UI -- "ws://‹CLOUD_IP›:3000" --> SIM
+    BROWSER -- "http + ws @ ‹CLOUD_IP›:3000" --> SIM
     SIM -- "ws://‹CLOUD_IP›:3000" --> RX
     RX -- "OSC/UDP localhost:7001" --> BEYOND
 ```
@@ -28,8 +26,8 @@ graph LR
 
 | Device | Role | Talks to |
 |--------|------|----------|
-| **Cloud server** | Runs Server + UI | Serves iPads, feeds Receiver |
-| **iPads** | Artist interface (browser) | Connects to Cloud UI |
+| **Cloud server** | Runs Server (UI + API + WebSocket, one port) | Serves iPads, feeds Receiver |
+| **iPads** | Artist interface (browser) | Connects to the Cloud server |
 | **Pangolin PC** | Runs Receiver → BEYOND | Pulls from Cloud, sends OSC locally |
 
 ---
@@ -38,19 +36,14 @@ graph LR
 
 ### 1. Cloud Server (Linux)
 
-Open two terminals:
+The server serves the UI + API + WebSocket on one port, so a single process is all you need:
 
 ```sh
-# Terminal 1 — Server
+# Server — grid state engine + UI + API + WebSocket
 pnpm dev:server
 ```
 
-```sh
-# Terminal 2 — UI (replace CLOUD_IP with your server's public IP)
-NEXT_PUBLIC_SIMULATOR_URL=ws://<CLOUD_IP>:3000 pnpm dev:ui
-```
-
-Ensure ports **3000** and **3003** are open in the firewall.
+Open **http://‹CLOUD_IP›:3000** in the browser (the browser derives its WebSocket URL from the page origin — nothing to configure). Ensure port **3000** is open in the firewall.
 
 ### 2. Pangolin PC (Windows PowerShell)
 
@@ -106,7 +99,7 @@ pnpm dev:receiver
 Open Safari and navigate to:
 
 ```
-http://<CLOUD_IP>:3003
+http://<CLOUD_IP>:3000
 ```
 
 ---
@@ -128,14 +121,12 @@ Replace these before running:
 ```mermaid
 graph TD
     subgraph Commands
-        A["Cloud Terminal 1"] -->|"pnpm dev:server"| SIM["Server :3000"]
-        B["Cloud Terminal 2"] -->|"NEXT_PUBLIC_SIMULATOR_URL=ws://‹CLOUD_IP›:3000 pnpm dev:ui"| UI["UI :3003"]
+        A["Cloud Terminal"] -->|"pnpm dev:server"| SIM["Server :3000 (UI + API + WS)"]
         C["Pangolin PowerShell"] -->|"set env vars + pnpm dev:receiver"| RX["Receiver"]
     end
 
     subgraph Data Flow
-        iPad["iPad Browser"] -->|"HSB colors (WebSocket)"| UI
-        UI -->|"grid state (WebSocket)"| SIM
+        iPad["iPad Browser"] -->|"HSB colors (WebSocket)"| SIM
         SIM -->|"grid state (WebSocket)"| RX
         RX -->|"OSC/UDP (alpha, red, green, blue, Brightness)"| BEYOND["BEYOND Laser"]
     end
@@ -145,7 +136,7 @@ graph TD
 
 | Symptom | Fix |
 |---------|-----|
-| UI loads but painting does nothing | Check `NEXT_PUBLIC_SIMULATOR_URL` — browser must reach the cloud server's port 3000 |
+| UI loads but painting does nothing | The browser's WebSocket is same-origin — make sure you opened the UI at the server's real host:port (not localhost) and port 3000 is reachable |
 | Receiver connects but no laser response | Verify BEYOND's OSC server is on port 7001, and "Show R-G-B-A panel" is enabled in BEYOND settings |
 | Colors wrong in `rgb` mode | Confirm `alpha` is being sent (check `DEBUG_OSC=1` output for `/livecontrol/alpha 255`) |
 | Receiver can't connect to server | Check cloud firewall allows inbound on port 3000 |

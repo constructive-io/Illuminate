@@ -68,8 +68,6 @@ receiver.start();
 | `WS_OUTPUT_PORT` | — | Optional WebSocket relay output port |
 | `SHARD_START` | — | First cannon index (inclusive) |
 | `SHARD_END` | — | Last cannon index (inclusive) |
-| `NUM_CANNONS` | `49` | Total cannons in the grid |
-| `GRID_COLUMNS` | `7` | Number of columns in the grid |
 | `ROUTING_CONFIG` | — | Path to JSON routing config (enables OSC) |
 | `BEYOND_HOST` | — | Quick single-target BEYOND OSC host |
 | `BEYOND_PORT` | `7001` | BEYOND OSC port |
