@@ -70,6 +70,34 @@ export interface ShardRange {
   end: number;
 }
 
+/** One fixture in the light-map debugger — the full mapping chain for a cannon:
+ *  animation logical index → physical light → position → driving device → OSC. */
+export interface FixtureRow {
+  /** Logical id the animations address (0..count-1). */
+  logical: number;
+  /** Physical light this logical index is wired to (`physicalLights[logical]`). */
+  physical: number;
+  /** Fixture label from the layout (e.g. "A1"). */
+  label: string;
+  /** Grid "row R, col C" or ring "…°" position, phrased for the topology. */
+  position: string;
+  /** Name of the device whose shard drives this fixture, or null (all/none). */
+  shardOwner: string | null;
+  /** Human-readable OSC destination (BEYOND/FB4/routing/console). */
+  oscTarget: string;
+}
+
+/** The whole light-map debugger view for a project. `physicalLights` is the raw
+ *  normalized mapping the editor mutates; `rows` is the resolved per-fixture view. */
+export interface LightMapView {
+  project: string;
+  layoutName: string;
+  numCannons: number;
+  gridColumns: number;
+  physicalLights: number[];
+  rows: FixtureRow[];
+}
+
 /** A device that has joined a project — the project-scoped registry the CLI's
  *  `devices` commands show. Machine identity/IP are runtime facts, not exported. */
 export interface DeviceInfo {
@@ -129,6 +157,12 @@ export interface WavegridApi {
     list(project: string): Promise<DeviceInfo[]>;
     rename(project: string, idOrName: string, newName: string): Promise<DeviceInfo[]>;
     assignShard(project: string, idOrName: string, shard: ShardRange | null): Promise<DeviceInfo[]>;
+  };
+  lights: {
+    /** Resolve the full mapping-chain view for a project. */
+    view(project: string): Promise<LightMapView | null>;
+    /** Persist a new physical mapping (normalized) and return the fresh view. */
+    remap(project: string, physicalLights: number[]): Promise<LightMapView | null>;
   };
 }
 

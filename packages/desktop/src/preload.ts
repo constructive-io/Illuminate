@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, NewProjectInput, ProjectSummary, RequiredSecretInfo, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -44,6 +44,11 @@ const api: WavegridApi = {
       ipcRenderer.invoke('devices:rename', project, idOrName, newName) as Promise<DeviceInfo[]>,
     assignShard: (project, idOrName, shard: ShardRange | null) =>
       ipcRenderer.invoke('devices:assignShard', project, idOrName, shard) as Promise<DeviceInfo[]>
+  },
+  lights: {
+    view: (project) => ipcRenderer.invoke('lights:view', project) as Promise<LightMapView | null>,
+    remap: (project, physicalLights) =>
+      ipcRenderer.invoke('lights:remap', project, physicalLights) as Promise<LightMapView | null>
   }
 };
 

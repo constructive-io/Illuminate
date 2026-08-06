@@ -1,4 +1,4 @@
-import { Cpu, FolderKanban, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Cpu, FolderKanban, Lightbulb, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
@@ -8,6 +8,7 @@ import { ConstructiveIcon } from '@/components/ui/constructive-icon';
 import {
   useBrainStatus,
   useDevices,
+  useLightMap,
   usePresets,
   useProjectConfig,
   useProjects,
@@ -17,20 +18,22 @@ import {
 import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
 import { DevicesRoute } from '@/renderer/routes/devices-route';
+import { LightsRoute } from '@/renderer/routes/lights-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
 
-type Route = 'show' | 'projects' | 'config' | 'access' | 'devices';
+type Route = 'show' | 'projects' | 'config' | 'access' | 'lights' | 'devices';
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
   projects: 'Projects',
   config: 'Config',
   access: 'Users & Secrets',
+  lights: 'Lights',
   devices: 'Devices'
 };
 
-const ROUTES: Route[] = ['show', 'projects', 'config', 'access', 'devices'];
+const ROUTES: Route[] = ['show', 'projects', 'config', 'access', 'lights', 'devices'];
 
 export function App() {
   const [route, setRoute] = React.useState<Route>('show');
@@ -70,6 +73,12 @@ export function App() {
     refresh: refreshSecrets,
     generate: generateSecrets
   } = useProjectSecrets(editingProject);
+  const {
+    view: lightMap,
+    loading: lightMapLoading,
+    refresh: refreshLightMap,
+    remap: remapLights
+  } = useLightMap(editingProject);
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -202,6 +211,13 @@ export function App() {
           isActive: route === 'access'
         },
         {
+          id: 'lights',
+          label: 'Lights',
+          href: '#lights',
+          icon: Lightbulb,
+          isActive: route === 'lights'
+        },
+        {
           id: 'devices',
           label: 'Devices',
           href: '#devices',
@@ -221,7 +237,8 @@ export function App() {
       void refreshUsers();
       void refreshSecrets();
     }
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSecrets]);
+    if (route === 'lights') void refreshLightMap();
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSecrets, refreshLightMap]);
 
   return (
     <AppShell
@@ -271,6 +288,15 @@ export function App() {
           onAddUser={(u, p) => withBusy(() => addUser(u, p))}
           onRemoveUser={(u) => void withBusy(() => removeUser(u))}
           onGenerateSecrets={(force) => void withBusy(() => generateSecrets(force))}
+          busy={busy}
+        />
+      )}
+      {route === 'lights' && (
+        <LightsRoute
+          project={editingProject}
+          view={lightMap}
+          loading={lightMapLoading}
+          onRemap={(pl) => void withBusy(() => remapLights(pl))}
           busy={busy}
         />
       )}

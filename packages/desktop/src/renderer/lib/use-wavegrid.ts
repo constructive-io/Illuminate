@@ -4,6 +4,7 @@ import type {
   BrainStatus,
   DeviceInfo,
   EditableConfig,
+  LightMapView,
   NewProjectInput,
   ProjectSummary,
   RequiredSecretInfo,
@@ -201,6 +202,46 @@ export function useProjectSecrets(project: string | null): {
   }, [refresh]);
 
   return { secrets, refresh, generate };
+}
+
+/** The light-map debugger view for a project — the resolved mapping chain plus
+ *  the raw `physicalLights` the editor mutates. `remap` writes through to the
+ *  same light-map.json the running brain reads. */
+export function useLightMap(project: string | null): {
+  view: LightMapView | null;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  remap: (physicalLights: number[]) => Promise<void>;
+  } {
+  const [view, setView] = React.useState<LightMapView | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setView(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      setView(await window.wavegrid.lights.view(project));
+    } finally {
+      setLoading(false);
+    }
+  }, [project]);
+
+  const remap = React.useCallback(
+    async (physicalLights: number[]) => {
+      if (!project) return;
+      setView(await window.wavegrid.lights.remap(project, physicalLights));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { view, loading, refresh, remap };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.

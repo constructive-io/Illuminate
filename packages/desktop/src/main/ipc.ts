@@ -1,8 +1,10 @@
+import { resolveLayout } from '@wavegrid/layout';
 import { openStore } from '@wavegrid/settings';
 import { ipcMain } from 'electron';
 
 import { startBrain, status, stopBrain } from '@/main/brain';
 import { type LaserSyncState, syncLaser } from '@/main/laser-view';
+import { buildLightMapView, readLightMap, writeLightMap } from '@/main/light-map';
 import {
   applyEditable,
   configForNewProject,
@@ -12,11 +14,37 @@ import {
 import type {
   DeviceInfo,
   EditableConfig,
+  LightMapView,
   NewProjectInput,
   ProjectSummary,
   RequiredSecretInfo,
   ShardRange
 } from '@/types/ipc';
+
+/** Resolve the light-map debugger view for a project from the shared store:
+ *  layout + device shards + the normalized on-disk map. */
+function lightMapView(project: string): LightMapView | null {
+  const store = openStore();
+  if (!store.hasProject(project)) return null;
+  const config = store.getProjectConfig(project);
+  const devices = store.listDevices(project).map((d) => ({ name: d.name, shard: d.shard }));
+  return buildLightMapView({
+    project,
+    config,
+    devices,
+    stored: readLightMapForProject(project)
+  });
+}
+
+/** Read the normalized on-disk map for a project (dims come from its layout). */
+function readLightMapForProject(project: string) {
+  const store = openStore();
+  const layout = resolveLayout(store.getProjectConfig(project)?.layout ?? { preset: 'grid-7x7' });
+  return readLightMap(store.stateDir(project), {
+    numCannons: layout.count,
+    gridColumns: layout.cols
+  });
+}
 
 /** Map the store's RequiredSecret[] to the sanitized IPC shape. Never touches
  *  secret values — only name/description/set cross the bridge. */
@@ -122,6 +150,21 @@ export function registerAllIpc(): void {
     const store = openStore();
     if (store.hasProject(project)) store.assignShard(project, idOrName, shard);
     return devices(project);
+  });
+
+  ipcMain.handle('lights:view', (_e, project: string) => lightMapView(project));
+  ipcMain.handle('lights:remap', (_e, project: string, physicalLights: number[]) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    const layout = resolveLayout(store.getProjectConfig(project)?.layout ?? { preset: 'grid-7x7' });
+    // Persist to the SAME file the running brain reads; normalization keeps the
+    // map a valid permutation (drops dupes/out-of-range, back-fills identity).
+    writeLightMap(
+      store.stateDir(project),
+      { numCannons: layout.count, gridColumns: layout.cols },
+      physicalLights
+    );
+    return lightMapView(project);
   });
 
   ipcMain.on('laser:sync', (_e, state: LaserSyncState) => syncLaser(state));
