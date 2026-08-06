@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { BrainStatus, DeviceInfo, LaserSyncState, ProjectSummary, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -18,7 +18,25 @@ const api: WavegridApi = {
   projects: {
     list: () => ipcRenderer.invoke('projects:list') as Promise<ProjectSummary[]>,
     active: () => ipcRenderer.invoke('projects:active') as Promise<string | null>,
-    use: (name) => ipcRenderer.invoke('projects:use', name) as Promise<ProjectSummary[]>
+    use: (name) => ipcRenderer.invoke('projects:use', name) as Promise<ProjectSummary[]>,
+    presets: () => ipcRenderer.invoke('projects:presets') as Promise<string[]>,
+    create: (input: NewProjectInput) => ipcRenderer.invoke('projects:create', input) as Promise<ProjectSummary[]>,
+    remove: (name) => ipcRenderer.invoke('projects:remove', name) as Promise<ProjectSummary[]>,
+    getConfig: (project) => ipcRenderer.invoke('projects:getConfig', project) as Promise<EditableConfig | null>,
+    saveConfig: (project, config: EditableConfig) =>
+      ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>
+  },
+  users: {
+    list: (project) => ipcRenderer.invoke('users:list', project) as Promise<string[]>,
+    add: (project, username, password) =>
+      ipcRenderer.invoke('users:add', project, username, password) as Promise<string[]>,
+    remove: (project, username) =>
+      ipcRenderer.invoke('users:remove', project, username) as Promise<string[]>
+  },
+  secrets: {
+    status: (project) => ipcRenderer.invoke('secrets:status', project) as Promise<RequiredSecretInfo[]>,
+    generate: (project, force) =>
+      ipcRenderer.invoke('secrets:generate', project, force) as Promise<RequiredSecretInfo[]>
   },
   devices: {
     list: (project) => ipcRenderer.invoke('devices:list', project) as Promise<DeviceInfo[]>,
@@ -26,6 +44,11 @@ const api: WavegridApi = {
       ipcRenderer.invoke('devices:rename', project, idOrName, newName) as Promise<DeviceInfo[]>,
     assignShard: (project, idOrName, shard: ShardRange | null) =>
       ipcRenderer.invoke('devices:assignShard', project, idOrName, shard) as Promise<DeviceInfo[]>
+  },
+  lights: {
+    view: (project) => ipcRenderer.invoke('lights:view', project) as Promise<LightMapView | null>,
+    remap: (project, physicalLights) =>
+      ipcRenderer.invoke('lights:remap', project, physicalLights) as Promise<LightMapView | null>
   }
 };
 
