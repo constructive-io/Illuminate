@@ -1,5 +1,10 @@
 # @wavegrid/webgl
 
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+
 WebGL 3D viewer for the 7×7 laser installation at San Francisco's Civic Center Plaza. Built with Three.js + postprocessing bloom.
 
 **This is a viewer only** — all beam state comes from the Server via WebSocket. The controller UI (`@wavegrid/ui`) drives the animations, scenes, and audio; this package just renders the 3D result.
