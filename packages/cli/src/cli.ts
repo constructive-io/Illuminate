@@ -2,11 +2,13 @@ import { Inquirerer } from 'inquirerer';
 import c from 'yanse';
 
 import { runConfigSet } from './commands/config-set';
+import { runDevicesList, runDevicesRemove, runDevicesRename } from './commands/devices';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
 import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runPrintConfig } from './commands/print-config';
+import { runProjectsExport, runProjectsImport } from './commands/project-io';
 import { runProjects, runUse } from './commands/projects';
 import { runReceiver } from './commands/receiver';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
@@ -32,6 +34,9 @@ ${c.bold('Projects')} — manage and edit projects
   projects config set <k> <v>   Set a field (layout, mode, port, host, ui-port)
   projects secrets list|init    List / generate the project's secrets
   projects users list|add|rm    Manage UI login users
+  projects devices list|rename  List / name devices that joined the project
+  projects export [--out f]     Write a portable project bundle
+  projects import <file>        Restore a project from a bundle
   projects env export           Write a .env for the project
 
 ${c.bold('Settings')} — global store
@@ -54,7 +59,7 @@ ${c.bold('Options')}
   -h, --help          Show this help
   -v, --version       Show version
 
-${c.gray('Shortcuts: `init`, `config`, `secrets`, `users`, `env` work as aliases for the `projects …` forms.')}
+${c.gray('Shortcuts: `init`, `config`, `secrets`, `users`, `devices`, `env` work as aliases for the `projects …` forms.')}
 `;
 
 /** Top-level menu (bare `wavegrid`). */
@@ -74,6 +79,9 @@ const PROJECTS_SUBS: SubCommand[] = [
   { value: 'config', description: 'Print or set the project config' },
   { value: 'secrets', description: 'List or generate the project secrets' },
   { value: 'users', description: 'List, add, or remove UI login users' },
+  { value: 'devices', description: 'List, rename, or forget devices that joined the project' },
+  { value: 'export', description: 'Write a portable project bundle (no machine identity)' },
+  { value: 'import', description: 'Restore a project from a portable bundle' },
   { value: 'env', description: 'Write a .env for the project' }
 ];
 
@@ -96,6 +104,12 @@ const USERS_SUBS: SubCommand[] = [
   { value: 'list', description: 'List UI login users for the current project' },
   { value: 'add', description: 'Add/replace a UI login user (password prompted)' },
   { value: 'rm', description: 'Remove a UI login user' }
+];
+
+const DEVICES_SUBS: SubCommand[] = [
+  { value: 'list', description: 'List devices that have joined the project' },
+  { value: 'rename', description: 'Give a device a project-specific friendly name' },
+  { value: 'rm', description: 'Forget a device from the project registry' }
 ];
 
 export interface ParsedArgs {
@@ -151,6 +165,7 @@ const KNOWN_COMMANDS = [
   'print-config',
   'secrets',
   'users',
+  'devices',
   'env',
   'doctor'
 ];
@@ -231,6 +246,22 @@ async function dispatchUsers(
   else unknownSub('users', sub);
 }
 
+async function dispatchDevices(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  const sub = (await resolveSub(args[0], 'devices', DEVICES_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'list') runDevicesList(flags);
+  else if (sub === 'rename' || sub === 'name') {
+    await runDevicesRename(flags, args[1], args[2], nonInteractive ? undefined : prompter);
+  } else if (sub === 'rm' || sub === 'remove' || sub === 'forget') {
+    await runDevicesRemove(flags, args[1], nonInteractive ? undefined : prompter);
+  } else unknownSub('devices', sub);
+}
+
 function dispatchEnv(args: string[], flags: Flags): void {
   const sub = args[0];
   // `env` has a single action (export); a bare `env` runs it deliberately.
@@ -280,6 +311,15 @@ async function dispatchProjects(
     break;
   case 'users':
     await dispatchUsers(rest, flags, prompter, nonInteractive);
+    break;
+  case 'devices':
+    await dispatchDevices(rest, flags, prompter, nonInteractive);
+    break;
+  case 'export':
+    runProjectsExport(flags);
+    break;
+  case 'import':
+    runProjectsImport(flags, rest[0]);
     break;
   case 'env':
     dispatchEnv(rest, flags);
@@ -370,6 +410,9 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
       break;
     case 'users':
       await dispatchUsers(positionals.slice(1), flags, prompter, nonInteractive);
+      break;
+    case 'devices':
+      await dispatchDevices(positionals.slice(1), flags, prompter, nonInteractive);
       break;
     case 'env':
       dispatchEnv(positionals.slice(1), flags);

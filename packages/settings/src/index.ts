@@ -4,6 +4,18 @@ export { openStore, type SettingsStore, type StoreOptions } from './store';
 // Device identity
 export { type DeviceIdentity } from './device';
 
+// Project device registry
+export { type DeviceRecord, type DeviceRegistration } from './registry';
+
+// Portable project export/import
+export {
+  type ExportOptions,
+  type ImportOptions,
+  type ImportResult,
+  parseBundle,
+  type PortableProject
+} from './portable';
+
 // Paths
 export {
   projectLogsDir,

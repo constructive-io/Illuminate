@@ -55,6 +55,10 @@ export function projectStateDir(paths: StorePaths, project: string): string {
   return path.join(projectDir(paths, project), 'state');
 }
 
+export function projectDevicesFile(paths: StorePaths, project: string): string {
+  return path.join(projectDir(paths, project), 'devices.json');
+}
+
 export function projectLogsDir(paths: StorePaths, project: string): string {
   return path.join(paths.logs, project);
 }
