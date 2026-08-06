@@ -30,8 +30,15 @@ export interface Settings {
   animation: string | null;
 }
 
-export function useSocket(url: string | null, token: string | null) {
+export function useSocket(
+  url: string | null,
+  token: string | null,
+  onSyncConfig?: () => void
+) {
   const wsRef = useRef<WebSocket | null>(null);
+  // Keep the latest callback without re-subscribing the socket on every render.
+  const onSyncConfigRef = useRef(onSyncConfig);
+  onSyncConfigRef.current = onSyncConfig;
   const [connected, setConnected] = useState(false);
   const [grid, setGrid] = useState<CannonColor[]>([]);
   const [orientation, setOrientation] = useState<Orientation>({ rotation: 0, flipH: false, flipV: false });
@@ -72,6 +79,10 @@ export function useSocket(url: string | null, token: string | null) {
             speed: msg.speed ?? 1.0,
             animation: msg.animation ?? null
           });
+        } else if (msg.type === 'sync_update' || msg.type === 'sync_state') {
+          // A config change was replicated from another device — refetch it so
+          // the browser reflects the new layout/light-map without a reload.
+          onSyncConfigRef.current?.();
         }
       } catch {
         // ignore

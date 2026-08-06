@@ -7,6 +7,7 @@ import {
   applyUpdate,
   deviceScope,
   divergentDevices,
+  isValidScope,
   mergeRemote,
   projectScope,
   readSyncState,
@@ -35,6 +36,47 @@ describe('config sync (settings layer)', () => {
     expect(s.revision).toBe(2);
     expect(s.entries[projectScope()].config).toEqual({ port: 3333 });
     expect(s.entries[deviceScope('B')].config).toEqual({ shard: [0, 5] });
+  });
+
+  it('validates scopes: project / device:<id> / secrets, rejects junk', () => {
+    expect(isValidScope('project')).toBe(true);
+    expect(isValidScope('device:abc123')).toBe(true);
+    expect(isValidScope('secrets')).toBe(true);
+    expect(isValidScope('secret:beyond')).toBe(true);
+    expect(isValidScope('secrets:beyond')).toBe(true);
+    // junk
+    expect(isValidScope('')).toBe(false);
+    expect(isValidScope('device:')).toBe(false);
+    expect(isValidScope('haxor')).toBe(false);
+    expect(isValidScope('__proto__')).toBe(false);
+    expect(isValidScope(42)).toBe(false);
+    expect(isValidScope(null)).toBe(false);
+  });
+
+  it('rejects a write with an invalid scope', () => {
+    const p = paths();
+    expect(() =>
+      applyUpdate(p, 'demo', { scope: 'garbage', config: { x: 1 }, deviceId: 'A' })
+    ).toThrow(/Invalid sync scope/);
+    // nothing was persisted
+    expect(readSyncState(p, 'demo').revision).toBe(0);
+  });
+
+  it('mergeRemote drops entries with invalid scopes', () => {
+    const p = paths();
+    const remote: SyncState = {
+      version: 1,
+      revision: 3,
+      entries: {
+        [projectScope()]: { scope: projectScope(), config: { ok: true }, revision: 1, updatedAt: '2026-06-01T00:00:00Z', deviceId: 'B' },
+        haxor: { scope: 'haxor', config: { evil: true }, revision: 3, updatedAt: '2026-06-01T00:00:00Z', deviceId: 'B' }
+      },
+      acks: {}
+    };
+    const { state, changed } = mergeRemote(p, 'demo', remote);
+    expect(changed).toBe(true);
+    expect(state.entries[projectScope()].config).toEqual({ ok: true });
+    expect(state.entries.haxor).toBeUndefined();
   });
 
   it('records the author as having acked its own write', () => {

@@ -441,9 +441,14 @@ function MasterSliders({
 /* ---------- Main page ---------- */
 
 export default function Home() {
-  const config = useConfig();
+  const [configRev, setConfigRev] = useState(0);
+  const config = useConfig(configRev);
   const { user, token, checked, login } = useAuth();
-  const { connected, grid, orientation, playlistState, settings, send } = useSocket(config?.simulatorUrl ?? null, token);
+  const { connected, grid, orientation, playlistState, settings, send } = useSocket(
+    config?.simulatorUrl ?? null,
+    token,
+    useCallback(() => setConfigRev((n) => n + 1), [])
+  );
   const isPhone = useIsPhone();
 
   const NUM_CANNONS = config?.numCannons ?? 49;
