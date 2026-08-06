@@ -17,8 +17,7 @@ Core rules that make this sane:
 
 > **Implementation status:** this skill documents the target model from
 > [constructive-planning#1465](https://github.com/constructive-io/constructive-planning/issues/1465).
-> Shipped today: sharded receivers over WS (`SHARD_START`/`SHARD_END`), shared `receiverKey` auth, receiver `hello`, and the `doctor` system view with coverage.
-> Landing with the plan: `wavegrid server` / `wavegrid receiver` commands, mDNS discovery, device identity/registry/naming, `projects export/import`, and config sync (workstreams B–F).
+> Shipped: unified brain (`wavegrid server` / `wavegrid receiver`), mDNS discovery, machine-local device identity + per-project registry/naming (`wavegrid projects devices`), portable `projects export/import`, revisioned server-mediated config sync, and the `doctor` system view (coverage + sync divergence).
 
 ## The flow
 
@@ -67,7 +66,9 @@ Zero hand-typed IPs, zero copied identity. Create the bundle on any existing mac
 
 ## Config sync
 
-The project doc is versioned (`rev` + `updatedAt` + `updatedBy` device). With sync enabled, editing any config — including another device's light-map or shard — propagates: push to server → rev bump → broadcast → peers pull. Scrambled a lighting config five minutes before doors? Fix it on whichever laptop is closest; every machine converges. Secrets sync only over the authenticated WS and only when explicitly enabled; the default is secrets move via export bundles.
+Each config entry is versioned by a monotonic project **revision** (plus `updatedAt` + editing `deviceId`). Editing any config — including another device's light-map or shard — propagates over the already-authenticated WS: a client sends `sync_push {scope, config, baseRevision}` → the server serializes the write, assigns the next revision, persists it, and broadcasts `sync_update` to every client; a joining/reconnecting client sends `sync_request` and gets the full `sync_state` snapshot, then `sync_ack`s what it applied. Scrambled a lighting config five minutes before doors? Fix it on whichever laptop is closest; every machine converges.
+
+**Conflict policy (deterministic, never a silent merge):** the server assigns strictly increasing revisions, so the highest revision wins (last-writer-wins); offline peer-merge ties break by timestamp, then `deviceId`. A client that edited from a stale base revision is still accepted but flagged — `wavegrid doctor` surfaces the current revision and any device whose acknowledged revision lags, so divergence is visible, not hidden. **Simple one-device projects pay nothing:** there's one entry and one ack, and none of this surfaces until a second device joins. Secrets never ride config sync — they move only via explicit `--include-secrets` export bundles.
 
 ## Verifying the installation
 

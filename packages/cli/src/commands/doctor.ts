@@ -242,6 +242,38 @@ function renderDevices(project: string): void {
   }
 }
 
+/**
+ * Render config-sync state: the current project revision and any devices that
+ * lag it (divergence is surfaced, never hidden). Prefers the server's
+ * authoritative view; falls back to this laptop's local sync state offline.
+ * Silent for a simple project with no synced edits — no pay-as-you-go noise.
+ */
+function renderSync(project: string, serverSync?: SystemStatus['sync']): void {
+  const store = getStore();
+  const local = store.getSyncState(project);
+  const revision = serverSync?.revision ?? local.revision;
+  const hasEdits = revision > 0 || Object.keys(local.entries).length > 0;
+  if (!hasEdits) return;
+
+  const known = store.listDevices(project);
+  const nameFor = (id: string): string => known.find((d) => d.id === id)?.name ?? `${id.slice(0, 8)}…`;
+  const divergent = serverSync?.divergent ?? store.divergentDevices(project, known.map((d) => d.id));
+  const source = serverSync ? 'server-reported' : 'local';
+
+  console.log('');
+  console.log(c.bold(`  Config sync (${project})`));
+  console.log(`  → Revision: ${c.cyan(String(revision))} ${c.gray(`(${source})`)}`);
+  if (divergent.length === 0) {
+    console.log(`  ${c.green('✓')} all devices at revision ${revision}`);
+  } else {
+    console.log(c.yellow(`  ! ${divergent.length} device(s) behind:`));
+    for (const d of divergent) {
+      console.log(`      • ${c.cyan(nameFor(d.deviceId))}  ${c.gray(`acked rev ${d.ackedRevision}, behind by ${d.behindBy}`)}`);
+    }
+    console.log(`      ${c.gray('↳ reconnect the device(s) to the brain to resync (`wavegrid receiver` / reopen the UI)')}`);
+  }
+}
+
 function seenAgo(lastSeen: number): string {
   const secs = Math.round((Date.now() - lastSeen) / 1000);
   if (secs < 60) return `seen ${secs}s ago`;
@@ -274,6 +306,11 @@ export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise
       checks,
       overall: overallStatus(checks),
       devices: project ? getStore().listDevices(project) : [],
+      sync: project ? getStore().getSyncState(project) : null,
+      divergent: project
+        ? (system?.status?.sync?.divergent ??
+            getStore().divergentDevices(project, getStore().listDevices(project).map((d) => d.id)))
+        : [],
       server: system?.status ?? null,
       serverError: system?.error ?? (portState === 'closed' ? 'not-running' : undefined)
     }, null, 2));
@@ -288,6 +325,7 @@ export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise
   for (const check of checks) renderCheck(check);
 
   if (project) renderDevices(project);
+  if (project) renderSync(project, system?.status?.sync);
 
   if (url) {
     if (portState === 'closed') {
