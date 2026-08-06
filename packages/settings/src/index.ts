@@ -4,6 +4,9 @@ export { openStore, type SettingsStore, type StoreOptions } from './store';
 // Device identity
 export { type DeviceIdentity } from './device';
 
+// Project device registry
+export { type DeviceRecord, type DeviceRegistration } from './registry';
+
 // Paths
 export {
   projectLogsDir,

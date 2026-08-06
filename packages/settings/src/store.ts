@@ -17,6 +17,15 @@ import {
   saveProjectConfig,
   setActiveProject
 } from './projects';
+import {
+  type DeviceRecord,
+  type DeviceRegistration,
+  getDeviceRecord,
+  listDevices,
+  registerDevice,
+  removeDevice,
+  renameDevice
+} from './registry';
 import { type RequiredSecret,requiredSecrets } from './required';
 import {
   type GenerateResult,
@@ -68,6 +77,13 @@ export interface SettingsStore {
   getDevice(): DeviceIdentity;
   setDeviceName(name: string): DeviceIdentity;
 
+  // Project device registry (which devices have joined a project)
+  listDevices(project: string): DeviceRecord[];
+  getDeviceRecord(project: string, id: string): DeviceRecord | null;
+  registerDevice(project: string, reg: DeviceRegistration): DeviceRecord;
+  renameDevice(project: string, idOrName: string, newName: string): DeviceRecord | null;
+  removeDevice(project: string, idOrName: string): boolean;
+
   // Runtime paths
   stateDir(project: string): string;
   logsDir(project: string): string;
@@ -100,6 +116,12 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
 
     getDevice: () => getDevice(paths),
     setDeviceName: (name) => setDeviceName(paths, name),
+
+    listDevices: (project) => listDevices(paths, project),
+    getDeviceRecord: (project, id) => getDeviceRecord(paths, project, id),
+    registerDevice: (project, reg) => registerDevice(paths, project, reg),
+    renameDevice: (project, idOrName, newName) => renameDevice(paths, project, idOrName, newName),
+    removeDevice: (project, idOrName) => removeDevice(paths, project, idOrName),
 
     stateDir: (project) => projectStateDir(paths, project),
     logsDir: (project) => projectLogsDir(paths, project)
