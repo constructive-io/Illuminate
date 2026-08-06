@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- macOS-style tile: full-bleed app-icon.svg art clipped to the standard
+       rounded rect (824x824, r=185) on a transparent 1024 canvas. Regenerate
+       icon.{png,icns,ico} with `pnpm icons`. -->
+  <defs>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <svg x="100" y="100" width="824" height="824" viewBox="0 0 1024 1024" fill="none">
+      <rect width="1024" height="1024" fill="#01A1FF"/>
+      <path d="M494.508 607.875L609.809 674.467V807.65L494.508 741.058V607.875Z" stroke="#01A1FF" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M725.113 607.875L609.812 674.467V807.65L725.113 741.058V607.875Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M609.809 541.289L725.109 607.881L609.809 674.472L494.508 607.881L609.809 541.289Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M378.699 674.641L494 741.232V874.415L378.699 807.824V674.641Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M609.809 674.477L494.508 741.068V874.251L609.809 807.66V674.477Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M725.113 208.344L609.812 274.935V408.118L725.113 341.527V208.344Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M609.809 141.75L725.109 208.342L609.809 274.933L494.508 208.342L609.809 141.75Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M263.922 607.398L379.223 673.99V807.173L263.922 740.582V607.398Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M494.504 607.875L379.203 674.467V807.65L494.504 741.058V607.875Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M379.199 274.93L494.5 341.521V474.704L379.199 408.113V274.93Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M609.809 274.93L494.508 341.521V474.704L609.809 408.113V274.93Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M494.5 208.344L609.801 274.935L494.5 341.527L379.199 274.935L494.5 208.344Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M263.914 474.703L379.215 541.295V674.478L263.914 607.886V474.703Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M494.504 474.703L379.203 541.295V674.478L494.504 607.886V474.703Z" fill="white" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+      <path d="M379.215 408.109L494.515 474.701L379.215 541.292L263.914 474.701L379.215 408.109Z" stroke="white" stroke-width="13.6135" stroke-linejoin="round"/>
+    </svg>
+  </g>
+</svg>
