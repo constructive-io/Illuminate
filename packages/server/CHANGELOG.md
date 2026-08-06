@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@1.0.0...@wavegrid/server@1.1.0) (2026-08-06)
+
+### Features
+
+- **ui,server:** unified brain — Vite SPA served by the server + server/receiver commands ([3fb1f19](https://github.com/constructive-io/Illuminate/commit/3fb1f19843881e8fa6b18cf5f9687b61f3d454f2))
+
 # [1.0.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/server@0.6.0...@wavegrid/server@1.0.0) (2026-08-05)
 
 **Note:** Version bump only for package @wavegrid/server

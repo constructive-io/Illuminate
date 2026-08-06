@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/ui@1.0.0...@wavegrid/ui@1.1.0) (2026-08-06)
+
+### Bug Fixes
+
+- **ui:** fixed 7x7 dot size for all layouts + store-authoritative JWT secret ([30d6120](https://github.com/constructive-io/Illuminate/commit/30d61206ed24bbaf055cc4e306114507b77c3dd1))
+
+### Features
+
+- **ui,server:** unified brain — Vite SPA served by the server + server/receiver commands ([3fb1f19](https://github.com/constructive-io/Illuminate/commit/3fb1f19843881e8fa6b18cf5f9687b61f3d454f2))
+- **ui:** Nova tab — ring-motion presets + ring laser-map assignment ([499cee5](https://github.com/constructive-io/Illuminate/commit/499cee5e449c57954da57e8c231cdbae42832f81))
+
 # [1.0.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/ui@0.4.1...@wavegrid/ui@1.0.0) (2026-08-05)
 
 **Note:** Version bump only for package @wavegrid/ui

@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.4.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.3.0...@wavegrid/cli@1.4.0) (2026-08-06)
+
+### Bug Fixes
+
+- **ui:** fixed 7x7 dot size for all layouts + store-authoritative JWT secret ([30d6120](https://github.com/constructive-io/Illuminate/commit/30d61206ed24bbaf055cc4e306114507b77c3dd1))
+
+### Features
+
+- **ui,server:** unified brain — Vite SPA served by the server + server/receiver commands ([3fb1f19](https://github.com/constructive-io/Illuminate/commit/3fb1f19843881e8fa6b18cf5f9687b61f3d454f2))
+
 # [1.3.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.2.0...@wavegrid/cli@1.3.0) (2026-08-06)
 
 ### Features

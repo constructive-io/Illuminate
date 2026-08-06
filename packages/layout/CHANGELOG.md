@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/layout@1.0.0...@wavegrid/layout@1.1.0) (2026-08-06)
+
+### Features
+
+- **ui:** Nova tab — ring-motion presets + ring laser-map assignment ([499cee5](https://github.com/constructive-io/Illuminate/commit/499cee5e449c57954da57e8c231cdbae42832f81))
+
 # [1.0.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/layout@0.4.0...@wavegrid/layout@1.0.0) (2026-08-05)
 
 **Note:** Version bump only for package @wavegrid/layout
