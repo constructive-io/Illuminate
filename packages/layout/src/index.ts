@@ -30,6 +30,17 @@ export {
 // Presets + spec resolution
 export { getPresetNames, presets, resolveLayout } from './presets';
 
+// Light-map helpers (physical correction layer) + auto-map heuristics
+export {
+  autoMap,
+  autoMapStrategies,
+  type AutoMapStrategy,
+  availableStrategies,
+  identityMap,
+  isIdentityMap,
+  normalizeLightMap
+} from './light-map';
+
 // Config loading (confstash) + run-mode derivation
 export {
   createWavegridLoader,

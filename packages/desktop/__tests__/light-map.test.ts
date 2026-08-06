@@ -49,8 +49,34 @@ describe('buildLightMapView', () => {
     // logical 0..2 are driven by the sharded device; 3..5 by nobody in particular.
     expect(view.rows[0].shardOwner).toBe('laptop-a');
     expect(view.rows[5].shardOwner).toBeNull();
+    // Device-local output re-bases to 0 within the shard: logical 2 → local 2.
+    expect(view.rows[2].localIndex).toBe(2);
+    expect(view.rows[5].localIndex).toBeNull();
+    // logical 0↔1 are swapped → both corrected; the rest identity.
+    expect(view.rows[0].corrected).toBe(true);
+    expect(view.rows[2].corrected).toBe(false);
+    expect(view.identity).toBe(false);
+    // rings only ever get identity + reverse.
+    expect(view.strategies.map((s) => s.id)).toEqual(['identity', 'reverse']);
     // no OSC target configured → console.
     expect(view.rows[0].oscTarget).toMatch(/console/);
+  });
+
+  it('reports identity when no correction is stored', () => {
+    const view = buildLightMapView({
+      project: 'demo',
+      config: { layout: { preset: 'grid-7x7' } },
+      devices: [],
+      stored: null
+    });
+    expect(view.identity).toBe(true);
+    expect(view.rows.every((r) => !r.corrected)).toBe(true);
+    // grid offers the geometric heuristics; square grids include rotate90.
+    expect(view.strategies.map((s) => s.id)).toContain('flipH');
+    expect(view.strategies.map((s) => s.id)).toContain('rotate90');
+    // fixtures carry normalized canvas positions.
+    expect(view.rows[0].u).toBeGreaterThanOrEqual(0);
+    expect(view.rows[0].u).toBeLessThanOrEqual(1);
   });
 
   it('describes a BEYOND OSC target and grid positions', () => {

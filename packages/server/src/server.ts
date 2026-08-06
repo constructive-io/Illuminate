@@ -31,6 +31,13 @@ export interface ServerHandle {
   server: http.Server;
   grid: ReturnType<typeof createGrid>;
   stop: () => void;
+  /**
+   * Inject a command in-process, exactly as if an authenticated client had sent
+   * it over the WebSocket. Lets an embedding process (the Electron brain, tests)
+   * drive the show — e.g. light-map identify (`physical_preview`) — without
+   * opening a self-connected socket. Same handler, same relay to receivers.
+   */
+  send: (cmd: Record<string, unknown>) => void;
 }
 
 export interface StartServerOptions {
@@ -954,7 +961,11 @@ const stop = () => {
   server.close();
 };
 
-return { server, grid, stop };
+const send = (cmd: Record<string, unknown>) => {
+  handleMessage(cmd);
+};
+
+return { server, grid, stop, send };
 }
 
 // Run directly (dev script / node bin). The CLI imports startServer instead.

@@ -212,6 +212,9 @@ export function useLightMap(project: string | null): {
   loading: boolean;
   refresh: () => Promise<void>;
   remap: (physicalLights: number[]) => Promise<void>;
+  autoMap: (strategyId: string) => Promise<number[] | null>;
+  identify: (physicalIndex: number) => Promise<boolean>;
+  identifyClear: () => Promise<void>;
   } {
   const [view, setView] = React.useState<LightMapView | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -237,11 +240,25 @@ export function useLightMap(project: string | null): {
     [project]
   );
 
+  const autoMap = React.useCallback(
+    async (strategyId: string) => (project ? window.wavegrid.lights.autoMap(project, strategyId) : null),
+    [project]
+  );
+
+  const identify = React.useCallback(
+    async (physicalIndex: number) => (project ? window.wavegrid.lights.identify(project, physicalIndex) : false),
+    [project]
+  );
+
+  const identifyClear = React.useCallback(async () => {
+    if (project) await window.wavegrid.lights.identifyClear(project);
+  }, [project]);
+
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { view, loading, refresh, remap };
+  return { view, loading, refresh, remap, autoMap, identify, identifyClear };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.

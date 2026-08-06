@@ -81,10 +81,26 @@ export interface FixtureRow {
   label: string;
   /** Grid "row R, col C" or ring "…°" position, phrased for the topology. */
   position: string;
+  /** Normalized canvas position within the bounding box, both in [0, 1]. */
+  u: number;
+  v: number;
   /** Name of the device whose shard drives this fixture, or null (all/none). */
   shardOwner: string | null;
+  /** Output index within the owning device's shard (logical − shard.start),
+   *  re-based to 0 — the "second device starts from zero" number. null when
+   *  no shard owns it (a single device drives every fixture). */
+  localIndex: number | null;
   /** Human-readable OSC destination (BEYOND/FB4/routing/console). */
   oscTarget: string;
+  /** True when physical ≠ logical — an explicit correction, not the default. */
+  corrected: boolean;
+}
+
+/** A deterministic auto-map heuristic offered for a layout. */
+export interface AutoMapStrategyInfo {
+  id: string;
+  label: string;
+  description: string;
 }
 
 /** The whole light-map debugger view for a project. `physicalLights` is the raw
@@ -92,10 +108,15 @@ export interface FixtureRow {
 export interface LightMapView {
   project: string;
   layoutName: string;
+  topology: 'grid' | 'ring' | 'filledRing';
   numCannons: number;
   gridColumns: number;
   physicalLights: number[];
   rows: FixtureRow[];
+  /** True when the map is pure identity — no correction file needed. */
+  identity: boolean;
+  /** Deterministic auto-map candidates valid for this layout. */
+  strategies: AutoMapStrategyInfo[];
 }
 
 /** A device that has joined a project — the project-scoped registry the CLI's
@@ -163,6 +184,13 @@ export interface WavegridApi {
     view(project: string): Promise<LightMapView | null>;
     /** Persist a new physical mapping (normalized) and return the fresh view. */
     remap(project: string, physicalLights: number[]): Promise<LightMapView | null>;
+    /** Build (but do not save) a candidate map from a deterministic heuristic. */
+    autoMap(project: string, strategyId: string): Promise<number[] | null>;
+    /** Flash one physical light on the running rig so the operator can see which
+     *  fixture it is. Returns true if the brain for this project was driving it. */
+    identify(project: string, physicalIndex: number): Promise<boolean>;
+    /** Clear any active identify flash. */
+    identifyClear(project: string): Promise<void>;
   };
 }
 
