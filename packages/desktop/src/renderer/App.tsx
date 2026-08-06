@@ -1,17 +1,19 @@
-import { FolderKanban, MonitorPlay } from 'lucide-react';
+import { Cpu, FolderKanban, MonitorPlay } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
 import { type AppNavigationGroup,AppShell } from '@/components/ui/app-shell';
-import { useBrainStatus, useProjects } from '@/renderer/lib/use-wavegrid';
+import { useBrainStatus, useDevices, useProjects } from '@/renderer/lib/use-wavegrid';
+import { DevicesRoute } from '@/renderer/routes/devices-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
 
-type Route = 'show' | 'projects';
+type Route = 'show' | 'projects' | 'devices';
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
-  projects: 'Projects'
+  projects: 'Projects',
+  devices: 'Devices'
 };
 
 export function App() {
@@ -22,6 +24,8 @@ export function App() {
   const { projects, refresh, use } = useProjects();
 
   const activeProject = projects.find((p) => p.active)?.name ?? status.project ?? null;
+  const { devices, refresh: refreshDevices, rename: renameDevice, assignShard } =
+    useDevices(activeProject);
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -62,7 +66,7 @@ export function App() {
       onClick={(e) => {
         e.preventDefault();
         const next = href.replace(/^#/, '') as Route;
-        if (next === 'show' || next === 'projects') setRoute(next);
+        if (next === 'show' || next === 'projects' || next === 'devices') setRoute(next);
         onClick?.(e);
       }}
       {...props}
@@ -87,6 +91,14 @@ export function App() {
           icon: FolderKanban,
           isActive: route === 'projects',
           badge: projects.length || undefined
+        },
+        {
+          id: 'devices',
+          label: 'Devices',
+          href: '#devices',
+          icon: Cpu,
+          isActive: route === 'devices',
+          badge: devices.length || undefined
         }
       ]
     }
@@ -94,7 +106,8 @@ export function App() {
 
   React.useEffect(() => {
     if (route === 'projects') void refresh();
-  }, [route, refresh]);
+    if (route === 'devices') void refreshDevices();
+  }, [route, refresh, refreshDevices]);
 
   return (
     <AppShell
@@ -106,7 +119,7 @@ export function App() {
       }}
       breadcrumbs={[{ id: route, label: ROUTE_LABEL[route], current: true }]}
     >
-      {route === 'show' ? (
+      {route === 'show' && (
         <ShowRoute
           status={status}
           activeProject={activeProject}
@@ -114,8 +127,18 @@ export function App() {
           onStop={onStop}
           busy={busy}
         />
-      ) : (
+      )}
+      {route === 'projects' && (
         <ProjectsRoute projects={projects} onUse={onUse} busy={busy} />
+      )}
+      {route === 'devices' && (
+        <DevicesRoute
+          activeProject={activeProject}
+          devices={devices}
+          onRename={(id, name) => void renameDevice(id, name)}
+          onAssignShard={(id, shard) => void assignShard(id, shard)}
+          busy={busy}
+        />
       )}
     </AppShell>
   );
