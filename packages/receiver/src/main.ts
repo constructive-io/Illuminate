@@ -33,6 +33,27 @@ export interface ReceiverHandle {
 const RECEIVER_VERSION = '0.4.1';
 const LOG_FILE = process.env.RECEIVER_LOG || resolve(process.cwd(), 'wavegrid-receiver.log');
 
+/**
+ * Resolve the light-map file the receiver reads. Prefer an explicit
+ * `LIGHT_MAP_CONFIG` override, else the per-project state dir (`WG_STATE_DIR`,
+ * set by the CLI/desktop), else a local `.state` dir. Never a repo-relative
+ * path — the same rule the server + `/api/light-map` + desktop debugger use, so
+ * a correction written by the debugger is exactly what the brain loads.
+ */
+export function resolveLightMapFile(env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): string {
+  if (env.LIGHT_MAP_CONFIG) return env.LIGHT_MAP_CONFIG;
+  const stateDir = env.WG_STATE_DIR || resolve(cwd, '.state');
+  return resolve(stateDir, 'light-map.json');
+}
+
+/**
+ * Resolve a routing-config path for a global install: absolute paths as-is,
+ * relative paths against cwd — never a monorepo-relative `../../`.
+ */
+export function resolveRoutingConfigFile(routingConfig: string, cwd = process.cwd()): string {
+  return resolve(cwd, routingConfig);
+}
+
 function logToFile(level: string, msg: string) {
   const ts = new Date().toISOString();
   const line = `[${ts}] ${level}: ${msg}\n`;
@@ -60,11 +81,7 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
   const RUN_MODE = resolved.runMode;
   const NUM_CANNONS = layout.count;
   const GRID_COLUMNS = layout.cols;
-  // Light-map lives in the per-project state dir (WG_STATE_DIR, set by the CLI),
-  // the same path the server + /api/light-map + desktop debugger read/write.
-  // Standalone runs fall back to a local .state dir — never a repo-relative path.
-  const STATE_DIR = process.env.WG_STATE_DIR || resolve(process.cwd(), '.state');
-  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(STATE_DIR, 'light-map.json');
+  const LIGHT_MAP_FILE = resolveLightMapFile();
 
   // Sharding is a distributed-mode concern only. In simple mode (one laptop)
   // the receiver always drives every fixture — no shard ranges required.
@@ -86,9 +103,7 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
 
   // ─── OSC output adapters (from @wavegrid/osc) ───
   if (process.env.ROUTING_CONFIG) {
-    // Absolute paths are used as-is; relative paths resolve against cwd
-    // (never a monorepo-relative `../../`, which breaks a global install).
-    const configPath = resolve(process.cwd(), process.env.ROUTING_CONFIG);
+    const configPath = resolveRoutingConfigFile(process.env.ROUTING_CONFIG);
     const raw = fs.readFileSync(configPath, 'utf8');
     const routingConfig = savedPhysicalMap
       ? applyPhysicalMapToRoutingConfig(JSON.parse(raw), savedPhysicalMap)
