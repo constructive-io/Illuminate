@@ -20,6 +20,15 @@ export interface JwtPayload {
   iat: number;
 }
 
+export function signJwt(sub: string): string {
+  const secret = getSecret();
+  const header = base64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const payload = base64url(Buffer.from(JSON.stringify({ sub, iat: Math.floor(Date.now() / 1000) })));
+  const data = `${header}.${payload}`;
+  const sig = base64url(createHmac('sha256', secret).update(data).digest());
+  return `${data}.${sig}`;
+}
+
 export function verifyJwt(token: string): JwtPayload | null {
   try {
     const secret = getSecret();

@@ -1,0 +1,126 @@
+/**
+ * `wavegrid receiver` — run a receiver only (no server, no UI). This is what
+ * each receiver laptop of a distributed show runs; it dials the brain's
+ * WebSocket, authenticates with the shared receiver key, and drives its shard
+ * of cannons.
+ *
+ *   wavegrid receiver --server ws://192.168.1.42:3333 --shard 0-24
+ *
+ * `--server` is the explicit upstream (required when the brain isn't this
+ * machine); `--shard start-end` restricts which cannons this laptop drives.
+ */
+import { loadWavegridConfig } from '@wavegrid/layout';
+import type { Inquirerer, Question } from 'inquirerer';
+import c from 'yanse';
+
+import { type Flags, getStore, resolveProjectName } from '../project';
+import { applyReceiverEnv, applyShardFlag } from './runtime';
+
+export interface ReceiverOptions {
+  cwd?: string;
+  /** Resolve + print the plan but do not start anything (tests). */
+  dryRun?: boolean;
+  flags?: Flags;
+  prompter?: Inquirerer;
+}
+
+export interface ReceiverResult {
+  server: string;
+  stop: () => void;
+}
+
+async function selectProject(opts: ReceiverOptions): Promise<string> {
+  const store = getStore();
+  const flags = opts.flags ?? {};
+  const explicit =
+    (typeof flags.project === 'string' ? flags.project : undefined) ?? process.env.WAVEGRID_PROJECT;
+
+  if (!explicit && opts.prompter) {
+    const projects = store.listProjects();
+    if (projects.length > 1) {
+      const answer = (await opts.prompter.prompt({}, [
+        {
+          type: 'list',
+          name: 'project',
+          message: 'Project for this receiver',
+          options: projects,
+          default: store.getActiveProject() ?? projects[0]
+        } as Question
+      ])) as unknown as { project: string };
+      if (answer.project) return answer.project;
+    }
+  }
+  return resolveProjectName(store, flags);
+}
+
+export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverResult> {
+  const cwd = opts.cwd ?? process.cwd();
+  const flags = opts.flags ?? {};
+
+  // `--server ws://host:port` sets the upstream the receiver dials. Without it
+  // the receiver falls back to the config/localhost default (fused-laptop dev).
+  const serverFlag = typeof flags.server === 'string' ? flags.server : undefined;
+  if (serverFlag) process.env.SIMULATOR_URL = serverFlag;
+
+  if (!applyShardFlag(flags.shard)) {
+    console.log(c.red(`Invalid --shard: expected "start-end" (e.g. 0-24), got "${String(flags.shard)}"`));
+    process.exitCode = 1;
+    return { server: '', stop: () => {} };
+  }
+
+  if (opts.dryRun) {
+    const resolved = loadWavegridConfig({ cwd });
+    printPlan(resolved, serverFlag);
+    return { server: serverFlag ?? process.env.SIMULATOR_URL ?? '', stop: () => {} };
+  }
+
+  const store = getStore();
+  const project = await selectProject(opts);
+
+  const resolved = loadWavegridConfig({ cwd });
+  printPlan(resolved, serverFlag, project);
+
+  applyReceiverEnv(store, project, resolved);
+
+  const { startReceiver } = await import('@wavegrid/receiver');
+  const receiverHandle = startReceiver(resolved);
+
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    receiverHandle.stop();
+  };
+
+  const onSignal = () => {
+    console.log('\n  Shutting down...');
+    stop();
+    process.exit(0);
+  };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+
+  console.log('');
+  console.log(`  ${c.green('▶')} receiver up.  ${c.gray('Ctrl-C stops it.')}`);
+  console.log('');
+
+  return { server: process.env.SIMULATOR_URL ?? '', stop };
+}
+
+function printPlan(
+  resolved: ReturnType<typeof loadWavegridConfig>,
+  server: string | undefined,
+  project?: string
+): void {
+  console.log('');
+  console.log(c.bold('  Wavegrid · receiver (only)'));
+  if (project) console.log(`  → Project:  ${c.cyan(project)}`);
+  console.log(`  → Layout:   ${c.cyan(resolved.layout.name)} (${resolved.layout.topology}, ${resolved.layout.count} cannons)`);
+  console.log(`  → Server:   ${server ? c.cyan(server) : c.gray('(config/localhost default)')}`);
+  const shard =
+    process.env.SHARD_START !== undefined && process.env.SHARD_END !== undefined
+      ? `${process.env.SHARD_START}–${process.env.SHARD_END}`
+      : 'all cannons (no shard)';
+  console.log(`  → Shard:    ${c.cyan(shard)}`);
+  console.log('');
+}

@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface CannonColor {
@@ -32,7 +30,7 @@ export interface Settings {
   animation: string | null;
 }
 
-export function useSocket(url: string, token: string | null) {
+export function useSocket(url: string | null, token: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [grid, setGrid] = useState<CannonColor[]>([]);
@@ -41,7 +39,7 @@ export function useSocket(url: string, token: string | null) {
   const [settings, setSettings] = useState<Settings | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !url) return;
 
     const wsUrl = new URL(url);
     wsUrl.searchParams.set('token', token);

@@ -1,9 +1,13 @@
-// PM2 process definitions for the WaveGrid dev servers.
+// PM2 process definitions for the WaveGrid servers.
 //
-//   pm2 start deploy/ecosystem.config.js   # start server + ui, keep them alive
-//   pm2 logs                               # tail both
+//   pm2 start deploy/ecosystem.config.js   # start the server(s), keep them alive
+//   pm2 logs                               # tail them
 //   pm2 restart deploy/ecosystem.config.js # pick up code or .env changes
 //   pm2 save                               # persist (see deploy/pm2.sh setup)
+//
+// Each server now serves the UI + API + WebSocket on ONE port (one origin) —
+// there is no separate Next UI process. For fresh installs prefer the CLI
+// (`wavegrid server`); this PM2 stack remains for the existing cloud show.
 //
 // Reads deploy/.env (gitignored) so the server IP stays out of git.
 
@@ -43,23 +47,12 @@ const envFile = fs.existsSync(path.join(__dirname, '.env'))
   : path.join(__dirname, '.env.example');
 const fileEnv = loadEnv(envFile);
 
-// Derive URLs/ports from CLOUD_IP so the IP is the single source of truth.
+// Server bind port. The UI + WS are same-origin now, so this is the only port.
 const SIM_PORT = fileEnv.SIM_PORT || '3000';
-if (!fileEnv.PORT) fileEnv.PORT = SIM_PORT; // server bind port
-if (!fileEnv.NEXT_PUBLIC_SIMULATOR_URL && fileEnv.CLOUD_IP) {
-  fileEnv.NEXT_PUBLIC_SIMULATOR_URL = `ws://${fileEnv.CLOUD_IP}:${SIM_PORT}`;
-}
 
-// Main UI port (same series as server ports for firewall simplicity).
-const UI_PORT = fileEnv.UI_PORT || '3003';
-
-// Pride instance settings (7×2 grid).
-const PRIDE_GRID = fileEnv.PRIDE_GRID || '7x2';
+// Pride instance settings (7×2 layout, its own server on its own port).
+const PRIDE_LAYOUT = fileEnv.PRIDE_LAYOUT || 'grid-7x2';
 const PRIDE_SIM_PORT = fileEnv.PRIDE_SIM_PORT || '3001';
-const PRIDE_UI_PORT = fileEnv.PRIDE_UI_PORT || '3004';
-const PRIDE_SIMULATOR_URL = fileEnv.CLOUD_IP
-  ? `ws://${fileEnv.CLOUD_IP}:${PRIDE_SIM_PORT}`
-  : `ws://localhost:${PRIDE_SIM_PORT}`;
 
 // Resolve pnpm/node portably: the node running this config lives next to the
 // matching pnpm. The PM2 daemon may not share the user's PATH, so pin both.
@@ -87,42 +80,23 @@ const common = {
 
 module.exports = {
   apps: [
-    // ── Main show (7×7, 49 cannons) ──────────────────────────────────
+    // ── Main show (7×7, 49 cannons) — serves UI + API + WS on WAVEGRID_PORT ──
     {
       ...common,
       name: 'wavegrid-server',
       args: 'dev:server',
-      env: baseEnv,
-    },
-    {
-      ...common,
-      name: 'wavegrid-ui',
-      args: 'start:ui',
-      env: { ...baseEnv, PORT: UI_PORT, WS_PATH: '/ws' },
+      env: { ...baseEnv, WAVEGRID_PORT: SIM_PORT },
     },
 
-    // ── Pride show (7×2, 14 cannons) ─────────────────────────────────
+    // ── Pride show (7×2, 14 cannons) — its own server/origin ─────────────────
     {
       ...common,
       name: 'wavegrid-server-pride',
       args: 'dev:server',
       env: {
         ...baseEnv,
-        PORT: PRIDE_SIM_PORT,
-        GRID: PRIDE_GRID,
-      },
-    },
-    {
-      ...common,
-      name: 'wavegrid-ui-pride',
-      args: 'start:ui',
-      env: {
-        ...baseEnv,
-        PORT: PRIDE_UI_PORT,
-        GRID: PRIDE_GRID,
-        SIMULATOR_URL: PRIDE_SIMULATOR_URL,
-        NEXT_PUBLIC_SIMULATOR_URL: PRIDE_SIMULATOR_URL,
-        WS_PATH: '/ws',
+        WAVEGRID_PORT: PRIDE_SIM_PORT,
+        WAVEGRID_LAYOUT: PRIDE_LAYOUT,
       },
     },
   ],

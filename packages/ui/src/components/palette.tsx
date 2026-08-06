@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 
 import { ANIMATION_SOURCES, SCENE_SOURCES } from '@/lib/preview-sources';

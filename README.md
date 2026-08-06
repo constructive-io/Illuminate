@@ -18,22 +18,23 @@ Grid size defaults to 7x7 (49 cannons) but is fully configurable for any layout.
 
 ## Run Locally 
 
-The stack is three processes. The only dev-vs-prod difference is the UI: prod serves a Next.js production build (`build:ui` → `start:ui`) with `NEXT_PUBLIC_SIMULATOR_URL` baked in at build time; dev uses `dev:ui` with hot reload.
+The stack is two processes. The **server serves the UI + API + WebSocket on one port** (the UI is a static Vite build — no separate UI server), and the receiver drives OSC. The browser derives its WebSocket URL from the page origin, so there is no `NEXT_PUBLIC_SIMULATOR_URL` / UI URL to configure.
 
 | Process | Script | Port | Role |
 |---|---|---|---|
-| Server | `pnpm dev:server` | `:3000` | master controller / grid state engine |
-| UI | `pnpm dev:ui` (dev) / `pnpm start:ui` (prod) | `:3003` | artist UI |
+| Server | `pnpm dev:server` | `:3000` | grid state engine + UI + API + WebSocket |
 | Receiver | `pnpm dev:receiver` | — | brain → OSC to BEYOND |
 
-For a prod-parity run on localhost (builds the UI, then boots all three in one terminal, `Ctrl-C` stops everything):
+For a prod-parity run on localhost (builds the UI, then boots server + receiver in one terminal, `Ctrl-C` stops everything):
 
 ```sh
-deploy/local.sh                # build UI (prod) + start server + ui + receiver
+deploy/local.sh                # build UI (Vite) + start server + receiver
 deploy/local.sh --skip-build   # reuse the last UI build
 ```
 
-Then open **http://localhost:3003**. The receiver emits OSC only when `BEYOND_HOST` / `ROUTING_CONFIG` is set, so it's safe to run with no hardware attached.
+Then open **http://localhost:3000**. The receiver emits OSC only when `BEYOND_HOST` / `ROUTING_CONFIG` is set, so it's safe to run with no hardware attached.
+
+For a real installation, prefer the CLI: `wavegrid start` (one laptop: server + UI + receiver) or `wavegrid server` + `wavegrid receiver` (distributed). See the operator skills under `.agents/skills/`.
 
 ## Getting Started
 
@@ -78,17 +79,19 @@ pnpm build
 ```
 
 - **Server** — grid state engine with exponential low-pass filtering. Scenes, animations, ambient presets, idle timeout. Runs at 60fps, broadcasts only on change.
-- **UI** — Next.js artist-facing creative instrument. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI.
+- **UI** — a static Vite/React artist-facing creative instrument served by the server on its own port. Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio. iPad-optimized touch UI.
 - **Receiver** — the "brain" that controls physical hardware. Runs its own independent LP filter so output never jolts. On signal loss, smoothly transitions into ambient 3D sine waves. Pluggable input/output adapters.
 - **OSC** — output adapters for Pangolin BEYOND and FB4 laser hardware. HSB-to-RGB color conversion, per-cannon routing via JSON config.
 
 ## Running
 
 ```sh
-# Start the full stack (each in its own terminal)
-pnpm dev:server    # Server at :3000 (master controller)
-pnpm dev:ui        # UI at :3003 (artist UI)
+# Start the stack (each in its own terminal)
+pnpm dev:server    # Server at :3000 — also serves the UI + API + WebSocket
 pnpm dev:receiver  # Receiver (brain)
+
+# The UI in watch mode (Vite dev server; proxies /api to :3000)
+pnpm dev:ui        # http://localhost:3003
 
 # Optional
 pnpm dev:webgl     # 3D Civic Center viewer at :3004
@@ -96,14 +99,13 @@ pnpm dev:webgl     # 3D Civic Center viewer at :3004
 
 ## Configurable Grid Size
 
-Everything defaults to 7x7 (49 cannons). Override with environment variables:
+Everything defaults to 7x7 (49 cannons). Layout is config-driven — pick a built-in preset (or author a custom layout) via the project config:
 
 ```sh
-# 10x10 grid (100 cannons)
-NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:server
-NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:ui
-NUM_CANNONS=100 GRID_COLUMNS=10 pnpm dev:receiver
+wavegrid projects config set layout grid-7x7   # or ring-6, ring-25-filled, …
 ```
+
+The server resolves the layout once and broadcasts it; the UI and receiver render from it — no per-process `NUM_CANNONS`/`GRID_COLUMNS` to keep in sync.
 
 ## Sharding
 
@@ -169,14 +171,11 @@ When the UI/Server run on a cloud server and the laser hardware is on-site:
 **On the cloud server** (e.g. DigitalOcean):
 
 ```sh
-# Terminal 1 — Server (WebSocket grid state engine)
+# Server — grid state engine + UI + API + WebSocket, all on one port
 pnpm dev:server
-
-# Terminal 2 — UI (Next.js, tells browsers where the server is)
-NEXT_PUBLIC_SIMULATOR_URL=ws://203.0.113.50:3000 pnpm dev:ui
 ```
 
-Replace `203.0.113.50` with your server's public IP. Ensure ports **3000** and **3003** are open in the firewall.
+Open **http://203.0.113.50:3000** in the browser (replace `203.0.113.50` with your server's public IP). The browser derives its WebSocket URL from the page origin, so there is no UI URL to configure. Ensure port **3000** is open in the firewall.
 
 **On the Pangolin PC** (on-site, Windows — same network as BEYOND):
 
@@ -281,30 +280,24 @@ The receiver sends 5 OSC messages per changed cannon: `alpha` (255 = full overri
 
 ### User Authentication
 
-The UI has a login screen that protects access. Create a `.users` file in the repo root with one `username:password` per line:
+The UI has a login screen that protects access. Users live in the appstash store per project (scrypt-hashed), managed via the CLI:
 
 ```sh
-cp .users.example .users
-# Edit .users with real credentials
+wavegrid projects users add admin
+wavegrid projects users list
 ```
 
-When `.users` exists and contains entries, the UI shows a login screen. When it's missing or empty, the UI is open (no login required).
-
-The `.users` file is gitignored — only `.users.example` (with fake credentials) is tracked.
+When a project has at least one user, the UI shows a login screen; the server verifies against the store and issues a JWT signed with the store-authoritative secret.
 
 ### Environment Variables Reference
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `USERS_FILE` | `../../.users` | Path to credentials file (UI only) |
 | `SIMULATOR_URL` | `ws://localhost:3000` | WebSocket upstream for the receiver |
-| `NEXT_PUBLIC_SIMULATOR_URL` | `ws://localhost:3000` | WebSocket URL the browser UI connects to |
 | `BEYOND_HOST` | — | BEYOND PC IP (enables OSC output) |
 | `BEYOND_PORT` | `7001` | BEYOND OSC receive port |
 | `BEYOND_GRID_ORDER` | `row` | Grid-to-zone mapping: `row` or `column` |
 | `SHARD_START` / `SHARD_END` | — | Cannon index range for this receiver |
-| `NUM_CANNONS` | `49` | Total cannons in grid |
-| `GRID_COLUMNS` | `7` | Number of columns |
 | `DEBUG_OSC` | — | Set to `1` to log every OSC message |
 | `RECEIVER_ALPHA` | `0.06` | LP filter smoothing factor |
 | `FALLBACK_DELAY` | `3000` | Ms before sine fallback on signal loss |

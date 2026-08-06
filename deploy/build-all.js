@@ -1,15 +1,9 @@
 #!/usr/bin/env node
-// Cross-platform full build script.
-// Builds all packages except UI first, then builds UI with env vars.
-// Replaces: pnpm -r --filter '!@wavegrid/ui' run build && pnpm run build:ui
-// (single quotes in the filter break on Windows CMD)
+// Cross-platform full build. `pnpm -r run build` builds every workspace package
+// in topological (dependency-first) order, so @wavegrid/layout builds before the
+// UI that imports it, and the UI builds before it is served by @wavegrid/server.
+// No filters → no shell-quoting pitfalls on Windows CMD.
 
 const { execSync } = require('child_process');
 
-const run = (cmd) => execSync(cmd, { stdio: 'inherit' });
-
-// Build everything except the UI package
-run('pnpm -r --filter !@wavegrid/ui run build');
-
-// Build UI with env var derivation (delegates to build-ui.js)
-run('node deploy/build-ui.js');
+execSync('pnpm -r run build', { stdio: 'inherit' });

@@ -1,11 +1,10 @@
 import { loadWavegridConfig, type RunMode } from '@wavegrid/layout';
 import type { Inquirerer, Question } from 'inquirerer';
-import { join } from 'path';
 import c from 'yanse';
 
 import { findConfigFile } from '../config-file';
 import { type Flags, getStore, resolveProjectName } from '../project';
-import { applyConfigToEnv } from './env';
+import { applyReceiverEnv, applyServerEnv } from './runtime';
 
 export interface StartOptions {
   cwd?: string;
@@ -30,9 +29,10 @@ export interface StartResult {
 
 /**
  * Which services the CLI runs. The CLI bakes in the server + receiver and runs
- * them in-process — no pnpm, no workspace checkout. The UI is a separate app
- * that reads the same config, so it is not launched here. Distributed mode
- * still runs the local pair; the receiver just shards via the shard config.
+ * them in-process — no pnpm, no workspace checkout. The server now also serves
+ * the UI + API on its own port (one origin), so there is no separate UI process
+ * to launch. Distributed mode still runs the local pair; the receiver just
+ * shards via the shard config.
  */
 export function servicesForMode(mode: RunMode): ServiceSpec[] {
   return [
@@ -97,20 +97,10 @@ export async function runStart(opts: StartOptions = {}): Promise<StartResult> {
   const services = servicesForMode(runMode);
   printPlan(resolved, findConfigFile(cwd), runMode, project);
 
-  // Secrets come from the store and MUST be present — generated once at init.
-  // receiverKey may be shared across laptops, so an operator-set env var wins.
-  // jwtSecret is NOT a cross-laptop secret: the store is authoritative and
-  // always wins, so the server verifies UI sessions with the exact secret the
-  // UI signs them with. Honoring a stale ambient WG_JWT_SECRET here would
-  // desync the two and 401 the WebSocket upgrade (the red status-dot bug).
-  if (!process.env.WG_RECEIVER_KEY) process.env.WG_RECEIVER_KEY = store.requireSecret(project, 'receiverKey');
-  process.env.WG_JWT_SECRET = store.requireSecret(project, 'jwtSecret');
-  // Project non-secret config (ports, osc targets, receiver tuning, …) into the
-  // env vars the in-process server + receiver read. Operator env still wins.
-  applyConfigToEnv(resolved.config);
-  // Runtime state + logs live in the per-project store, not the cwd.
-  if (!process.env.WG_STATE_DIR) process.env.WG_STATE_DIR = store.stateDir(project);
-  if (!process.env.RECEIVER_LOG) process.env.RECEIVER_LOG = join(store.logsDir(project), 'receiver.log');
+  // Wire the store-authoritative secrets + per-project paths into the env the
+  // in-process server and receiver read (see runtime.ts for the why).
+  applyServerEnv(store, project, resolved);
+  applyReceiverEnv(store, project, resolved);
 
   // Imported lazily so dry-run / config tooling never loads the runtime.
   const { startServer } = await import('@wavegrid/server');
@@ -139,6 +129,7 @@ export async function runStart(opts: StartOptions = {}): Promise<StartResult> {
 
   console.log('');
   console.log(`  ${c.green('▶')} server + receiver up.  ${c.gray('Ctrl-C stops everything.')}`);
+  console.log(`  → UI: ${c.cyan(`http://localhost:${resolved.config.server.port}`)}`);
   console.log('');
 
   return { runMode, services, stop };

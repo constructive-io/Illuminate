@@ -8,12 +8,19 @@ committed. Copy the example and fill it in once per machine:
 cp deploy/.env.example deploy/.env   # set CLOUD_IP=…
 ```
 
-`CLOUD_IP` is the single source of truth — `NEXT_PUBLIC_SIMULATOR_URL` (ui) and
-`SIMULATOR_URL` (receiver) are auto-derived as `ws://CLOUD_IP:SIM_PORT`.
+`CLOUD_IP` is the single source of truth — the receiver's `SIMULATOR_URL` is
+auto-derived as `ws://CLOUD_IP:SIM_PORT`. The **UI no longer needs a URL**: the
+server serves the UI + API + WebSocket on one port (same origin), so the
+browser derives its WebSocket URL from the page origin.
+
+> New installs should prefer the CLI (`npm i -g @wavegrid/cli`, then
+> `wavegrid server` on the host and `wavegrid receiver` on each laptop). This
+> PM2/Traefik stack remains for the existing cloud show.
 
 ## Machine 1 — cloud server (Linux, at CLOUD_IP)
 
-Runs the **server** + **ui** under PM2 so they stay up unattended.
+Runs the **server** under PM2 (which also serves the UI) so it stays up
+unattended.
 
 ```bash
 deploy/cloud.sh setup     # install pm2 if needed, start both, enable boot persistence
@@ -23,26 +30,21 @@ deploy/cloud.sh status
 deploy/cloud.sh stop
 ```
 
-Processes: `wavegrid-server` (`pnpm dev:server`, binds `0.0.0.0:SIM_PORT`) and
-`wavegrid-ui` (`pnpm dev:ui`, serves `:3003`). Both auto-restart on crash. See
+Process: `wavegrid-server` (`pnpm dev:server`, binds `0.0.0.0:WAVEGRID_PORT`,
+serving UI + API + WebSocket on that one port). Auto-restarts on crash. See
 `ecosystem.config.js`.
 
 ### Quick deploy (after `git pull`)
 
 ```bash
-pnpm build:ui   # auto-reads deploy/.env → bakes NEXT_PUBLIC_SIMULATOR_URL
+pnpm build      # builds all packages, including the UI (Vite → dist/)
 pm2 restart all
 ```
 
-`build:ui` sources `deploy/load-env.sh` under the hood, so
-`NEXT_PUBLIC_SIMULATOR_URL` is derived from `CLOUD_IP` automatically. No need to
-pass it on the command line.
-
-### Manual (mac/linux dev, two terminals)
+### Manual (mac/linux dev, one terminal)
 
 ```bash
-source deploy/load-env.sh && pnpm dev:server # shell one
-source deploy/load-env.sh && pnpm dev:ui    # shell two
+source deploy/load-env.sh && pnpm dev:server  # server serves the UI too
 ```
 
 ## Machine 2 — pangolin / receiver (Windows)
@@ -68,9 +70,7 @@ Configure OSC output in `deploy\.env` — either a single BEYOND target
 | --------------------------- | ------- | ---------------- | ---------------------------------- |
 | `CLOUD_IP`                  | both    | —                | **secret**; server address          |
 | `SIM_PORT`                  | both    | `3000`           | server WebSocket port               |
-| `NUM_CANNONS` / `GRID_COLUMNS` | both | `49` / `7`       | must match across server + receiver |
-| `AUTH_PASSWORD`             | cloud   | —                | server auth                         |
-| `NEXT_PUBLIC_SIMULATOR_URL` | cloud   | `ws://CLOUD_IP:SIM_PORT` | ui → server (derived)       |
+| `WAVEGRID_LAYOUT`           | both    | `grid-7x7`       | preset id; must match server + receiver |
 | `SIMULATOR_URL`             | pangolin| `ws://CLOUD_IP:SIM_PORT` | receiver → server (derived) |
 | `RECEIVER_ALPHA`            | pangolin| `0.06`           | smoothing                           |
 | `FALLBACK_DELAY`            | pangolin| `3000`           | ms before sine fallback             |

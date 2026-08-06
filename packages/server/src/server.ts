@@ -9,6 +9,7 @@ import { animations } from './animations';
 import { computeCoverage } from './coverage';
 import type { BlendMode, CannonState, Orientation, Rotation } from './grid';
 import {compositeLayer, createGrid, DEFAULT_ALPHA, defaultOrientation, mapUiToGrid, remapGridForUi, resetGrid, setAllTargets, setCannonTarget, shiftGrid, tickGrid } from './grid';
+import { createHttpApp, resolveUiDir } from './http-app';
 import { verifyJwt } from './jwt';
 import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
@@ -21,13 +22,21 @@ export interface ServerHandle {
   stop: () => void;
 }
 
+export interface StartServerOptions {
+  /** Built UI assets to serve on this port. Defaults to the resolved @wavegrid/ui dist. */
+  uiDir?: string | null;
+}
+
 /**
  * Start the wavegrid server. Accepts an already-resolved config (so an
  * embedding process like the CLI can pass the layout it resolved) and
  * otherwise loads it from cwd/env. Returns a handle with a stop() for
  * clean in-process shutdown.
  */
-export function startServer(resolved: ResolvedConfig = loadWavegridConfig()): ServerHandle {
+export function startServer(
+  resolved: ResolvedConfig = loadWavegridConfig(),
+  opts: StartServerOptions = {}
+): ServerHandle {
   const layout: Layout = resolved.layout;
   const NUM_CANNONS = layout.count;
   const GRID_COLUMNS = layout.cols;
@@ -42,13 +51,14 @@ export function startServer(resolved: ResolvedConfig = loadWavegridConfig()): Se
   // Per-socket registry powering `system_status` (→ `wavegrid doctor`).
   const clients = new Map<WebSocket, ClientInfo>();
 
-  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(process.cwd(), '../../deploy/light-map.json');
-
   // ── State persistence ─────────────────────────────────────────────
   // The CLI points WG_STATE_DIR at the per-project store; standalone runs
   // fall back to a local .state dir.
   const STATE_DIR = process.env.WG_STATE_DIR || resolve(process.cwd(), '.state');
   const STATE_FILE = resolve(STATE_DIR, `server-${PORT}.json`);
+  // Light-map lives in the per-project state dir (written by /api/light-map),
+  // not a cwd-relative deploy file. Server + API read/write the same path.
+  const LIGHT_MAP_FILE = process.env.LIGHT_MAP_CONFIG || resolve(STATE_DIR, 'light-map.json');
 
 interface PersistedState {
   currentAnimation: string | null;
@@ -144,10 +154,15 @@ if (restored) {
   console.log(`  ◈ Restored state from ${STATE_FILE}`);
 }
 
+// One origin: static UI + JSON API on the same port the WebSocket upgrades on.
+const uiDir = opts.uiDir !== undefined ? opts.uiDir : resolveUiDir();
+const httpApp = createHttpApp(resolved, { uiDir });
 const server = http.createServer((req, res) => {
-  // No HTML UI served — only WebSocket connections are accepted on this port.
-  res.writeHead(204);
-  res.end();
+  httpApp(req, res).catch((err) => {
+    console.error('  ◈ HTTP error:', err instanceof Error ? err.message : String(err));
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
+  });
 });
 
 const wss = new WebSocketServer({ noServer: true });

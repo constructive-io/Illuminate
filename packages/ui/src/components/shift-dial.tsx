@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useRef, useState } from 'react';
 
 const DIAL_SIZE = 130;

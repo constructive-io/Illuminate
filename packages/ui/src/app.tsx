@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AudioTab } from '@/components/audio-tab';
@@ -431,7 +429,7 @@ function MasterSliders({
 export default function Home() {
   const config = useConfig();
   const { user, token, checked, login } = useAuth();
-  const { connected, grid, orientation, playlistState, settings, send } = useSocket(config?.simulatorUrl ?? 'ws://localhost:3000', token);
+  const { connected, grid, orientation, playlistState, settings, send } = useSocket(config?.simulatorUrl ?? null, token);
   const isPhone = useIsPhone();
 
   const NUM_CANNONS = config?.numCannons ?? 49;
