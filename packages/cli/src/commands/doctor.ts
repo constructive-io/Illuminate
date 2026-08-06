@@ -119,6 +119,10 @@ function localChecks(flags: Flags, cwd: string): { checks: Check[]; project?: st
       : { name: 'Store', status: 'fail', detail: `not writable: ${store.paths.root}`, remedy: 'check permissions or APPSTASH_BASE_DIR' }
   );
 
+  // Machine-local device identity (self-registration / discovery).
+  const device = store.getDevice();
+  checks.push({ name: 'Device', status: 'pass', detail: `${device.name} (${device.id.slice(0, 8)}…)` });
+
   // Active project resolution
   const explicit = (typeof flags.project === 'string' ? flags.project : undefined) ?? process.env.WAVEGRID_PROJECT;
   const project = explicit ?? store.getActiveProject() ?? undefined;
@@ -212,7 +216,9 @@ function renderSystem(status: SystemStatus): void {
       const shard = h?.shard ? `shard ${h.shard.start}–${h.shard.end}` : 'all cannons';
       const mism = h && h.layout.count !== s.layout.count ? c.red(`  ⚠ layout ${h.layout.id}(${h.layout.count})≠server`) : '';
       const vskew = h && h.version !== undefined ? c.gray(`v${h.version}`) : '';
-      console.log(`      • ${c.cyan(h?.host ?? r.remote)}  ${shard}  ${vskew}${mism}`);
+      const label = h?.deviceName ?? h?.host ?? r.remote;
+      const at = c.gray(r.remote);
+      console.log(`      • ${c.cyan(label)}  ${at}  ${shard}  ${vskew}${mism}`);
     }
   }
 

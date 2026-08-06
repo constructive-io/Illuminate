@@ -1,6 +1,9 @@
 // Store facade
 export { openStore, type SettingsStore, type StoreOptions } from './store';
 
+// Device identity
+export { type DeviceIdentity } from './device';
+
 // Paths
 export {
   projectLogsDir,

@@ -170,6 +170,12 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
 
   // Announce ourselves to the server on every (re)connect so `wavegrid doctor`
   // can enumerate laptops and check shard coverage across the installation.
+  // Machine-local device identity (provided by the CLI from the store, which
+  // owns ~/.wavegrid/config/device.json). Lets the server enumerate laptops by
+  // a stable id + friendly name rather than just hostname/pid.
+  const DEVICE_ID = process.env.WG_DEVICE_ID || undefined;
+  const DEVICE_NAME = process.env.WG_DEVICE_NAME || os.hostname();
+
   const sendHello = () => {
     input.send({
       type: 'hello',
@@ -179,7 +185,9 @@ export function startReceiver(resolved: ResolvedConfig = loadWavegridConfig()): 
       version: RECEIVER_VERSION,
       layout: { id: layout.id, count: NUM_CANNONS },
       mode: RUN_MODE === 'distributed' ? 'distributed' : 'simple',
-      shard: shard ? { start: shard.start, end: shard.end } : null
+      shard: shard ? { start: shard.start, end: shard.end } : null,
+      deviceId: DEVICE_ID,
+      deviceName: DEVICE_NAME
     });
   };
   input.on('connected', sendHello);

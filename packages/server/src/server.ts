@@ -1,3 +1,4 @@
+import { advertise, type AdvertiseHandle } from '@wavegrid/discovery';
 import { type Layout, loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
 import * as fs from 'fs';
 import http from 'http';
@@ -25,6 +26,13 @@ export interface ServerHandle {
 export interface StartServerOptions {
   /** Built UI assets to serve on this port. Defaults to the resolved @wavegrid/ui dist. */
   uiDir?: string | null;
+  /**
+   * Advertise this brain on the LAN via mDNS (`_wavegrid._tcp`) so receivers can
+   * discover it without an explicit `--server`. The CLI supplies the project +
+   * machine-local device identity; omit (or pass false) to stay silent.
+   * Discovery is convenience only — connections still authenticate.
+   */
+  advertise?: { project: string; deviceId: string; deviceName: string } | false;
 }
 
 /**
@@ -378,7 +386,9 @@ wss.on('connection', (ws, req: http.IncomingMessage) => {
           version: hello.version,
           layout: hello.layout,
           mode: hello.mode,
-          shard: hello.shard ?? null
+          shard: hello.shard ?? null,
+          deviceId: hello.deviceId,
+          deviceName: hello.deviceName
         };
         return;
       }
@@ -704,6 +714,8 @@ const tickTimer = setInterval(() => {
   }
 }, TICK_MS);
 
+let advertiseHandle: AdvertiseHandle | null = null;
+
 server.listen(PORT, resolved.config.server.host, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
@@ -714,12 +726,19 @@ server.listen(PORT, resolved.config.server.host, () => {
   console.log(`  → Layout: ${layout.name} (${layout.topology}, ${NUM_CANNONS} cannons)`);
   console.log(`  → Run mode: ${RUN_MODE}`);
   console.log('  → Mode: command relay');
+  // Announce over mDNS so `wavegrid receiver` can find us without an IP. Best
+  // effort: silently a no-op where multicast is blocked. Never bypasses auth.
+  if (opts.advertise) {
+    advertiseHandle = advertise({ port: PORT, ...opts.advertise });
+    console.log(`  → Discoverable: _wavegrid._tcp (project "${opts.advertise.project}")`);
+  }
   console.log('');
 });
 
 const stop = () => {
   clearInterval(tickTimer);
   if (saveTimer) clearTimeout(saveTimer);
+  if (advertiseHandle) advertiseHandle.stop();
   wss.close();
   server.close();
 };

@@ -43,6 +43,11 @@ export function applyReceiverEnv(store: SettingsStore, project: string, resolved
   applyConfigToEnv(resolved.config);
   if (!process.env.WG_STATE_DIR) process.env.WG_STATE_DIR = store.stateDir(project);
   if (!process.env.RECEIVER_LOG) process.env.RECEIVER_LOG = join(store.logsDir(project), 'receiver.log');
+  // Machine-local device identity so the server can enumerate laptops by a
+  // stable id + friendly name (self-registration).
+  const device = store.getDevice();
+  if (!process.env.WG_DEVICE_ID) process.env.WG_DEVICE_ID = device.id;
+  if (!process.env.WG_DEVICE_NAME) process.env.WG_DEVICE_NAME = device.name;
 }
 
 /** IPv4 LAN addresses of this machine — the URLs operators point iPads/receivers at. */

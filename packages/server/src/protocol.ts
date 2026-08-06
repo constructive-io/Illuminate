@@ -20,6 +20,10 @@ export interface HelloMessage {
   layout: { id: string; count: number };
   mode: 'simple' | 'distributed';
   shard: ShardRange | null;
+  /** Machine-local device id (stable per laptop). Optional for older receivers. */
+  deviceId?: string;
+  /** Friendly device name (user-editable, defaults to hostname). */
+  deviceName?: string;
 }
 
 /** Per-connection view the server keeps for every socket. */

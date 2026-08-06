@@ -38,6 +38,7 @@
   ],
   "dependencies": {
     "@wavegrid/animations": "workspace:*",
+    "@wavegrid/discovery": "workspace:*",
     "@wavegrid/layout": "workspace:*",
     "@wavegrid/settings": "workspace:*",
     "@wavegrid/ui": "workspace:*",
