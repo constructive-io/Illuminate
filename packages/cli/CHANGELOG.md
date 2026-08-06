@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.3.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.2.0...@wavegrid/cli@1.3.0) (2026-08-06)
+
+### Features
+
+- **cli:** group project commands under `projects`, add global `settings` ([089cf48](https://github.com/constructive-io/Illuminate/commit/089cf483e8672cb46287d4eaa6d770a3d36badd3))
+
 # [1.2.0](https://github.com/constructive-io/Illuminate/compare/@wavegrid/cli@1.1.0...@wavegrid/cli@1.2.0) (2026-08-05)
 
 ### Features
