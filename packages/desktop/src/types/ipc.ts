@@ -18,6 +18,24 @@ export interface ProjectSummary {
   active: boolean;
 }
 
+export interface ShardRange {
+  start: number;
+  end: number;
+}
+
+/** A device that has joined a project — the project-scoped registry the CLI's
+ *  `devices` commands show. Machine identity/IP are runtime facts, not exported. */
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  hostname?: string;
+  address?: string;
+  lastSeen?: number;
+  layout?: string;
+  mode?: 'simple' | 'distributed';
+  shard?: ShardRange | null;
+}
+
 export interface LaserBounds {
   x: number;
   y: number;
@@ -43,6 +61,11 @@ export interface WavegridApi {
     list(): Promise<ProjectSummary[]>;
     active(): Promise<string | null>;
     use(name: string): Promise<ProjectSummary[]>;
+  };
+  devices: {
+    list(project: string): Promise<DeviceInfo[]>;
+    rename(project: string, idOrName: string, newName: string): Promise<DeviceInfo[]>;
+    assignShard(project: string, idOrName: string, shard: ShardRange | null): Promise<DeviceInfo[]>;
   };
 }
 

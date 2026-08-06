@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import type { BrainStatus, ProjectSummary } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, ProjectSummary, ShardRange } from '@/types/ipc';
 
 const EMPTY_STATUS: BrainStatus = {
   running: false,
@@ -51,4 +51,42 @@ export function useProjects(): {
   }, [refresh]);
 
   return { projects, refresh, use };
+}
+
+/** The project-scoped device registry, mirrored from the shared appstash store.
+ *  Renaming and shard assignment write straight through to the store — the same
+ *  records the CLI's `devices` commands manage. */
+export function useDevices(project: string | null): {
+  devices: DeviceInfo[];
+  refresh: () => Promise<void>;
+  rename: (idOrName: string, newName: string) => Promise<void>;
+  assignShard: (idOrName: string, shard: ShardRange | null) => Promise<void>;
+  } {
+  const [devices, setDevices] = React.useState<DeviceInfo[]>([]);
+
+  const refresh = React.useCallback(async () => {
+    setDevices(project ? await window.wavegrid.devices.list(project) : []);
+  }, [project]);
+
+  const rename = React.useCallback(
+    async (idOrName: string, newName: string) => {
+      if (!project) return;
+      setDevices(await window.wavegrid.devices.rename(project, idOrName, newName));
+    },
+    [project]
+  );
+
+  const assignShard = React.useCallback(
+    async (idOrName: string, shard: ShardRange | null) => {
+      if (!project) return;
+      setDevices(await window.wavegrid.devices.assignShard(project, idOrName, shard));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { devices, refresh, rename, assignShard };
 }
