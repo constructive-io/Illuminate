@@ -8,7 +8,7 @@
   "main": ".vite/build/main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/constructive-io/Illuminate"
+    "url": "https://github.com/constructive-io/wavegrid"
   },
   "scripts": {
     "start": "electron-forge start",

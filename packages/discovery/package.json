@@ -13,7 +13,7 @@
       "require": "./index.js"
     }
   },
-  "homepage": "https://github.com/constructive-io/Illuminate",
+  "homepage": "https://github.com/constructive-io/wavegrid",
   "license": "SEE LICENSE IN LICENSE",
   "publishConfig": {
     "access": "public",
@@ -21,10 +21,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/constructive-io/Illuminate"
+    "url": "https://github.com/constructive-io/wavegrid"
   },
   "bugs": {
-    "url": "https://github.com/constructive-io/Illuminate/issues"
+    "url": "https://github.com/constructive-io/wavegrid/issues"
   },
   "scripts": {
     "clean": "makage clean",

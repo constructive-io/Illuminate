@@ -6,7 +6,7 @@
   "main": "index.js",
   "module": "esm/index.js",
   "types": "index.d.ts",
-  "homepage": "https://github.com/illuminate-sf/wavegrid",
+  "homepage": "https://github.com/constructive-io/wavegrid",
   "license": "SEE LICENSE IN LICENSE",
   "publishConfig": {
     "access": "public",
@@ -14,10 +14,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/illuminate-sf/wavegrid"
+    "url": "https://github.com/constructive-io/wavegrid"
   },
   "bugs": {
-    "url": "https://github.com/illuminate-sf/wavegrid/issues"
+    "url": "https://github.com/constructive-io/wavegrid/issues"
   },
   "scripts": {
     "clean": "makage clean",

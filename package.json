@@ -5,7 +5,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/constructive-io/Illuminate"
+    "url": "https://github.com/constructive-io/wavegrid"
   },
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
