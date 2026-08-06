@@ -3,6 +3,8 @@ import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
 import { type AppNavigationGroup,AppShell } from '@/components/ui/app-shell';
+import { AppSplash } from '@/components/ui/app-splash';
+import { ConstructiveIcon } from '@/components/ui/constructive-icon';
 import {
   useBrainStatus,
   useDevices,
@@ -35,8 +37,17 @@ export function App() {
   const [busy, setBusy] = React.useState(false);
 
   const status = useBrainStatus();
-  const { projects, refresh, use, create, remove } = useProjects();
+  const { projects, loaded, refresh, use, create, remove } = useProjects();
   const presets = usePresets();
+
+  // Boot splash: keep the cube loader up until the project registry has landed
+  // AND one full animation cycle has played, so it never flashes for a frame.
+  const [splashCycleDone, setSplashCycleDone] = React.useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setSplashCycleDone(true), 1400);
+    return () => window.clearTimeout(t);
+  }, []);
+  const showSplash = !loaded || !splashCycleDone;
 
   const activeProject = projects.find((p) => p.active)?.name ?? status.project ?? null;
   const { devices, refresh: refreshDevices, rename: renameDevice, assignShard } =
@@ -218,6 +229,7 @@ export function App() {
       renderLink={renderLink}
       brand={{
         name: 'Wavegrid',
+        logo: <ConstructiveIcon className='size-5' />,
         description: activeProject ? `Project · ${activeProject}` : 'No active project'
       }}
       breadcrumbs={[{ id: route, label: ROUTE_LABEL[route], current: true }]}
@@ -271,6 +283,7 @@ export function App() {
           busy={busy}
         />
       )}
+      {showSplash && <AppSplash />}
     </AppShell>
   );
 }

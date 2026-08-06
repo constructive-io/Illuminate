@@ -11,6 +11,8 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Wavegrid Desktop',
+    // Constructive company mark (assets/icon.{icns,ico}) until Wavegrid has its own.
+    icon: './assets/icon',
     asar: true
   },
   rebuildConfig: {},

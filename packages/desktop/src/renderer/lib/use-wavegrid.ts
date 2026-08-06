@@ -39,18 +39,22 @@ export function useBrainStatus(): BrainStatus {
 }
 
 /** The project registry, mirrored from the shared appstash store. Create/remove
- *  write straight through to the store — the same projects the CLI manages. */
+ *  write straight through to the store — the same projects the CLI manages.
+ *  `loaded` flips once the first fetch lands, so boot UI can wait on real data. */
 export function useProjects(): {
   projects: ProjectSummary[];
+  loaded: boolean;
   refresh: () => Promise<void>;
   use: (name: string) => Promise<void>;
   create: (input: NewProjectInput) => Promise<void>;
   remove: (name: string) => Promise<void>;
   } {
   const [projects, setProjects] = React.useState<ProjectSummary[]>([]);
+  const [loaded, setLoaded] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
     setProjects(await window.wavegrid.projects.list());
+    setLoaded(true);
   }, []);
 
   const use = React.useCallback(async (name: string) => {
@@ -69,7 +73,7 @@ export function useProjects(): {
     void refresh();
   }, [refresh]);
 
-  return { projects, refresh, use, create, remove };
+  return { projects, loaded, refresh, use, create, remove };
 }
 
 /** Built-in layout preset ids, loaded once from the store. */

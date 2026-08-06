@@ -13,3 +13,8 @@ createRoot(container).render(
     <App />
   </StrictMode>
 );
+
+// Remove the pre-React boot splash once React has painted its first frame.
+requestAnimationFrame(() => {
+  document.getElementById('boot-splash')?.remove();
+});
