@@ -90,7 +90,9 @@ export async function runConfigSet(
     }
     const answer = (await prompter.prompt({}, [
       {
-        type: 'autocomplete',
+        // A fixed 5-item list: arrow-select is unambiguous (autocomplete
+        // type-matching can mis-resolve short tokens like "mode"/"ui").
+        type: 'list',
         name: 'key',
         message: 'Which field do you want to set?',
         options: KEY_CHOICES.map((k) => ({ name: `${c.cyan(k.value.padEnd(8))} ${c.gray(k.description)}`, value: k.value })),

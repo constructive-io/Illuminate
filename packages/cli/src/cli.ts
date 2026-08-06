@@ -9,6 +9,7 @@ import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from '
 import { runPrintConfig } from './commands/print-config';
 import { runProjects, runUse } from './commands/projects';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
+import { runSettingsEnvironment, runSettingsInitialize } from './commands/settings';
 import { runStart } from './commands/start';
 import { runUsersAdd, runUsersList, runUsersRemove } from './commands/users';
 import type { Flags } from './project';
@@ -19,40 +20,61 @@ const HELP = `
 ${c.bold('wavegrid')} — config-driven laser installation launcher
 
 ${c.bold('Usage')}
-  wavegrid <command> [options]
+  wavegrid <command> [subcommand] [options]
 
-${c.bold('Commands')}
-  init [name]         Create a project in the store (generates secrets once)
-  start               Load the active project and run server + receiver
-  projects            List projects in the store
-  use <name>          Set the active project
-  config              Print the resolved config + provenance (secrets masked)
-  config set <k> <v>  Set a project config field (layout, mode, port, host, ui-port)
-  secrets list        List required secrets and whether each is set
-  secrets init        Generate any missing secrets (--force to rotate)
-  users list          List UI login users for the current project
-  users add [name]    Add/replace a UI login user (password prompted)
-  users rm <name>     Remove a UI login user
-  env export          Write a .env for the current project (--file to override)
-  doctor              Diagnose this laptop + the whole installation
+${c.bold('Projects')} — manage and edit projects
+  projects list                 List projects in the store
+  projects create [name]        Create a project (generates secrets once)
+  projects use <name>           Set the active project
+  projects config               Print the resolved config + provenance
+  projects config set <k> <v>   Set a field (layout, mode, port, host, ui-port)
+  projects secrets list|init    List / generate the project's secrets
+  projects users list|add|rm    Manage UI login users
+  projects env export           Write a .env for the project
+
+${c.bold('Settings')} — global store
+  settings environment          Show the store location + environment
+  settings initialize           Create/ensure the global store scaffold
+
+${c.bold('Run')}
+  start                         Run the active project (server + receiver)
+  doctor                        Diagnose this laptop + the whole installation
 
 ${c.bold('Options')}
   --project <name>    Act on a specific project (else the active one)
-  --print-config      Alias for the config command
+  --print-config      Print the resolved config and exit
   -h, --help          Show this help
   -v, --version       Show version
+
+${c.gray('Shortcuts: `init`, `config`, `secrets`, `users`, `env` work as aliases for the `projects …` forms.')}
 `;
 
+/** Top-level menu (bare `wavegrid`). */
 const COMMANDS: SubCommand[] = [
-  { value: 'init', description: 'Create a project in the store (generates secrets once)' },
-  { value: 'start', description: 'Load the active project and run server + receiver' },
-  { value: 'projects', description: 'List projects in the store' },
-  { value: 'use', description: 'Set the active project' },
-  { value: 'config', description: 'Print the resolved config + provenance (secrets masked)' },
-  { value: 'secrets', description: 'List or generate required secrets' },
-  { value: 'users', description: 'List, add, or remove UI login users' },
-  { value: 'env', description: 'Write a .env for the current project' },
+  { value: 'projects', description: 'Manage projects: list, create, use, config, secrets, users, env' },
+  { value: 'settings', description: 'Global store: environment, initialize' },
+  { value: 'start', description: 'Run the active project (server + receiver)' },
   { value: 'doctor', description: 'Diagnose this laptop + the whole installation' }
+];
+
+const PROJECTS_SUBS: SubCommand[] = [
+  { value: 'list', description: 'List projects in the store' },
+  { value: 'create', description: 'Create a project (generates secrets once)' },
+  { value: 'use', description: 'Set the active project' },
+  { value: 'config', description: 'Print or set the project config' },
+  { value: 'secrets', description: 'List or generate the project secrets' },
+  { value: 'users', description: 'List, add, or remove UI login users' },
+  { value: 'env', description: 'Write a .env for the project' }
+];
+
+const SETTINGS_SUBS: SubCommand[] = [
+  { value: 'environment', description: 'Show the store location + environment' },
+  { value: 'initialize', description: 'Create/ensure the global store scaffold' }
+];
+
+const CONFIG_SUBS: SubCommand[] = [
+  { value: 'show', description: 'Print the resolved config + provenance (secrets masked)' },
+  { value: 'set', description: 'Set a field: layout, mode, port, host, ui-port' }
 ];
 
 const SECRETS_SUBS: SubCommand[] = [
@@ -108,7 +130,18 @@ function coerce(value: string): string | number | boolean {
   return value;
 }
 
-const KNOWN_COMMANDS = ['init', 'start', 'projects', 'use', 'config', 'print-config', 'secrets', 'users', 'env', 'doctor'];
+const KNOWN_COMMANDS = [
+  'init',
+  'start',
+  'projects',
+  'settings',
+  'config',
+  'print-config',
+  'secrets',
+  'users',
+  'env',
+  'doctor'
+];
 
 /**
  * Resolve a command-group subcommand: use the one given on the CLI, else prompt
@@ -128,6 +161,120 @@ async function resolveSub(
   const chosen = await pickSubcommand(nonInteractive ? undefined : prompter, group, subs);
   if (chosen == null) printSubcommands(group, subs);
   return chosen;
+}
+
+function unknownSub(group: string, sub: string): void {
+  console.log(c.red(`Unknown ${group} subcommand: ${sub}`));
+  process.exitCode = 1;
+}
+
+// ── Per-group dispatchers ─────────────────────────────────────────────────
+// Each takes the positionals *after* its group token, so the same dispatcher
+// serves both the grouped form (`projects config set …`) and the top-level
+// alias (`config set …`).
+
+async function dispatchConfig(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  // Scripts running bare `config` still get the config printed (safe default).
+  let given = args[0];
+  if (given == null && nonInteractive) given = 'show';
+  const sub = (await resolveSub(given, 'config', CONFIG_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'set') {
+    await runConfigSet(args[1], args[2], flags, nonInteractive ? undefined : prompter);
+  } else if (sub === 'show' || sub === 'print') {
+    runPrintConfig(process.cwd(), flags);
+  } else unknownSub('config', sub);
+}
+
+async function dispatchSecrets(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  const sub = (await resolveSub(args[0], 'secrets', SECRETS_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'init') runSecretsInit(flags);
+  else if (sub === 'list') runSecretsList(flags);
+  else unknownSub('secrets', sub);
+}
+
+async function dispatchUsers(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  const sub = (await resolveSub(args[0], 'users', USERS_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'add') await runUsersAdd(flags, args[1], prompter);
+  else if (sub === 'rm' || sub === 'remove') {
+    await runUsersRemove(flags, args[1], nonInteractive ? undefined : prompter);
+  } else if (sub === 'list') runUsersList(flags);
+  else unknownSub('users', sub);
+}
+
+function dispatchEnv(args: string[], flags: Flags): void {
+  const sub = args[0];
+  // `env` has a single action (export); a bare `env` runs it deliberately.
+  if (sub === 'export' || sub == null) runEnvExport(flags);
+  else unknownSub('env', sub);
+}
+
+async function dispatchSettings(
+  args: string[],
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  const sub = (await resolveSub(args[0], 'settings', SETTINGS_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'environment' || sub === 'env') runSettingsEnvironment();
+  else if (sub === 'initialize' || sub === 'init') runSettingsInitialize();
+  else unknownSub('settings', sub);
+}
+
+async function dispatchProjects(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  const sub = (await resolveSub(args[0], 'projects', PROJECTS_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  const rest = args.slice(1);
+  switch (sub) {
+  case 'list':
+    runProjects();
+    break;
+  case 'create':
+  case 'add':
+    if (rest[0]) flags.project = rest[0];
+    await runInit(flags, prompter);
+    break;
+  case 'use':
+  case 'set':
+    await runUse(rest[0], nonInteractive ? undefined : prompter);
+    break;
+  case 'config':
+    await dispatchConfig(rest, flags, prompter, nonInteractive);
+    break;
+  case 'secrets':
+    await dispatchSecrets(rest, flags, prompter, nonInteractive);
+    break;
+  case 'users':
+    await dispatchUsers(rest, flags, prompter, nonInteractive);
+    break;
+  case 'env':
+    dispatchEnv(rest, flags);
+    break;
+  default:
+    unknownSub('projects', sub);
+  }
 }
 
 export async function run(argvInput: string[] = process.argv.slice(2)): Promise<void> {
@@ -173,6 +320,7 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     }
 
     switch (command) {
+    // `init` is a shortcut alias for `projects create`.
     case 'init': {
       if (positionals[1]) flags.project = positionals[1];
       await runInit(flags, prompter);
@@ -184,50 +332,26 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
       break;
     }
     case 'projects':
-      runProjects();
+      await dispatchProjects(positionals.slice(1), flags, prompter, nonInteractive);
       break;
-    case 'use':
-      await runUse(positionals[1], nonInteractive ? undefined : prompter);
+    case 'settings':
+      await dispatchSettings(positionals.slice(1), prompter, nonInteractive);
+      break;
+    case 'print-config':
+      runPrintConfig(process.cwd(), flags);
       break;
     case 'config':
-    case 'print-config':
-      if (positionals[1] === 'set') {
-        await runConfigSet(positionals[2], positionals[3], flags, nonInteractive ? undefined : prompter);
-      } else runPrintConfig(process.cwd(), flags);
+      await dispatchConfig(positionals.slice(1), flags, prompter, nonInteractive);
       break;
-    case 'secrets': {
-      const sub = (await resolveSub(positionals[1], 'secrets', SECRETS_SUBS, prompter, nonInteractive)) ?? undefined;
-      if (sub == null) break;
-      if (sub === 'init') runSecretsInit(flags);
-      else if (sub === 'list') runSecretsList(flags);
-      else {
-        console.log(c.red(`Unknown secrets subcommand: ${sub}`));
-        process.exitCode = 1;
-      }
+    case 'secrets':
+      await dispatchSecrets(positionals.slice(1), flags, prompter, nonInteractive);
       break;
-    }
-    case 'users': {
-      const sub = (await resolveSub(positionals[1], 'users', USERS_SUBS, prompter, nonInteractive)) ?? undefined;
-      if (sub == null) break;
-      if (sub === 'add') await runUsersAdd(flags, positionals[2], prompter);
-      else if (sub === 'rm' || sub === 'remove') {
-        await runUsersRemove(flags, positionals[2], nonInteractive ? undefined : prompter);
-      } else if (sub === 'list') runUsersList(flags);
-      else {
-        console.log(c.red(`Unknown users subcommand: ${sub}`));
-        process.exitCode = 1;
-      }
+    case 'users':
+      await dispatchUsers(positionals.slice(1), flags, prompter, nonInteractive);
       break;
-    }
-    case 'env': {
-      const sub = positionals[1];
-      if (sub === 'export' || sub == null) runEnvExport(flags);
-      else {
-        console.log(c.red(`Unknown env subcommand: ${sub}`));
-        process.exitCode = 1;
-      }
+    case 'env':
+      dispatchEnv(positionals.slice(1), flags);
       break;
-    }
     case 'doctor':
       await runDoctor(flags);
       break;
