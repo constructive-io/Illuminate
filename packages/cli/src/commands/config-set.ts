@@ -29,6 +29,10 @@ const SETTERS: Record<string, (config: Partial<WavegridConfig>, value: string) =
   },
   'ui-port': (config, value) => {
     config.ui = { ...config.ui, port: intOrThrow('ui-port', value) } as WavegridConfig['ui'];
+  },
+  sync: (config, value) => {
+    const on = boolOrThrow('sync', value);
+    config.sync = { secrets: config.sync?.secrets ?? false, ...config.sync, enabled: on };
   }
 };
 
@@ -41,8 +45,16 @@ const KEY_CHOICES = [
   { value: 'mode', description: 'Run mode: auto | simple | distributed' },
   { value: 'port', description: 'Server port' },
   { value: 'host', description: 'Server host/bind address' },
-  { value: 'ui-port', description: 'UI (Next.js) port' }
+  { value: 'ui-port', description: 'UI port' },
+  { value: 'sync', description: 'Config sync across devices: true | false' }
 ];
+
+function boolOrThrow(key: string, value: string): boolean {
+  const v = value.trim().toLowerCase();
+  if (v === 'true' || v === 'on' || v === '1' || v === 'yes') return true;
+  if (v === 'false' || v === 'off' || v === '0' || v === 'no') return false;
+  throw new Error(`${key} must be true or false, got "${value}".`);
+}
 
 function intOrThrow(key: string, value: string): number {
   const n = parseInt(value, 10);
@@ -61,6 +73,8 @@ async function promptValue(prompter: Inquirerer, key: string): Promise<string> {
     question = { type: 'list', name: 'value', message: 'Run mode', options: ['auto', 'simple', 'distributed'], required: true };
   } else if (key === 'port' || key === 'ui-port') {
     question = { type: 'number', name: 'value', message: key === 'port' ? 'Server port' : 'UI port', required: true };
+  } else if (key === 'sync') {
+    question = { type: 'list', name: 'value', message: 'Config sync across devices', options: ['true', 'false'], required: true };
   } else {
     question = { type: 'text', name: 'value', message: 'Value', required: true };
   }

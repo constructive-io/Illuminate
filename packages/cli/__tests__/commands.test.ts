@@ -38,6 +38,7 @@ describe('configEnvMap', () => {
       ui: { port: 3003 },
       receiver: { alpha: 0.1, fallbackDelay: 2000, shard: { start: 0, end: 3 } },
       osc: { beyond: { host: '10.0.0.5', port: 7001, gridOrder: 'row' } },
+      sync: { enabled: true, secrets: false },
       debug: { osc: true }
     });
     expect(env.WAVEGRID_LAYOUT).toBe('ring-6');

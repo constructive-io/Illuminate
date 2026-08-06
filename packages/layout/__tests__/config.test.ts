@@ -64,4 +64,20 @@ describe('loadWavegridConfig', () => {
     });
     expect(resolved.layout.id).toBe('grid-7x2');
   });
+
+  it('config sync is on (secrets off) by default', () => {
+    const resolved = loadWavegridConfig({ cwd: '/', env: {} });
+    expect(resolved.config.sync).toEqual({ enabled: true, secrets: false });
+  });
+
+  it('WG_SYNC_ENABLED=0 disables sync via the env layer', () => {
+    const resolved = loadWavegridConfig({ cwd: '/', env: { WG_SYNC_ENABLED: '0' } });
+    expect(resolved.config.sync.enabled).toBe(false);
+    expect(resolved.config.sync.secrets).toBe(false);
+  });
+
+  it('WG_SYNC_SECRETS=1 opts secrets into the sync channel', () => {
+    const resolved = loadWavegridConfig({ cwd: '/', env: { WG_SYNC_SECRETS: 'true' } });
+    expect(resolved.config.sync).toEqual({ enabled: true, secrets: true });
+  });
 });

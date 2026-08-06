@@ -70,6 +70,8 @@ Each config entry is versioned by a monotonic project **revision** (plus `update
 
 **Conflict policy (deterministic, never a silent merge):** the server assigns strictly increasing revisions, so the highest revision wins (last-writer-wins); offline peer-merge ties break by timestamp, then `deviceId`. A client that edited from a stale base revision is still accepted but flagged — `wavegrid doctor` surfaces the current revision and any device whose acknowledged revision lags, so divergence is visible, not hidden. **Simple one-device projects pay nothing:** there's one entry and one ack, and none of this surfaces until a second device joins. Secrets never ride config sync — they move only via explicit `--include-secrets` export bundles.
 
+**Toggle (`sync.enabled`, default on).** Replication is on by default. To pin a project's edits local to each device — e.g. deliberately diverging one laptop for a soundcheck — turn it off: `wavegrid config set sync false` (`WG_SYNC_ENABLED=0` also works for a one-off run). With sync off the server drops any `sync_push` (no revision bump, no broadcast) and `wavegrid doctor` prints `Config sync … disabled`. Re-enable with `wavegrid config set sync true`. The secrets gate (`WG_SYNC_SECRETS=1`) is a separate, off-by-default escape hatch for the rare case where a secret scope must replicate; leave it off — secrets normally travel only via export bundles.
+
 ## Verifying the installation
 
 ```sh

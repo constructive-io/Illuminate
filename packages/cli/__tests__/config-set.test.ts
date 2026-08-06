@@ -103,4 +103,22 @@ describe('runConfigSet', () => {
 
     expect(store.getProjectConfig('ring-demo')?.server?.port).toBe(4455);
   });
+
+  it('toggles config sync off and back on, preserving the secrets gate', async () => {
+    isolate();
+    const store = getStore();
+    store.createProject('p', { layout: { preset: 'ring-6' }, sync: { enabled: true, secrets: true } });
+
+    await runConfigSet('sync', 'false', {});
+    expect(store.getProjectConfig('p')?.sync).toEqual({ enabled: false, secrets: true });
+
+    await runConfigSet('sync', 'on', {});
+    expect(store.getProjectConfig('p')?.sync).toEqual({ enabled: true, secrets: true });
+  });
+
+  it('rejects a non-boolean sync value', async () => {
+    isolate();
+    getStore().createProject('p', { layout: { preset: 'ring-6' } });
+    await expect(runConfigSet('sync', 'maybe', {})).rejects.toThrow(/true or false/);
+  });
 });

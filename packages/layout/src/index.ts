@@ -11,6 +11,7 @@ export type {
   RunMode,
   ServerConfig,
   ShardConfig,
+  SyncConfig,
   Topology,
   UiConfig,
   WavegridConfig
