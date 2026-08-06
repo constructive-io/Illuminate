@@ -15,7 +15,15 @@ import { createHttpApp, resolveUiDir } from './http-app';
 import { verifyJwt } from './jwt';
 import { ServerPatternEngine } from './pattern-engine';
 import { compilePlaylist, type PlaylistDef, type PlaylistStep } from './playlist-compiler';
-import type { ClientInfo, HelloMessage, SystemStatus } from './protocol';
+import type {
+  ClientInfo,
+  HelloMessage,
+  SyncAckMessage,
+  SyncPushMessage,
+  SyncRequestMessage,
+  SyncUpdateMessage,
+  SystemStatus
+} from './protocol';
 import { applyScene, scenes } from './scenes';
 
 export interface ServerHandle {
@@ -334,6 +342,93 @@ function persistRegistration(hello: HelloMessage, remote: string): void {
   }
 }
 
+/**
+ * Resolve the project this server acts on (env override → active project).
+ * Returns the open store + project name, or null when nothing is configured
+ * (a server can still relay commands without a store-backed project).
+ */
+function resolveSyncTarget(): { store: ReturnType<typeof openStore>; project: string } | null {
+  try {
+    const store = openStore();
+    const project = process.env.WAVEGRID_PROJECT ?? store.getActiveProject();
+    if (!project) return null;
+    return { store, project };
+  } catch {
+    return null;
+  }
+}
+
+/** Broadcast an accepted config revision to every connected client. */
+function broadcastSync(update: SyncUpdateMessage): void {
+  const payload = JSON.stringify(update);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
+  });
+}
+
+/** Serialize + persist a client's config push, then broadcast the revision. */
+function handleSyncPush(msg: SyncPushMessage): void {
+  if (!msg.scope) return;
+  const target = resolveSyncTarget();
+  if (!target) return;
+  try {
+    const res = target.store.applySyncUpdate(target.project, {
+      scope: msg.scope,
+      config: msg.config,
+      deviceId: typeof msg.deviceId === 'string' ? msg.deviceId : null,
+      baseRevision: typeof msg.baseRevision === 'number' ? msg.baseRevision : undefined
+    });
+    broadcastSync({ type: 'sync_update', revision: res.revision, entry: res.entry, staleBase: res.staleBase });
+  } catch {
+    /* sync is best-effort; never drop the connection over a bad push */
+  }
+}
+
+/** Send the full replicated document to one client (join / reconnect / resync). */
+function sendSyncState(ws: WebSocket, msg: SyncRequestMessage): void {
+  const target = resolveSyncTarget();
+  if (!target) {
+    ws.send(JSON.stringify({ type: 'sync_state', revision: 0, entries: {} }));
+    return;
+  }
+  const state = target.store.getSyncState(target.project);
+  if (msg.deviceId) {
+    // A device asking for state has, at minimum, whatever it already had.
+    try {
+      target.store.ackSync(target.project, msg.deviceId, msg.haveRevision ?? 0);
+    } catch {
+      /* ignore */
+    }
+  }
+  ws.send(JSON.stringify({ type: 'sync_state', revision: state.revision, entries: state.entries }));
+}
+
+/** Record a client's acknowledgement of the revision it applied. */
+function handleSyncAck(msg: SyncAckMessage): void {
+  if (!msg.deviceId || typeof msg.revision !== 'number') return;
+  const target = resolveSyncTarget();
+  if (!target) return;
+  try {
+    target.store.ackSync(target.project, msg.deviceId, msg.revision);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Sync summary for `system_status` (revision + devices that lag it). */
+function buildSyncStatus(): SystemStatus['sync'] {
+  const target = resolveSyncTarget();
+  if (!target) return undefined;
+  try {
+    const state = target.store.getSyncState(target.project);
+    if (state.revision === 0 && Object.keys(state.entries).length === 0) return undefined;
+    const known = target.store.listDevices(target.project).map(d => d.id);
+    return { revision: state.revision, divergent: target.store.divergentDevices(target.project, known) };
+  } catch {
+    return undefined;
+  }
+}
+
 function buildSystemStatus(): SystemStatus {
   const receivers: ClientInfo[] = [];
   let uiClients = 0;
@@ -357,7 +452,8 @@ function buildSystemStatus(): SystemStatus {
     },
     receivers,
     uiClients,
-    coverage
+    coverage,
+    sync: buildSyncStatus()
   };
 }
 
@@ -431,6 +527,21 @@ wss.on('connection', (ws, req: http.IncomingMessage) => {
       }
       if (msg.type === 'system_status') {
         ws.send(JSON.stringify(buildSystemStatus()));
+        return;
+      }
+      // Config synchronization (Phase D): the socket is already authenticated
+      // (receiverKey or JWT), so an authenticated client may push/pull the
+      // replicated project document. The server serializes writes.
+      if (msg.type === 'sync_request') {
+        sendSyncState(ws, msg as SyncRequestMessage);
+        return;
+      }
+      if (msg.type === 'sync_push') {
+        handleSyncPush(msg as SyncPushMessage);
+        return;
+      }
+      if (msg.type === 'sync_ack') {
+        handleSyncAck(msg as SyncAckMessage);
         return;
       }
       handleMessage(msg);

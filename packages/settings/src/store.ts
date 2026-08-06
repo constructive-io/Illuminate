@@ -45,6 +45,17 @@ import {
   requireSecret,
   type SecretName
 } from './secrets';
+import {
+  type ApplyResult,
+  applyUpdate,
+  type ConfigUpdate,
+  type DivergentDevice,
+  divergentDevices,
+  mergeRemote,
+  readSyncState,
+  recordAck,
+  type SyncState
+} from './sync';
 import { addUser, listUsernames, removeUser, verifyUser } from './users';
 
 export interface StoreOptions {
@@ -97,6 +108,13 @@ export interface SettingsStore {
   exportProject(project: string, opts?: ExportOptions): PortableProject;
   importProject(bundle: unknown, opts?: ImportOptions): ImportResult;
 
+  // Config synchronization (revisioned; server-mediated primary, peer fallback)
+  getSyncState(project: string): SyncState;
+  applySyncUpdate(project: string, update: ConfigUpdate): ApplyResult;
+  ackSync(project: string, deviceId: string, revision: number): SyncState;
+  mergeSync(project: string, remote: SyncState): { state: SyncState; changed: boolean };
+  divergentDevices(project: string, knownDeviceIds?: string[]): DivergentDevice[];
+
   // Runtime paths
   stateDir(project: string): string;
   logsDir(project: string): string;
@@ -138,6 +156,12 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
 
     exportProject: (project, o) => exportProject(paths, project, o),
     importProject: (bundle, o) => importProject(paths, parseBundle(bundle), o),
+
+    getSyncState: (project) => readSyncState(paths, project),
+    applySyncUpdate: (project, update) => applyUpdate(paths, project, update),
+    ackSync: (project, deviceId, revision) => recordAck(paths, project, deviceId, revision),
+    mergeSync: (project, remote) => mergeRemote(paths, project, remote),
+    divergentDevices: (project, known) => divergentDevices(paths, project, known),
 
     stateDir: (project) => projectStateDir(paths, project),
     logsDir: (project) => projectLogsDir(paths, project)

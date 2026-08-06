@@ -16,6 +16,18 @@ export {
   type PortableProject
 } from './portable';
 
+// Config synchronization (revisioned, server-mediated + peer fallback)
+export {
+  type ApplyResult,
+  type ConfigUpdate,
+  deviceScope,
+  type DivergentDevice,
+  projectScope,
+  type SyncEntry,
+  type SyncScope,
+  type SyncState
+} from './sync';
+
 // Paths
 export {
   projectLogsDir,
