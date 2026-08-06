@@ -12,6 +12,7 @@ import type { GridMode } from '@/components/grid-display';
 import { GridDisplay } from '@/components/grid-display';
 import { LoginScreen } from '@/components/login-screen';
 import { useMotion } from '@/components/motion-tab';
+import { NovaTab } from '@/components/nova-tab';
 import { AnimationPalette, ScenePalette } from '@/components/palette';
 import { PatternsTab } from '@/components/patterns-tab';
 import { PlaylistTab } from '@/components/playlist-tab';
@@ -43,6 +44,7 @@ const tabs: { key: GridMode; label: string }[] = [
   { key: 'animations', label: 'Anim' },
   { key: 'pride', label: 'Pride' },
   { key: 'usa', label: 'USA' },
+  { key: 'nova', label: 'Nova' },
   { key: 'patterns', label: 'Patterns' },
   { key: 'sequences', label: 'Sequences' },
   { key: 'playlist', label: 'Playlist' },
@@ -220,6 +222,18 @@ function ToolContent({
           onPatternSelect={onPatternSelect}
           animSpeed={animSpeed}
           onAnimSpeed={onAnimSpeed}
+        />
+      )}
+
+      {tab === 'nova' && (
+        <NovaTab
+          send={send}
+          activePattern={activePattern}
+          onPatternSelect={onPatternSelect}
+          animSpeed={animSpeed}
+          onAnimSpeed={onAnimSpeed}
+          numCannons={numCannons}
+          gridColumns={gridColumns}
         />
       )}
 
