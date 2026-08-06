@@ -6,6 +6,9 @@ describe('resolveLayout', () => {
     expect(resolveLayout({ preset: 'grid-7x7' }).count).toBe(49);
     expect(resolveLayout({ preset: 'grid-7x2' }).count).toBe(14);
     expect(resolveLayout({ preset: 'ring-6' }).count).toBe(6);
+    const nova = resolveLayout({ preset: 'nova' });
+    expect(nova.count).toBe(6);
+    expect(nova.topology).toBe('ring');
     expect(resolveLayout({ preset: 'ring-25-filled' }).count).toBe(25);
   });
 
