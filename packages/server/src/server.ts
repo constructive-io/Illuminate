@@ -1,5 +1,6 @@
 import { advertise, type AdvertiseHandle } from '@wavegrid/discovery';
 import { type Layout, loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
+import { openStore } from '@wavegrid/settings';
 import * as fs from 'fs';
 import http from 'http';
 import { resolve } from 'path';
@@ -303,6 +304,36 @@ function cancelPlaylistIfActive() {
   }
 }
 
+/** Normalize an IPv6-mapped IPv4 address (`::ffff:1.2.3.4`) to plain IPv4. */
+function normalizeAddress(remote: string): string {
+  const m = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(remote);
+  return m ? m[1] : remote;
+}
+
+/**
+ * Persist a receiver's self-registration into the project device registry.
+ * Best-effort: a registry write failure must never drop the live connection.
+ */
+function persistRegistration(hello: HelloMessage, remote: string): void {
+  if (!hello.deviceId) return; // older receivers don't carry a device id
+  try {
+    const store = openStore();
+    const project = process.env.WAVEGRID_PROJECT ?? store.getActiveProject();
+    if (!project) return;
+    store.registerDevice(project, {
+      id: hello.deviceId,
+      name: hello.deviceName,
+      hostname: hello.host,
+      address: normalizeAddress(remote),
+      layout: hello.layout?.id,
+      mode: hello.mode,
+      shard: hello.shard ?? null
+    });
+  } catch {
+    /* registry is a convenience; never break the connection over it */
+  }
+}
+
 function buildSystemStatus(): SystemStatus {
   const receivers: ClientInfo[] = [];
   let uiClients = 0;
@@ -390,6 +421,12 @@ wss.on('connection', (ws, req: http.IncomingMessage) => {
           deviceId: hello.deviceId,
           deviceName: hello.deviceName
         };
+        // Self-registration: persist the receiver into the project's device
+        // registry (keyed by its machine-local device id) with the address it
+        // connected from. The socket is already authenticated (receiverKey),
+        // and the server only ever serves one project, so a device can't
+        // silently register itself against a different project/installation.
+        persistRegistration(hello, info.remote);
         return;
       }
       if (msg.type === 'system_status') {
