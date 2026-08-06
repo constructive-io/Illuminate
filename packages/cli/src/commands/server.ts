@@ -68,8 +68,11 @@ export async function runServer(opts: ServerOptions = {}): Promise<ServerResult>
 
   applyServerEnv(store, project, resolved);
 
+  const device = store.getDevice();
   const { startServer } = await import('@wavegrid/server');
-  const serverHandle = startServer(resolved);
+  const serverHandle = startServer(resolved, {
+    advertise: { project, deviceId: device.id, deviceName: device.name }
+  });
 
   let stopped = false;
   const stop = () => {

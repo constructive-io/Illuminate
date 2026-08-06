@@ -13,6 +13,8 @@ export interface StorePaths {
   activeConfigFile: string;
   /** ~/.wavegrid/config/projects.json — registry + active pointer. */
   registryFile: string;
+  /** ~/.wavegrid/config/device.json — machine-local identity (never travels with exports). */
+  deviceFile: string;
 }
 
 /**
@@ -28,7 +30,8 @@ export function resolvePaths(baseDir?: string): StorePaths {
     data: dirs.data,
     logs: dirs.logs,
     activeConfigFile: path.join(dirs.config, 'config.json'),
-    registryFile: path.join(dirs.config, 'projects.json')
+    registryFile: path.join(dirs.config, 'projects.json'),
+    deviceFile: path.join(dirs.config, 'device.json')
   };
 }
 

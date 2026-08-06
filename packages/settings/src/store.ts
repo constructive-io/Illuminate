@@ -1,3 +1,4 @@
+import { type DeviceIdentity, getDevice, setDeviceName } from './device';
 import {
   projectLogsDir,
   projectStateDir,
@@ -63,6 +64,10 @@ export interface SettingsStore {
   removeUser(project: string, username: string): boolean;
   verifyUser(project: string, username: string, password: string): boolean;
 
+  // Device identity (machine-local; never travels with project exports)
+  getDevice(): DeviceIdentity;
+  setDeviceName(name: string): DeviceIdentity;
+
   // Runtime paths
   stateDir(project: string): string;
   logsDir(project: string): string;
@@ -92,6 +97,9 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     addUser: (project, username, password) => addUser(paths, project, username, password),
     removeUser: (project, username) => removeUser(paths, project, username),
     verifyUser: (project, username, password) => verifyUser(paths, project, username, password),
+
+    getDevice: () => getDevice(paths),
+    setDeviceName: (name) => setDeviceName(paths, name),
 
     stateDir: (project) => projectStateDir(paths, project),
     logsDir: (project) => projectLogsDir(paths, project)

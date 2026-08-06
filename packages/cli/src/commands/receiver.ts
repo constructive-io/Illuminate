@@ -9,12 +9,25 @@
  * `--server` is the explicit upstream (required when the brain isn't this
  * machine); `--shard start-end` restricts which cannons this laptop drives.
  */
+import { browse, type DiscoveredBrain } from '@wavegrid/discovery';
 import { loadWavegridConfig } from '@wavegrid/layout';
 import type { Inquirerer, Question } from 'inquirerer';
 import c from 'yanse';
 
 import { type Flags, getStore, resolveProjectName } from '../project';
 import { applyReceiverEnv, applyShardFlag } from './runtime';
+
+/** Turn a discovered brain into the ws:// URL the receiver dials. */
+export function brainToWsUrl(brain: DiscoveredBrain): string {
+  const host = brain.addresses[0] || brain.host;
+  return `ws://${host}:${brain.port}`;
+}
+
+/** Label a discovered brain for the selection prompt. */
+export function brainLabel(brain: DiscoveredBrain): string {
+  const where = brain.addresses[0] || brain.host;
+  return `${brain.project} — ${where}:${brain.port}${brain.deviceName ? ` (${brain.deviceName})` : ''}`;
+}
 
 export interface ReceiverOptions {
   cwd?: string;
@@ -58,8 +71,13 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   const flags = opts.flags ?? {};
 
   // `--server ws://host:port` sets the upstream the receiver dials. Without it
-  // the receiver falls back to the config/localhost default (fused-laptop dev).
-  const serverFlag = typeof flags.server === 'string' ? flags.server : undefined;
+  // we try mDNS discovery, then fall back to the config/localhost default.
+  let serverFlag = typeof flags.server === 'string' ? flags.server : undefined;
+  const discover = flags.discover !== false && flags['no-discover'] !== true;
+  if (!serverFlag && !opts.dryRun && discover) {
+    const discovered = await discoverServer(opts);
+    if (discovered) serverFlag = discovered;
+  }
   if (serverFlag) process.env.SIMULATOR_URL = serverFlag;
 
   if (!applyShardFlag(flags.shard)) {
@@ -105,6 +123,40 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   console.log('');
 
   return { server: process.env.SIMULATOR_URL ?? '', stop };
+}
+
+/**
+ * Browse the LAN for advertised brains. Returns a ws:// URL, or undefined to
+ * fall through to the config/localhost default. Prompts when several are found
+ * and a prompter is available; picks the only one automatically. Discovery is
+ * pure convenience — the connection still authenticates with the shared key.
+ */
+async function discoverServer(opts: ReceiverOptions): Promise<string | undefined> {
+  console.log(c.gray('  Searching the LAN for a Wavegrid brain (mDNS)…'));
+  const brains = await browse({ timeoutMs: 2000 });
+  if (brains.length === 0) {
+    console.log(c.gray('  No brain discovered — using --server / config default.'));
+    return undefined;
+  }
+  if (brains.length === 1) {
+    console.log(`  ${c.green('✓')} Found ${c.cyan(brainLabel(brains[0]))}`);
+    return brainToWsUrl(brains[0]);
+  }
+  if (opts.prompter) {
+    const answer = (await opts.prompter.prompt({}, [
+      {
+        type: 'list',
+        name: 'brain',
+        message: 'Multiple Wavegrid brains found — pick one',
+        options: brains.map(brainLabel)
+      } as Question
+    ])) as unknown as { brain: string };
+    const chosen = brains.find(b => brainLabel(b) === answer.brain) ?? brains[0];
+    return brainToWsUrl(chosen);
+  }
+  // No TTY: default to the first, but tell the operator how to be explicit.
+  console.log(c.yellow(`  ${brains.length} brains found; using ${brainLabel(brains[0])}. Pass --server to choose.`));
+  return brainToWsUrl(brains[0]);
 }
 
 function printPlan(
