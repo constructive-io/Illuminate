@@ -36,7 +36,7 @@ describe('pickSubcommand', () => {
     expect(await pickSubcommand(undefined, 'users', USERS_SUBS)).toBeNull();
   });
 
-  it('prompts an autocomplete menu and returns the chosen subcommand', async () => {
+  it('prompts a list menu and returns the chosen subcommand', async () => {
     const questions: Array<Record<string, unknown>> = [];
     const stub = {
       prompt: async (_argv: unknown, qs: Array<Record<string, unknown>>) => {
@@ -49,7 +49,7 @@ describe('pickSubcommand', () => {
     expect(chosen).toBe('add');
 
     const q = questions[0];
-    expect(q.type).toBe('autocomplete');
+    expect(q.type).toBe('list');
     expect(q.name).toBe('choice');
     expect(String(q.message).toLowerCase()).toContain('what do you want to do?');
     expect((q.options as Array<{ value: string }>).map((o) => o.value)).toEqual(['list', 'add', 'rm']);

@@ -15,31 +15,42 @@ same way, so the store and config never diverge.
 
 ```bash
 npm i -g @wavegrid/cli
-wavegrid init                 # create a project + generate its secrets
-wavegrid users add            # add a UI login (prompted)
+wavegrid projects create      # create a project + generate its secrets
+wavegrid projects users add   # add a UI login (prompted)
 wavegrid start                # run server + receiver
 ```
 
+Run any command group bare (`wavegrid`, `wavegrid projects`, `wavegrid settings`,
+`wavegrid projects users`, …) and it prompts an interactive menu of what you can
+do next; stop short of any required argument and it prompts for that too. With no
+TTY it prints usage instead of hanging.
+
 ## Commands
+
+Project management and everything that edits a project live under `projects`;
+global store setup lives under `settings`; `start` and `doctor` are top-level.
 
 | Command | Purpose |
 | --- | --- |
-| `wavegrid init [name]` | Create a project in the store; **generates secrets once**; optionally add a first user. |
+| `wavegrid projects list` | List projects, marking the active one. |
+| `wavegrid projects create [name]` | Create a project in the store; **generates secrets once**; optionally add a first user. |
+| `wavegrid projects use <name>` | Set the active project (alias: `set`). |
+| `wavegrid projects config` | Print the resolved config + provenance (secret values masked). |
+| `wavegrid projects config set <k> <v>` | Update a project config field without re-creating it or editing JSON. Keys: `layout`/`preset` (a built-in preset id), `mode` (`auto`/`simple`/`distributed`), `port`, `host`, `ui-port`. |
+| `wavegrid projects secrets list` | List required secrets and whether each is set (never values). |
+| `wavegrid projects secrets init` | Generate any missing secrets (`--force` rotates). |
+| `wavegrid projects users list` | List UI usernames. |
+| `wavegrid projects users add [name]` | Add/replace a UI login user (password hashed). |
+| `wavegrid projects users rm <name>` | Remove a UI login user. |
+| `wavegrid projects env export` | Write a `.env` for the current project (`--file` to override). |
+| `wavegrid settings environment` | Show the store location + environment (paths, active project, base override). |
+| `wavegrid settings initialize` | Create/ensure the global store scaffold. |
 | `wavegrid start` | Load the active project and run server + receiver in-process. |
-| `wavegrid projects` | List projects, marking the active one. |
-| `wavegrid use <name>` | Set the active project. |
-| `wavegrid config` | Print the resolved config + provenance (secret values masked). |
-| `wavegrid secrets list` | List required secrets and whether each is set (never values). |
-| `wavegrid secrets init` | Generate any missing secrets (`--force` rotates). |
-| `wavegrid users add [name]` | Add/replace a UI login user (password hashed). |
-| `wavegrid users rm <name>` | Remove a UI login user. |
-| `wavegrid users list` | List UI usernames. |
-| `wavegrid config set <k> <v>` | Update a project config field without re-`init` or editing JSON. Keys: `layout`/`preset` (a built-in preset id), `mode` (`auto`/`simple`/`distributed`), `port`, `host`, `ui-port`. |
-| `wavegrid env export` | Write a `.env` for the current project (`--file` to override). |
 | `wavegrid doctor` | Diagnose this laptop (env hijacks, ports, secrets, users, shard) and — if a server is reachable — the whole installation: connected receivers + shard coverage (gaps/overlaps). `--json` for scripting, `--server ws://host:port` to point at a remote server. |
 
-Every command acts on the active project unless you pass `--project <name>`
-(or set `WAVEGRID_PROJECT`).
+`init`, `config`, `secrets`, `users`, and `env` remain as top-level shortcut
+aliases for the `projects …` forms. Every command acts on the active project
+unless you pass `--project <name>` (or set `WAVEGRID_PROJECT`).
 
 ### Secrets & setup are explicit and one-time
 

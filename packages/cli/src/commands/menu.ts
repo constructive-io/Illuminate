@@ -10,10 +10,15 @@ export interface SubCommand {
 
 /**
  * When a command group (e.g. `wavegrid users`) is run with no subcommand,
- * prompt "What do you want to do?" and let the operator pick — same pattern as
- * pgpm's CLI (autocomplete menu on a shared prompter), so users don't have to
- * memorize subcommands. Returns the chosen subcommand token, or null when
- * there's no TTY (caller should print the subcommand list instead).
+ * prompt "What do you want to do?" and let the operator pick — so users don't
+ * have to memorize subcommands. Returns the chosen subcommand token, or null
+ * when there's no TTY (caller should print the subcommand list instead).
+ *
+ * Uses a `list` (arrow-select) rather than an autocomplete: the options carry
+ * decorated (ANSI + description) names, and autocomplete's type-to-filter
+ * mis-resolves several short tokens against those decorated strings (e.g.
+ * typing `rm` selected `add`, `mode` selected `host`). A list shows every
+ * choice with its description and always returns exactly what's highlighted.
  *
  * The prompter MUST be the same instance used for any follow-up action prompt
  * (e.g. `users add` asking for username/password): chaining prompts on one
@@ -29,7 +34,7 @@ export async function pickFromMenu(
   const pad = Math.max(6, ...subs.map((s) => s.value.length));
   const answer = (await prompter.prompt({}, [
     {
-      type: 'autocomplete',
+      type: 'list',
       name: 'choice',
       message,
       options: subs.map((s) => ({

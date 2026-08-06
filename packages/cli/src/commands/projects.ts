@@ -11,7 +11,7 @@ export function runProjects(): void {
 
   console.log('');
   if (projects.length === 0) {
-    console.log(c.gray('  No projects yet. Create one with `wavegrid init`.'));
+    console.log(c.gray('  No projects yet. Create one with `wavegrid projects create`.'));
     console.log('');
     return;
   }
@@ -25,8 +25,8 @@ export function runProjects(): void {
 }
 
 /**
- * `wavegrid use [name]` — set the active project. With no name, prompt with a
- * list of the store's projects (interactive); with no TTY, print usage.
+ * `wavegrid projects use [name]` — set the active project. With no name, prompt
+ * with a list of the store's projects (interactive); with no TTY, print usage.
  */
 export async function runUse(name: string | undefined, prompter?: Inquirerer): Promise<void> {
   const store = getStore();
@@ -36,12 +36,12 @@ export async function runUse(name: string | undefined, prompter?: Inquirerer): P
     const projects = store.listProjects();
     if (projects.length === 0) {
       console.log('');
-      console.log(c.gray('  No projects yet. Create one with `wavegrid init`.'));
+      console.log(c.gray('  No projects yet. Create one with `wavegrid projects create`.'));
       console.log('');
       return;
     }
     if (!prompter) {
-      console.log(c.red('  Usage: wavegrid use <project>'));
+      console.log(c.red('  Usage: wavegrid projects use <project>'));
       console.log(`  Projects: ${c.cyan(projects.join(', '))}`);
       process.exitCode = 1;
       return;
