@@ -228,9 +228,33 @@ function renderSystem(status: SystemStatus): void {
   console.log(`  → Coverage: claimed ${formatRanges(claimed)} · gaps: ${gapStr} · overlaps: ${overStr}`);
 }
 
+/** Render the project device registry (devices that have joined, incl. offline). */
+function renderDevices(project: string): void {
+  const store = getStore();
+  const devices = store.listDevices(project);
+  if (devices.length === 0) return;
+  console.log('');
+  console.log(c.bold(`  Devices (registered · ${project})`));
+  for (const d of devices) {
+    const at = d.address ? c.gray(d.address) : c.gray('—');
+    const seen = d.lastSeen ? c.gray(seenAgo(d.lastSeen)) : c.gray('never');
+    console.log(`      • ${c.cyan(d.name)}  ${at}  ${seen}`);
+  }
+}
+
+function seenAgo(lastSeen: number): string {
+  const secs = Math.round((Date.now() - lastSeen) / 1000);
+  if (secs < 60) return `seen ${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `seen ${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `seen ${hrs}h ago`;
+  return `seen ${Math.round(hrs / 24)}d ago`;
+}
+
 /** `wavegrid doctor [--project name] [--server ws://host:port] [--json]` */
 export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise<void> {
-  const { checks, serverUrl, key } = localChecks(flags, cwd);
+  const { checks, project, serverUrl, key } = localChecks(flags, cwd);
 
   // System view: connect to the configured (or --server) server if reachable.
   const url = (typeof flags.server === 'string' ? flags.server : undefined) ?? serverUrl;
@@ -249,6 +273,7 @@ export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise
     console.log(JSON.stringify({
       checks,
       overall: overallStatus(checks),
+      devices: project ? getStore().listDevices(project) : [],
       server: system?.status ?? null,
       serverError: system?.error ?? (portState === 'closed' ? 'not-running' : undefined)
     }, null, 2));
@@ -261,6 +286,8 @@ export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise
   console.log('');
   console.log(c.bold('  Local'));
   for (const check of checks) renderCheck(check);
+
+  if (project) renderDevices(project);
 
   if (url) {
     if (portState === 'closed') {
