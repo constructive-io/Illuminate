@@ -29,10 +29,17 @@ export function activeProject(): string {
   return active;
 }
 
-/** JWT signing secret: explicit env override, else the project secret. Throws if unset. */
+/**
+ * JWT signing secret — the centralized store is the single source of truth.
+ *
+ * The store secret is authoritative so the UI always signs sessions with the
+ * same secret the store-driven server verifies against. A stale ambient
+ * `WG_JWT_SECRET` (an exported var or a leftover `.env` Next auto-loads) must
+ * NOT override it — that mismatch is exactly what broke the WebSocket (tokens
+ * signed with a different secret get 401'd at the upgrade → red status dot).
+ * Throws if the project has no secret yet (`wavegrid projects secrets init`).
+ */
 export function jwtSecret(): string {
-  const fromEnv = process.env.WG_JWT_SECRET;
-  if (fromEnv) return fromEnv;
   return store().requireSecret(activeProject(), 'jwtSecret');
 }
 
