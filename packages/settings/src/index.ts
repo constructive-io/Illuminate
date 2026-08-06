@@ -53,6 +53,12 @@ export {
   type SecretName
 } from './secrets';
 
+// Light-map library (named correction maps + active selection)
+export {
+  type LightMapSummary,
+  type StoredLightMap
+} from './light-maps';
+
 // Required-secrets report
 export { type RequiredSecret } from './required';
 

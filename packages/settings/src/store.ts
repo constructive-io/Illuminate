@@ -1,5 +1,15 @@
 import { type DeviceIdentity, getDevice, setDeviceName } from './device';
 import {
+  deleteLightMap,
+  getActiveLightMap,
+  type LightMapSummary,
+  listLightMaps,
+  readLightMap,
+  saveLightMap,
+  setActiveLightMap,
+  type StoredLightMap
+} from './light-maps';
+import {
   projectLogsDir,
   projectStateDir,
   resolvePaths,
@@ -117,6 +127,19 @@ export interface SettingsStore {
   mergeSync(project: string, remote: SyncState): { state: SyncState; changed: boolean };
   divergentDevices(project: string, knownDeviceIds?: string[]): DivergentDevice[];
 
+  // Light-map library (named correction maps; active one is materialized to the
+  // runtime light-map.json. null active = identity / no correction.)
+  listLightMaps(project: string): LightMapSummary[];
+  readLightMap(project: string, name: string): StoredLightMap | null;
+  saveLightMap(
+    project: string,
+    name: string,
+    data: { numCannons: number; gridColumns: number; physicalLights: readonly number[] }
+  ): StoredLightMap;
+  deleteLightMap(project: string, name: string): boolean;
+  getActiveLightMap(project: string): string | null;
+  setActiveLightMap(project: string, name: string | null): void;
+
   // Runtime paths
   stateDir(project: string): string;
   logsDir(project: string): string;
@@ -165,6 +188,13 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     ackSync: (project, deviceId, revision) => recordAck(paths, project, deviceId, revision),
     mergeSync: (project, remote) => mergeRemote(paths, project, remote),
     divergentDevices: (project, known) => divergentDevices(paths, project, known),
+
+    listLightMaps: (project) => listLightMaps(paths, project),
+    readLightMap: (project, name) => readLightMap(paths, project, name),
+    saveLightMap: (project, name, data) => saveLightMap(paths, project, name, data),
+    deleteLightMap: (project, name) => deleteLightMap(paths, project, name),
+    getActiveLightMap: (project) => getActiveLightMap(paths, project),
+    setActiveLightMap: (project, name) => setActiveLightMap(paths, project, name),
 
     stateDir: (project) => projectStateDir(paths, project),
     logsDir: (project) => projectLogsDir(paths, project)

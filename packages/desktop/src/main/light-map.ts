@@ -73,8 +73,10 @@ export function buildLightMapView(args: {
   config: ProjectConfig | null;
   devices: { name: string; shard?: { start: number; end: number } | null }[];
   stored: Partial<LightMapConfig> | null;
+  maps?: LightMapView['maps'];
+  activeMap?: string | null;
 }): LightMapView {
-  const { project, config, devices, stored } = args;
+  const { project, config, devices, stored, maps = [], activeMap = null } = args;
   const layout = resolveLayout(config?.layout ?? { preset: 'grid-7x7' });
   const dims = { numCannons: layout.count, gridColumns: layout.cols };
   const map = normalizeLightMap(stored, dims);
@@ -121,7 +123,9 @@ export function buildLightMapView(args: {
       id: s.id,
       label: s.label,
       description: s.description
-    }))
+    })),
+    maps,
+    activeMap
   };
 }
 

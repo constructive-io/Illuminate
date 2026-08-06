@@ -47,8 +47,12 @@ const api: WavegridApi = {
   },
   lights: {
     view: (project) => ipcRenderer.invoke('lights:view', project) as Promise<LightMapView | null>,
-    remap: (project, physicalLights) =>
-      ipcRenderer.invoke('lights:remap', project, physicalLights) as Promise<LightMapView | null>,
+    saveMap: (project, name, physicalLights) =>
+      ipcRenderer.invoke('lights:saveMap', project, name, physicalLights) as Promise<LightMapView | null>,
+    activate: (project, name) =>
+      ipcRenderer.invoke('lights:activate', project, name) as Promise<LightMapView | null>,
+    deleteMap: (project, name) =>
+      ipcRenderer.invoke('lights:deleteMap', project, name) as Promise<LightMapView | null>,
     autoMap: (project, strategyId) =>
       ipcRenderer.invoke('lights:autoMap', project, strategyId) as Promise<number[] | null>,
     identify: (project, physicalIndex) =>

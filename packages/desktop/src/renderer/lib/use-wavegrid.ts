@@ -204,14 +204,17 @@ export function useProjectSecrets(project: string | null): {
   return { secrets, refresh, generate };
 }
 
-/** The light-map debugger view for a project — the resolved mapping chain plus
- *  the raw `physicalLights` the editor mutates. `remap` writes through to the
- *  same light-map.json the running brain reads. */
+/** The light-map debugger view for a project — the resolved mapping chain, the
+ *  raw `physicalLights` the editor mutates, and the named-map library. Saving
+ *  writes a named correction map; activating one materializes it into the same
+ *  light-map.json the running brain reads (null = identity / no correction). */
 export function useLightMap(project: string | null): {
   view: LightMapView | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  remap: (physicalLights: number[]) => Promise<void>;
+  saveMap: (name: string, physicalLights: number[]) => Promise<void>;
+  activate: (name: string | null) => Promise<void>;
+  deleteMap: (name: string) => Promise<void>;
   autoMap: (strategyId: string) => Promise<number[] | null>;
   identify: (physicalIndex: number) => Promise<boolean>;
   identifyClear: () => Promise<void>;
@@ -232,10 +235,26 @@ export function useLightMap(project: string | null): {
     }
   }, [project]);
 
-  const remap = React.useCallback(
-    async (physicalLights: number[]) => {
+  const saveMap = React.useCallback(
+    async (name: string, physicalLights: number[]) => {
       if (!project) return;
-      setView(await window.wavegrid.lights.remap(project, physicalLights));
+      setView(await window.wavegrid.lights.saveMap(project, name, physicalLights));
+    },
+    [project]
+  );
+
+  const activate = React.useCallback(
+    async (name: string | null) => {
+      if (!project) return;
+      setView(await window.wavegrid.lights.activate(project, name));
+    },
+    [project]
+  );
+
+  const deleteMap = React.useCallback(
+    async (name: string) => {
+      if (!project) return;
+      setView(await window.wavegrid.lights.deleteMap(project, name));
     },
     [project]
   );
@@ -258,7 +277,7 @@ export function useLightMap(project: string | null): {
     void refresh();
   }, [refresh]);
 
-  return { view, loading, refresh, remap, autoMap, identify, identifyClear };
+  return { view, loading, refresh, saveMap, activate, deleteMap, autoMap, identify, identifyClear };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.

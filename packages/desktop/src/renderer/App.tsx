@@ -77,7 +77,9 @@ export function App() {
     view: lightMap,
     loading: lightMapLoading,
     refresh: refreshLightMap,
-    remap: remapLights,
+    saveMap: saveLightMap,
+    activate: activateLightMap,
+    deleteMap: deleteLightMap,
     autoMap: autoMapLights,
     identify: identifyLight,
     identifyClear: identifyClearLights
@@ -299,7 +301,9 @@ export function App() {
           project={editingProject}
           view={lightMap}
           loading={lightMapLoading}
-          onRemap={(pl) => void withBusy(() => remapLights(pl))}
+          onSaveMap={(name, pl) => void withBusy(() => saveLightMap(name, pl))}
+          onActivate={(name) => void withBusy(() => activateLightMap(name))}
+          onDeleteMap={(name) => void withBusy(() => deleteLightMap(name))}
           onAutoMap={autoMapLights}
           onIdentify={identifyLight}
           onIdentifyClear={identifyClearLights}

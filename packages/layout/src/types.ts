@@ -166,4 +166,10 @@ export interface WavegridConfig {
   osc: OscConfig;
   sync: SyncConfig;
   debug: DebugConfig;
+  /**
+   * Name of the active named light map in the project's map library, or
+   * null/undefined for identity (no correction). Activating one materializes it
+   * into the state dir's `light-map.json`, which the runtime reads.
+   */
+  activeLightMap?: string | null;
 }
