@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import type { BrainStatus, DeviceInfo, ProjectSummary, ShardRange } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, EditableConfig, NewProjectInput, ProjectSummary, ShardRange } from '@/types/ipc';
 
 const EMPTY_STATUS: BrainStatus = {
   running: false,
@@ -30,11 +30,14 @@ export function useBrainStatus(): BrainStatus {
   return status;
 }
 
-/** The project registry, mirrored from the shared appstash store. */
+/** The project registry, mirrored from the shared appstash store. Create/remove
+ *  write straight through to the store — the same projects the CLI manages. */
 export function useProjects(): {
   projects: ProjectSummary[];
   refresh: () => Promise<void>;
   use: (name: string) => Promise<void>;
+  create: (input: NewProjectInput) => Promise<void>;
+  remove: (name: string) => Promise<void>;
   } {
   const [projects, setProjects] = React.useState<ProjectSummary[]>([]);
 
@@ -46,11 +49,73 @@ export function useProjects(): {
     setProjects(await window.wavegrid.projects.use(name));
   }, []);
 
+  const create = React.useCallback(async (input: NewProjectInput) => {
+    setProjects(await window.wavegrid.projects.create(input));
+  }, []);
+
+  const remove = React.useCallback(async (name: string) => {
+    setProjects(await window.wavegrid.projects.remove(name));
+  }, []);
+
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { projects, refresh, use };
+  return { projects, refresh, use, create, remove };
+}
+
+/** Built-in layout preset ids, loaded once from the store. */
+export function usePresets(): string[] {
+  const [presets, setPresets] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    void window.wavegrid.projects.presets().then((p) => {
+      if (alive) setPresets(p);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return presets;
+}
+
+/** The active project's editable config, mirrored from the store. `save` folds
+ *  the edited fields back in (osc/sync/etc. preserved) and returns the result. */
+export function useProjectConfig(project: string | null): {
+  config: EditableConfig | null;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  save: (config: EditableConfig) => Promise<void>;
+  } {
+  const [config, setConfig] = React.useState<EditableConfig | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setConfig(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      setConfig(await window.wavegrid.projects.getConfig(project));
+    } finally {
+      setLoading(false);
+    }
+  }, [project]);
+
+  const save = React.useCallback(
+    async (next: EditableConfig) => {
+      if (!project) return;
+      setConfig(await window.wavegrid.projects.saveConfig(project, next));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { config, loading, refresh, save };
 }
 
 /** The project-scoped device registry, mirrored from the shared appstash store.

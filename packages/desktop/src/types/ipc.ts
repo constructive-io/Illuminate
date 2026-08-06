@@ -18,6 +18,45 @@ export interface ProjectSummary {
   active: boolean;
 }
 
+/** How a project's layout is chosen — a built-in preset id, or a generated
+ *  shape (grid cols×rows, ring/filledRing count). Mirrors the CLI's LayoutSpec. */
+export interface LayoutChoice {
+  preset?: string;
+  kind?: 'grid' | 'ring' | 'filledRing';
+  cols?: number;
+  rows?: number;
+  count?: number;
+}
+
+/** Input for the create-project wizard. Main turns this into a ProjectConfig,
+ *  creates the project, and generates its secrets once. */
+export interface NewProjectInput {
+  name: string;
+  layout: LayoutChoice;
+  mode: 'auto' | 'simple' | 'distributed';
+  serverHost: string;
+  serverPort: number;
+  uiPort: number;
+  simpleModeMax: number;
+}
+
+/** The flattened, editable view of a project's config the editor screen binds
+ *  to. Fields the editor does not own (osc, sync, receiver.shard/lightMap,
+ *  debug) are preserved untouched by main on save. */
+export interface EditableConfig {
+  layout: LayoutChoice;
+  mode: 'auto' | 'simple' | 'distributed';
+  simpleModeMax: number;
+  serverHost: string;
+  serverPort: number;
+  uiPort: number;
+  alpha: number;
+  fallbackDelay: number;
+  /** Resolved layout summary for display (name + cannon count). */
+  layoutLabel: string;
+  cannonCount: number;
+}
+
 export interface ShardRange {
   start: number;
   end: number;
@@ -61,6 +100,11 @@ export interface WavegridApi {
     list(): Promise<ProjectSummary[]>;
     active(): Promise<string | null>;
     use(name: string): Promise<ProjectSummary[]>;
+    presets(): Promise<string[]>;
+    create(input: NewProjectInput): Promise<ProjectSummary[]>;
+    remove(name: string): Promise<ProjectSummary[]>;
+    getConfig(project: string): Promise<EditableConfig | null>;
+    saveConfig(project: string, config: EditableConfig): Promise<EditableConfig | null>;
   };
   devices: {
     list(project: string): Promise<DeviceInfo[]>;

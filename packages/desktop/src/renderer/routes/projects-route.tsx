@@ -1,5 +1,16 @@
-import { Check, FolderOpen } from 'lucide-react';
+import { Check, FolderOpen, Settings2, Trash2 } from 'lucide-react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,20 +20,48 @@ import {
   EmptyMedia,
   EmptyTitle
 } from '@/components/ui/empty';
-import type { ProjectSummary } from '@/types/ipc';
+import { CreateProjectDialog } from '@/renderer/routes/create-project-dialog';
+import type { NewProjectInput, ProjectSummary } from '@/types/ipc';
 
 interface ProjectsRouteProps {
   projects: ProjectSummary[];
+  presets: string[];
   onUse: (name: string) => void;
+  onCreate: (input: NewProjectInput) => Promise<void>;
+  onRemove: (name: string) => void;
+  onEditConfig: (name: string) => void;
   busy: boolean;
 }
 
-/** Project switcher — lists the projects in the shared appstash store and lets
- *  the operator set the active one (the same set the CLI's `projects` shows). */
-export function ProjectsRoute({ projects, onUse, busy }: ProjectsRouteProps) {
-  if (projects.length === 0) {
-    return (
-      <div className='p-4'>
+/** Projects screen — the switcher plus lifecycle: create (wizard), set active,
+ *  open the config editor, and delete (confirmed). Every write goes through the
+ *  shared appstash store the CLI's `projects` commands use. */
+export function ProjectsRoute({
+  projects,
+  presets,
+  onUse,
+  onCreate,
+  onRemove,
+  onEditConfig,
+  busy
+}: ProjectsRouteProps) {
+  const existing = projects.map((p) => p.name);
+
+  return (
+    <div className='flex flex-col gap-3 p-4'>
+      <div className='flex items-center justify-between'>
+        <span className='text-muted-foreground text-sm'>
+          {projects.length} project{projects.length === 1 ? '' : 's'} · shared with the CLI
+        </span>
+        <CreateProjectDialog
+          presets={presets}
+          existing={existing}
+          onCreate={onCreate}
+          busy={busy}
+        />
+      </div>
+
+      {projects.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -30,37 +69,72 @@ export function ProjectsRoute({ projects, onUse, busy }: ProjectsRouteProps) {
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
-              Create one with the CLI: <code>wavegrid projects create &lt;name&gt;</code>. It will
-              appear here — Desktop and the CLI share the same <code>~/.wavegrid</code> store.
+              Create your first project — it lands in the shared <code>~/.wavegrid</code> store, so
+              the CLI sees it too.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      </div>
-    );
-  }
-
-  return (
-    <div className='flex flex-col gap-2 p-4'>
-      {projects.map((p) => (
-        <div
-          key={p.name}
-          className='flex items-center justify-between rounded-lg border px-4 py-3'
-        >
-          <div className='flex items-center gap-2'>
-            <span className='font-medium'>{p.name}</span>
-            {p.active && <Badge>active</Badge>}
-          </div>
-          <Button
-            variant={p.active ? 'outline' : 'default'}
-            size='sm'
-            disabled={busy || p.active}
-            onClick={() => onUse(p.name)}
-          >
-            {p.active ? <Check /> : null}
-            {p.active ? 'Current' : 'Use'}
-          </Button>
+      ) : (
+        <div className='flex flex-col gap-2'>
+          {projects.map((p) => (
+            <div
+              key={p.name}
+              className='flex items-center justify-between rounded-lg border px-4 py-3'
+            >
+              <div className='flex items-center gap-2'>
+                <span className='font-medium'>{p.name}</span>
+                {p.active && <Badge>active</Badge>}
+              </div>
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={busy}
+                  onClick={() => onEditConfig(p.name)}
+                  title='Edit config'
+                >
+                  <Settings2 />
+                  Config
+                </Button>
+                <Button
+                  variant={p.active ? 'outline' : 'default'}
+                  size='sm'
+                  disabled={busy || p.active}
+                  onClick={() => onUse(p.name)}
+                >
+                  {p.active ? <Check /> : null}
+                  {p.active ? 'Current' : 'Use'}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant='ghost' size='sm' disabled={busy} title='Delete project'>
+                      <Trash2 />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete “{p.name}”?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This removes the project and its config, users, secrets, and state from
+                        <code> ~/.wavegrid</code>. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onRemove(p.name)}
+                        className='bg-destructive text-white hover:bg-destructive/90'
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
