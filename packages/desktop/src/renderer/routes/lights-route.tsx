@@ -1,4 +1,4 @@
-import { Lightbulb, RotateCcw, Save, Sparkles, Wand2, Zap } from 'lucide-react';
+import { AlertTriangle, Lightbulb, RotateCcw, Save, Sparkles, Wand2, Zap } from 'lucide-react';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -109,15 +109,25 @@ export function LightsRoute({
   const draftIsIdentity = draft.every((v, i) => v === i);
   const correctedCount = draft.filter((v, i) => v !== i).length;
 
-  /** Assign fixture `logical`'s physical output to `physical`, swapping with
-   *  whichever fixture currently holds it so the map stays a permutation. */
+  // A light map must be a bijection — each physical output wired to exactly one
+  // fixture. Editing is now purely local (no cascade swap), so a draft can
+  // temporarily have two fixtures pointing at the same output; we flag those
+  // and block Save until resolved, rather than silently reshuffling the map.
+  const outputCounts = new Map<number, number>();
+  for (const v of draft) outputCounts.set(v, (outputCounts.get(v) ?? 0) + 1);
+  const conflicts = new Set<number>();
+  draft.forEach((v, i) => {
+    if ((outputCounts.get(v) ?? 0) > 1) conflicts.add(i);
+  });
+  const hasConflicts = conflicts.size > 0;
+
+  /** Set fixture `logical`'s physical output — only this fixture changes. If
+   *  the value now duplicates another fixture's, both are flagged (Save stays
+   *  disabled until the operator resolves it). */
   const assignPhysical = (logical: number, physical: number) => {
-    if (physical < 0 || physical >= N) return;
+    if (!Number.isInteger(physical) || physical < 0 || physical >= N) return;
     setDraft((cur) => {
       const next = [...cur];
-      const holder = next.indexOf(physical);
-      const prev = next[logical];
-      if (holder >= 0) next[holder] = prev;
       next[logical] = physical;
       return next;
     });
@@ -144,7 +154,9 @@ export function LightsRoute({
           </span>
         </div>
         <div className='flex items-center gap-2'>
-          {draftIsIdentity ? (
+          {hasConflicts ? (
+            <Badge variant='destructive'>{conflicts.size} conflict{conflicts.size > 1 ? 's' : ''}</Badge>
+          ) : draftIsIdentity ? (
             <Badge variant='success'>Identity · no correction</Badge>
           ) : (
             <Badge variant='warning'>{correctedCount} corrected</Badge>
@@ -167,12 +179,23 @@ export function LightsRoute({
             <RotateCcw />
             Revert
           </Button>
-          <Button size='sm' disabled={busy || !dirty} onClick={() => onRemap(draft)}>
+          <Button size='sm' disabled={busy || !dirty || hasConflicts} onClick={() => onRemap(draft)}>
             <Save />
             Save mapping
           </Button>
         </div>
       </div>
+
+      {hasConflicts && (
+        <div className='border-destructive/40 bg-destructive/8 text-destructive-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-sm'>
+          <AlertTriangle className='size-4 shrink-0' />
+          <span>
+            Two or more fixtures point at the same physical output (highlighted red).
+            Each output can drive only one fixture — give the clashing fixtures
+            distinct outputs to save.
+          </span>
+        </div>
+      )}
 
       <p className='text-muted-foreground text-sm'>
         Identity (physical = logical) is the default — you only need a map when the
@@ -188,6 +211,7 @@ export function LightsRoute({
             view={view}
             draft={draft}
             selected={selected}
+            conflicts={conflicts}
             onSelect={setSelected}
           />
           <div className='text-muted-foreground mt-2 flex items-center gap-4 text-xs'>
@@ -196,6 +220,9 @@ export function LightsRoute({
             </span>
             <span className='flex items-center gap-1'>
               <span className='bg-warning inline-block size-3 rounded-full' /> corrected
+            </span>
+            <span className='flex items-center gap-1'>
+              <span className='bg-destructive inline-block size-3 rounded-full' /> conflict
             </span>
             <span className='flex items-center gap-1'>
               <span className='ring-primary inline-block size-3 rounded-full ring-2' /> selected
@@ -292,7 +319,9 @@ export function LightsRoute({
                     >
                       +
                     </Button>
-                    {draftPhysical === selected ? (
+                    {selected != null && conflicts.has(selected) ? (
+                      <Badge variant='destructive'>duplicate</Badge>
+                    ) : draftPhysical === selected ? (
                       <Badge variant='outline'>identity</Badge>
                     ) : (
                       <Badge variant='warning'>corrected</Badge>
@@ -337,15 +366,21 @@ export function LightsRoute({
           {view.rows.map((row) => {
             const physical = draft[row.logical] ?? row.physical;
             const corrected = physical !== row.logical;
+            const conflict = conflicts.has(row.logical);
             return (
               <TableRow
                 key={row.logical}
                 data-state={selected === row.logical ? 'selected' : undefined}
-                className={cn('cursor-pointer', corrected && 'bg-warning/8')}
+                className={cn('cursor-pointer', conflict ? 'bg-destructive/8' : corrected && 'bg-warning/8')}
                 onClick={() => setSelected(row.logical)}
               >
                 <TableCell className='font-mono text-sm'>{row.logical}</TableCell>
-                <TableCell className={cn('font-mono text-sm', corrected && 'text-warning-foreground font-medium')}>
+                <TableCell
+                  className={cn(
+                    'font-mono text-sm',
+                    conflict ? 'text-destructive font-medium' : corrected && 'text-warning-foreground font-medium'
+                  )}
+                >
                   {physical}
                 </TableCell>
                 <TableCell className='font-medium'>{row.label}</TableCell>
@@ -369,11 +404,13 @@ function MappingCanvas({
   view,
   draft,
   selected,
+  conflicts,
   onSelect
 }: {
   view: LightMapView;
   draft: number[];
   selected: number | null;
+  conflicts: Set<number>;
   onSelect: (logical: number) => void;
 }) {
   const N = view.numCannons;
@@ -386,6 +423,7 @@ function MappingCanvas({
       {view.rows.map((row) => {
         const physical = draft[row.logical] ?? row.physical;
         const corrected = physical !== row.logical;
+        const conflict = conflicts.has(row.logical);
         const isSel = selected === row.logical;
         const cx = pad + row.u * span;
         const cy = pad + row.v * span;
@@ -397,7 +435,7 @@ function MappingCanvas({
               r={r}
               className={cn(
                 'transition-colors',
-                corrected ? 'fill-warning' : 'fill-muted-foreground/40',
+                conflict ? 'fill-destructive' : corrected ? 'fill-warning' : 'fill-muted-foreground/40',
                 isSel && 'stroke-primary'
               )}
               strokeWidth={isSel ? 1.2 : 0}
