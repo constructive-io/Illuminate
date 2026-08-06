@@ -8,6 +8,7 @@ import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
 import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runPrintConfig } from './commands/print-config';
+import { runProjectsExport, runProjectsImport } from './commands/project-io';
 import { runProjects, runUse } from './commands/projects';
 import { runReceiver } from './commands/receiver';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
@@ -34,6 +35,8 @@ ${c.bold('Projects')} — manage and edit projects
   projects secrets list|init    List / generate the project's secrets
   projects users list|add|rm    Manage UI login users
   projects devices list|rename  List / name devices that joined the project
+  projects export [--out f]     Write a portable project bundle
+  projects import <file>        Restore a project from a bundle
   projects env export           Write a .env for the project
 
 ${c.bold('Settings')} — global store
@@ -77,6 +80,8 @@ const PROJECTS_SUBS: SubCommand[] = [
   { value: 'secrets', description: 'List or generate the project secrets' },
   { value: 'users', description: 'List, add, or remove UI login users' },
   { value: 'devices', description: 'List, rename, or forget devices that joined the project' },
+  { value: 'export', description: 'Write a portable project bundle (no machine identity)' },
+  { value: 'import', description: 'Restore a project from a portable bundle' },
   { value: 'env', description: 'Write a .env for the project' }
 ];
 
@@ -309,6 +314,12 @@ async function dispatchProjects(
     break;
   case 'devices':
     await dispatchDevices(rest, flags, prompter, nonInteractive);
+    break;
+  case 'export':
+    runProjectsExport(flags);
+    break;
+  case 'import':
+    runProjectsImport(flags, rest[0]);
     break;
   case 'env':
     dispatchEnv(rest, flags);
