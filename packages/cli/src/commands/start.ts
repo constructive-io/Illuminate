@@ -98,9 +98,13 @@ export async function runStart(opts: StartOptions = {}): Promise<StartResult> {
   printPlan(resolved, findConfigFile(cwd), runMode, project);
 
   // Secrets come from the store and MUST be present — generated once at init.
-  // An operator-set env var still wins (e.g. sharing a key across laptops).
+  // receiverKey may be shared across laptops, so an operator-set env var wins.
+  // jwtSecret is NOT a cross-laptop secret: the store is authoritative and
+  // always wins, so the server verifies UI sessions with the exact secret the
+  // UI signs them with. Honoring a stale ambient WG_JWT_SECRET here would
+  // desync the two and 401 the WebSocket upgrade (the red status-dot bug).
   if (!process.env.WG_RECEIVER_KEY) process.env.WG_RECEIVER_KEY = store.requireSecret(project, 'receiverKey');
-  if (!process.env.WG_JWT_SECRET) process.env.WG_JWT_SECRET = store.requireSecret(project, 'jwtSecret');
+  process.env.WG_JWT_SECRET = store.requireSecret(project, 'jwtSecret');
   // Project non-secret config (ports, osc targets, receiver tuning, …) into the
   // env vars the in-process server + receiver read. Operator env still wins.
   applyConfigToEnv(resolved.config);

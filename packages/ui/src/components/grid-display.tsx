@@ -35,6 +35,11 @@ interface GridDisplayProps {
   onGradientDrag?: (startIdx: number, endIdx: number) => void;
 }
 
+// Reference density for orb sizing. The classic 7×7 grid dot size is the
+// canonical look, so every layout draws dots at this fixed size regardless of
+// how many fixtures there are or how they're spaced.
+const REFERENCE_COLS = 7;
+
 function orientationToCss(o: Orientation): string {
   const parts: string[] = [];
   // Counter-rotate: remapGridForUi rotates data CCW by θ, so rotate CW by θ to undo
@@ -88,7 +93,7 @@ export function GridDisplay({
   const gradientStartRef = useRef(-1);
   const sizeRef = useRef({ gridOffset: 0, canvasW: 0, canvasH: 0 });
   // Pixel centers + orb size for each cannon, recomputed each draw.
-  const geomRef = useRef<{ centers: { x: number; y: number }[]; cellSize: number }>({ centers: [], cellSize: 0 });
+  const geomRef = useRef<{ centers: { x: number; y: number }[]; cellSize: number; orbR: number }>({ centers: [], cellSize: 0, orbR: 0 });
 
   const isGrid = columns > 0;
   const rows = isGrid ? Math.ceil(grid.length / columns) : 1;
@@ -102,8 +107,14 @@ export function GridDisplay({
     const count = grid.length;
     const centers: { x: number; y: number }[] = [];
 
+    // Orb radius is fixed to the classic 7×7 reference size for every layout —
+    // dots must not grow/shrink with the arrangement (a sparse ring would
+    // otherwise balloon). Positions still come from the layout's fixtures.
+    const orbR = (drawArea / REFERENCE_COLS) * 0.34;
+
     if (fixtures && fixtures.length >= count && count > 0) {
-      // Nearest-neighbour spacing in normalized space → orb size + margin.
+      // Nearest-neighbour spacing in normalized space → margin (so orbs don't
+      // clip at the edges) and the click-tolerance radius.
       let minD = Infinity;
       for (let i = 0; i < count; i++) {
         for (let j = i + 1; j < count; j++) {
@@ -122,7 +133,7 @@ export function GridDisplay({
           y: gridOffset + margin + fixtures[i].v * inner
         });
       }
-      return { centers, cellSize: drawArea * minD };
+      return { centers, cellSize: drawArea * minD, orbR };
     }
 
     const cols = isGrid ? columns : count;
@@ -135,7 +146,7 @@ export function GridDisplay({
         y: gridOffset + row * cellSize + cellSize / 2
       });
     }
-    return { centers, cellSize };
+    return { centers, cellSize, orbR };
   }, [grid.length, columns, rows, fixtures, isGrid]);
 
   const resize = useCallback(() => {
@@ -170,10 +181,10 @@ export function GridDisplay({
 
     const geom = computeGeom(canvasW);
     geomRef.current = geom;
-    const { centers, cellSize } = geom;
+    const { centers, cellSize, orbR } = geom;
     if (cellSize <= 0) return;
 
-    const r = cellSize * 0.34;
+    const r = orbR;
 
     for (let i = 0; i < grid.length; i++) {
       const center = centers[i];
