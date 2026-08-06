@@ -48,6 +48,9 @@ export function applyReceiverEnv(store: SettingsStore, project: string, resolved
   const device = store.getDevice();
   if (!process.env.WG_DEVICE_ID) process.env.WG_DEVICE_ID = device.id;
   if (!process.env.WG_DEVICE_NAME) process.env.WG_DEVICE_NAME = device.name;
+  // Distributed mode: pick up this laptop's operator-assigned shard from the
+  // project registry when no explicit `--shard` was given.
+  if (resolved.runMode === 'distributed') applyAssignedShard(store, project, device.id);
 }
 
 /** IPv4 LAN addresses of this machine — the URLs operators point iPads/receivers at. */
@@ -78,19 +81,47 @@ export function printLanUrls(port: number): void {
 }
 
 /**
+ * Parse a shard string into a range. `all`/`none`/empty clear the shard
+ * (→ null, drives all cannons); `start-end` or a bare `start` give a range;
+ * anything else is malformed (→ 'invalid').
+ */
+export function parseShardRange(raw: string): { start: number; end: number } | null | 'invalid' {
+  const s = raw.trim().toLowerCase();
+  if (s === '' || s === 'all' || s === 'none') return null;
+  const m = /^(\d+)(?:-(\d+))?$/.exec(s);
+  if (!m) return 'invalid';
+  const start = parseInt(m[1], 10);
+  const end = m[2] !== undefined ? parseInt(m[2], 10) : start;
+  if (end < start) return 'invalid';
+  return { start, end };
+}
+
+/**
  * Parse a `--shard 0-24` flag into SHARD_START/SHARD_END env vars the receiver
  * reads. Accepts `start-end` or a bare `start` (single cannon). Returns false
  * on a malformed value.
  */
 export function applyShardFlag(shard: unknown): boolean {
   if (shard === undefined) return true;
-  const raw = String(shard).trim();
-  const m = /^(\d+)(?:-(\d+))?$/.exec(raw);
-  if (!m) return false;
-  const start = parseInt(m[1], 10);
-  const end = m[2] !== undefined ? parseInt(m[2], 10) : start;
-  if (end < start) return false;
-  process.env.SHARD_START = String(start);
-  process.env.SHARD_END = String(end);
+  const parsed = parseShardRange(String(shard));
+  if (parsed === 'invalid') return false;
+  if (parsed === null) return true; // `--shard all` → no restriction
+  process.env.SHARD_START = String(parsed.start);
+  process.env.SHARD_END = String(parsed.end);
   return true;
+}
+
+/**
+ * Apply this machine's operator-assigned shard (from `wavegrid devices assign`,
+ * stored in the project registry) to the receiver env — unless an explicit
+ * `--shard` already set it. Lets a laptop pick up its slice with a bare
+ * `wavegrid receiver`, no flag needed.
+ */
+export function applyAssignedShard(store: SettingsStore, project: string, deviceId: string): void {
+  if (process.env.SHARD_START !== undefined) return; // explicit --shard / env wins
+  const record = store.getDeviceRecord(project, deviceId);
+  if (record?.shard) {
+    process.env.SHARD_START = String(record.shard.start);
+    process.env.SHARD_END = String(record.shard.end);
+  }
 }

@@ -103,6 +103,27 @@ export function renameDevice(paths: StorePaths, project: string, idOrName: strin
   return device;
 }
 
+/**
+ * Assign (or clear) a device's shard range in the project registry. Passing
+ * `null` clears it so the device drives all cannons. Returns the updated
+ * record, or null if no such device. The assignment persists in project state;
+ * the device picks it up on its next `wavegrid receiver` start (distributed
+ * mode) when it hasn't been given an explicit `--shard`.
+ */
+export function assignShard(
+  paths: StorePaths,
+  project: string,
+  idOrName: string,
+  shard: { start: number; end: number } | null
+): DeviceRecord | null {
+  const file = read(paths, project);
+  const device = file.devices.find(d => d.id === idOrName) ?? file.devices.find(d => d.name === idOrName);
+  if (!device) return null;
+  device.shard = shard;
+  write(paths, project, file);
+  return device;
+}
+
 /** Remove a device by id or name. Returns true if one was removed. */
 export function removeDevice(paths: StorePaths, project: string, idOrName: string): boolean {
   const file = read(paths, project);

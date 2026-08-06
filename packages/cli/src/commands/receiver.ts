@@ -96,9 +96,10 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   const project = await selectProject(opts);
 
   const resolved = loadWavegridConfig({ cwd });
-  printPlan(resolved, serverFlag, project);
-
+  // Wire env first (may set SHARD_START/END from this device's assigned shard)
+  // so the printed plan reflects the shard the receiver will actually drive.
   applyReceiverEnv(store, project, resolved);
+  printPlan(resolved, serverFlag, project);
 
   const { startReceiver } = await import('@wavegrid/receiver');
   const receiverHandle = startReceiver(resolved);

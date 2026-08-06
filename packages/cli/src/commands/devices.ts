@@ -3,6 +3,7 @@ import type { Inquirerer, Question } from 'inquirerer';
 import c from 'yanse';
 
 import { type Flags, getStore, resolveProjectName } from '../project';
+import { parseShardRange } from './runtime';
 
 function since(lastSeen?: number): string {
   if (!lastSeen) return 'never';
@@ -99,6 +100,89 @@ export async function runDevicesRename(
   console.log('');
   if (updated) console.log(c.green(`  ✓ Renamed device to ${c.bold(updated.name)} in ${project}`));
   else console.log(c.yellow(`  No such device "${chosen}" in ${project}`));
+  console.log('');
+}
+
+/**
+ * `wavegrid devices assign [name-or-id] [shard]` — persist a device's shard in
+ * the project so it drives that slice on its next `wavegrid receiver` start
+ * (no `--shard` flag needed). `shard` is `start-end`, a bare `start`, or
+ * `all`/`none` to clear. `--shard` flag also accepted.
+ */
+export async function runDevicesAssign(
+  flags: Flags,
+  target: string | undefined,
+  shardArg: string | undefined,
+  prompter?: Inquirerer
+): Promise<void> {
+  const store = getStore();
+  const project = resolveProjectName(store, flags);
+  const devices = store.listDevices(project);
+
+  if (devices.length === 0) {
+    console.log('');
+    console.log(c.gray(`  No devices in ${project} yet — they register when a receiver connects.`));
+    console.log('');
+    return;
+  }
+
+  let chosen = target;
+  if (!chosen) {
+    if (!prompter) {
+      console.log(c.red('  Usage: wavegrid devices assign <name-or-id> <start-end|all>'));
+      console.log(`  Devices: ${c.cyan(devices.map(d => d.name).join(', '))}`);
+      process.exitCode = 1;
+      return;
+    }
+    const answer = (await prompter.prompt({}, [
+      {
+        type: 'autocomplete',
+        name: 'target',
+        message: 'Which device gets a shard?',
+        options: devices.map(d => d.name),
+        required: true
+      } as Question
+    ])) as unknown as { target: string };
+    chosen = answer.target;
+  }
+
+  let rawShard = shardArg ?? (typeof flags.shard === 'string' ? flags.shard : undefined);
+  if (rawShard === undefined) {
+    if (!prompter) {
+      console.log(c.red('  Usage: wavegrid devices assign <name-or-id> <start-end|all>'));
+      process.exitCode = 1;
+      return;
+    }
+    const answer = (await prompter.prompt({}, [
+      {
+        type: 'text',
+        name: 'shard',
+        message: `Shard for ${chosen} (e.g. 0-24, or "all")`,
+        required: true
+      } as Question
+    ])) as unknown as { shard: string };
+    rawShard = answer.shard;
+  }
+
+  const parsed = parseShardRange(rawShard);
+  if (parsed === 'invalid') {
+    console.log('');
+    console.log(c.red(`  Invalid shard "${rawShard}" — expected "start-end" (e.g. 0-24), a single index, or "all".`));
+    console.log('');
+    process.exitCode = 1;
+    return;
+  }
+
+  const updated = store.assignShard(project, chosen, parsed);
+  console.log('');
+  if (!updated) {
+    console.log(c.yellow(`  No such device "${chosen}" in ${project}`));
+  } else if (parsed === null) {
+    console.log(c.green(`  ✓ ${c.bold(updated.name)} now drives ${c.bold('all cannons')} (shard cleared)`));
+  } else {
+    console.log(c.green(`  ✓ ${c.bold(updated.name)} assigned shard ${c.bold(`${parsed.start}–${parsed.end}`)} in ${project}`));
+    console.log(c.gray('    Applied on the device\'s next `wavegrid receiver` start.'));
+  }
   console.log('');
 }
 

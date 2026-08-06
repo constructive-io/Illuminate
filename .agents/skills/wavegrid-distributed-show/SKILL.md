@@ -38,7 +38,7 @@ wavegrid receiver                      # discovers the server via mDNS, connects
                                        # authenticates with the project receiverKey,
                                        # self-registers (deviceId, name, IP, shard)
 ```
-Explicit override for multicast-blocked networks: `wavegrid receiver --server ws://192.168.1.42:3333 --shard 0-24`.
+A bare `wavegrid receiver` also picks up the shard the operator assigned this laptop (`wavegrid devices assign`, below) — no `--shard` needed. Explicit override for multicast-blocked networks: `wavegrid receiver --server ws://192.168.1.42:3333 --shard 0-24` (an explicit `--shard` wins over the assigned one).
 
 **At showtime:** operator paints → UI → server `broadcastCommand()` → every receiver filters to its shard → OSC to its hardware.
 
@@ -49,7 +49,7 @@ Each machine generates `~/.wavegrid/device.json` once (uuid + hostname-derived n
 ```sh
 wavegrid devices list                    # name, id, IP, shard, version, online/offline
 wavegrid devices rename <device> "stage left"
-wavegrid devices assign <device> --shard 0-24    # persist shard assignment in the project
+wavegrid devices assign <device> 0-24            # persist shard in the project (also: --shard 0-24, or `all` to clear)
 wavegrid devices forget <device>
 ```
 

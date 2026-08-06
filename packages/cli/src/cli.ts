@@ -2,7 +2,7 @@ import { Inquirerer } from 'inquirerer';
 import c from 'yanse';
 
 import { runConfigSet } from './commands/config-set';
-import { runDevicesList, runDevicesRemove, runDevicesRename } from './commands/devices';
+import { runDevicesAssign, runDevicesList, runDevicesRemove, runDevicesRename } from './commands/devices';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
 import { runInit } from './commands/init';
@@ -35,7 +35,7 @@ ${c.bold('Projects')} — manage and edit projects
   projects config set <k> <v>   Set a field (layout, mode, port, host, ui-port)
   projects secrets list|init    List / generate the project's secrets
   projects users list|add|rm    Manage UI login users
-  projects devices list|rename  List / name devices that joined the project
+  projects devices list|assign  List / name / shard-assign devices that joined
   projects osc                  Set the OSC laser target (BEYOND/FB4) — wizard
   projects export [--out f]     Write a portable project bundle
   projects import <file>        Restore a project from a bundle
@@ -112,6 +112,7 @@ const USERS_SUBS: SubCommand[] = [
 const DEVICES_SUBS: SubCommand[] = [
   { value: 'list', description: 'List devices that have joined the project' },
   { value: 'rename', description: 'Give a device a project-specific friendly name' },
+  { value: 'assign', description: 'Assign a device its shard (cannon range) for the show' },
   { value: 'rm', description: 'Forget a device from the project registry' }
 ];
 
@@ -260,6 +261,8 @@ async function dispatchDevices(
   if (sub === 'list') runDevicesList(flags);
   else if (sub === 'rename' || sub === 'name') {
     await runDevicesRename(flags, args[1], args[2], nonInteractive ? undefined : prompter);
+  } else if (sub === 'assign' || sub === 'shard') {
+    await runDevicesAssign(flags, args[1], args[2], nonInteractive ? undefined : prompter);
   } else if (sub === 'rm' || sub === 'remove' || sub === 'forget') {
     await runDevicesRemove(flags, args[1], nonInteractive ? undefined : prompter);
   } else unknownSub('devices', sub);
