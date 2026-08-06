@@ -11,7 +11,7 @@
   "registry": "https://registry.npmjs.org",
   "command": {
     "create": {
-      "homepage": "https://github.com/constructive-io/Illuminate",
+      "homepage": "https://github.com/constructive-io/wavegrid",
       "license": "SEE LICENSE IN LICENSE",
       "access": "restricted"
     },

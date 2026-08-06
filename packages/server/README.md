@@ -5,12 +5,12 @@
 </p>
 
 <p align="center" width="100%">
-  <a href="https://github.com/constructive-io/Illuminate/actions/workflows/ci.yml">
-    <img height="20" src="https://github.com/constructive-io/Illuminate/actions/workflows/ci.yml/badge.svg" />
+  <a href="https://github.com/constructive-io/wavegrid/actions/workflows/ci.yml">
+    <img height="20" src="https://github.com/constructive-io/wavegrid/actions/workflows/ci.yml/badge.svg" />
   </a>
 </p>
 
-7×7 RGB grid state engine for the Illuminate project. Renders 49 virtual laser cannons with smooth interpolated transitions (low-pass filtered) — no abrupt color or brightness changes.
+7×7 RGB grid state engine for the Wavegrid project. Renders 49 virtual laser cannons with smooth interpolated transitions (low-pass filtered) — no abrupt color or brightness changes.
 
 ## Usage
 
