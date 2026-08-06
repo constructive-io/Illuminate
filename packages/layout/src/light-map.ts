@@ -140,7 +140,7 @@ export const autoMapStrategies: AutoMapStrategy[] = [
     description: 'Wired down each column before moving to the next column.',
     applies: isFullGrid,
     build: (l) => {
-      const { cols, rows, count } = l;
+      const { rows, count } = l;
       const map = identityMap(count);
       for (const f of l.fixtures) {
         if (f.row < 0 || f.col < 0) continue;

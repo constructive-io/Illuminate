@@ -77,7 +77,10 @@ export function App() {
     view: lightMap,
     loading: lightMapLoading,
     refresh: refreshLightMap,
-    remap: remapLights
+    remap: remapLights,
+    autoMap: autoMapLights,
+    identify: identifyLight,
+    identifyClear: identifyClearLights
   } = useLightMap(editingProject);
 
   const onStart = React.useCallback(async () => {
@@ -297,6 +300,10 @@ export function App() {
           view={lightMap}
           loading={lightMapLoading}
           onRemap={(pl) => void withBusy(() => remapLights(pl))}
+          onAutoMap={autoMapLights}
+          onIdentify={identifyLight}
+          onIdentifyClear={identifyClearLights}
+          brainLive={status.running && status.project === editingProject}
           busy={busy}
         />
       )}

@@ -1,7 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { resolveLayout } from '@wavegrid/layout';
+import {
+  availableStrategies,
+  isIdentityMap,
+  normalizeLightMap as normalizePermutation,
+  resolveLayout
+} from '@wavegrid/layout';
 import type { ProjectConfig } from '@wavegrid/settings';
 
 import type { FixtureRow, LightMapView } from '@/types/ipc';
@@ -16,16 +21,12 @@ export interface LightMapConfig {
   updatedAt?: string;
 }
 
-function identityMap(numCannons: number): number[] {
-  return Array.from({ length: numCannons }, (_, index) => index);
-}
-
 /**
  * Normalize a (possibly partial or corrupt) light map into a valid one:
  * `physicalLights[logical] = physical`, a permutation of `0..numCannons-1`.
- * Invalid / out-of-range / duplicate entries are dropped and back-filled from
- * the unused identity slots. This mirrors the server's `normalizeLightMap`
- * exactly so the desktop editor and the running brain agree on every mapping.
+ * Delegates to `@wavegrid/layout`'s canonical `normalizeLightMap` (dedup,
+ * range-check, identity back-fill) so the desktop editor, the server
+ * `/api/light-map`, and the receiver all agree on every mapping.
  */
 export function normalizeLightMap(
   input: Partial<LightMapConfig> | null,
@@ -33,23 +34,7 @@ export function normalizeLightMap(
 ): LightMapConfig {
   const numCannons = input?.numCannons ?? dims.numCannons;
   const gridColumns = input?.gridColumns ?? dims.gridColumns;
-  const fallback = identityMap(numCannons);
-  const source = Array.isArray(input?.physicalLights) ? input.physicalLights : fallback;
-  const used = new Set<number>();
-  const physicalLights = source.slice(0, numCannons).map((value) => {
-    const n = Number(value);
-    if (!Number.isInteger(n) || n < 0 || n >= numCannons || used.has(n)) return -1;
-    used.add(n);
-    return n;
-  });
-
-  for (let index = 0; index < numCannons; index++) {
-    if (physicalLights[index] !== undefined && physicalLights[index] >= 0) continue;
-    const next = fallback.find((value) => !used.has(value));
-    physicalLights[index] = next ?? index;
-    used.add(physicalLights[index]);
-  }
-
+  const physicalLights = normalizePermutation(input?.physicalLights, numCannons);
   return { version: 1, numCannons, gridColumns, physicalLights, updatedAt: input?.updatedAt };
 }
 
@@ -95,29 +80,48 @@ export function buildLightMapView(args: {
   const map = normalizeLightMap(stored, dims);
   const oscTarget = describeOscTarget(config);
 
-  const ownerFor = (logical: number): string | null => {
+  const ownerFor = (logical: number): { name: string; localIndex: number } | null => {
     for (const d of devices) {
-      if (d.shard && logical >= d.shard.start && logical <= d.shard.end) return d.name;
+      if (d.shard && logical >= d.shard.start && logical <= d.shard.end) {
+        // Output re-bases to 0 within the owning device's shard — the
+        // "second device starts from zero" number the operator asked about.
+        return { name: d.name, localIndex: logical - d.shard.start };
+      }
     }
     return null;
   };
 
-  const rows: FixtureRow[] = layout.fixtures.map((fixture) => ({
-    logical: fixture.index,
-    physical: map.physicalLights[fixture.index] ?? fixture.index,
-    label: fixture.label,
-    position: describePosition(fixture),
-    shardOwner: ownerFor(fixture.index),
-    oscTarget
-  }));
+  const rows: FixtureRow[] = layout.fixtures.map((fixture) => {
+    const physical = map.physicalLights[fixture.index] ?? fixture.index;
+    const owner = ownerFor(fixture.index);
+    return {
+      logical: fixture.index,
+      physical,
+      label: fixture.label,
+      position: describePosition(fixture),
+      u: fixture.u,
+      v: fixture.v,
+      shardOwner: owner?.name ?? null,
+      localIndex: owner?.localIndex ?? null,
+      oscTarget,
+      corrected: physical !== fixture.index
+    };
+  });
 
   return {
     project,
     layoutName: layout.name,
+    topology: layout.topology,
     numCannons: layout.count,
     gridColumns: layout.cols,
     physicalLights: map.physicalLights,
-    rows
+    rows,
+    identity: isIdentityMap(map.physicalLights),
+    strategies: availableStrategies(layout).map((s) => ({
+      id: s.id,
+      label: s.label,
+      description: s.description
+    }))
   };
 }
 

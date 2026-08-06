@@ -131,6 +131,17 @@ export async function startBrain(project: string): Promise<BrainStatus> {
   return broadcast();
 }
 
+/**
+ * Inject a command into the running brain for `project`, in-process. Returns
+ * false (a no-op) unless that exact project's brain is currently driving the
+ * show — so a light-map identify can never light the wrong project's rig.
+ */
+export function sendToBrain(project: string, cmd: Record<string, unknown>): boolean {
+  if (!current || current.project !== project) return false;
+  current.server.send(cmd);
+  return true;
+}
+
 export async function stopBrain(): Promise<BrainStatus> {
   if (current) {
     try {

@@ -1,8 +1,8 @@
-import { resolveLayout } from '@wavegrid/layout';
+import { autoMap, resolveLayout } from '@wavegrid/layout';
 import { openStore } from '@wavegrid/settings';
 import { ipcMain } from 'electron';
 
-import { startBrain, status, stopBrain } from '@/main/brain';
+import { sendToBrain, startBrain, status, stopBrain } from '@/main/brain';
 import { type LaserSyncState, syncLaser } from '@/main/laser-view';
 import { buildLightMapView, readLightMap, writeLightMap } from '@/main/light-map';
 import {
@@ -165,6 +165,23 @@ export function registerAllIpc(): void {
       physicalLights
     );
     return lightMapView(project);
+  });
+  ipcMain.handle('lights:autoMap', (_e, project: string, strategyId: string) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    const layout = resolveLayout(store.getProjectConfig(project)?.layout ?? { preset: 'grid-7x7' });
+    // Deterministic candidate only — never persisted here; the operator applies
+    // it into the draft and Saves explicitly.
+    return autoMap(layout, strategyId);
+  });
+  ipcMain.handle('lights:identify', (_e, project: string, physicalIndex: number) =>
+    // Flash one physical output on the running rig (white). No-op unless this
+    // project's brain is live — returns whether it was actually driven.
+    sendToBrain(project, { type: 'physical_preview', physicalIndex })
+  );
+  ipcMain.handle('lights:identifyClear', (_e, project: string) => {
+    sendToBrain(project, { type: 'physical_preview_clear' });
+    sendToBrain(project, { type: 'calibration_mode', enabled: false });
   });
 
   ipcMain.on('laser:sync', (_e, state: LaserSyncState) => syncLaser(state));
