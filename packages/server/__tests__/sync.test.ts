@@ -114,6 +114,20 @@ describe('server config sync (Phase D)', () => {
     expect(div.map((x) => x.deviceId)).not.toContain('devA');
     d.ws.close();
   });
+
+  it('drops a push with an unknown scope (no revision, no broadcast)', async () => {
+    const store = openStore();
+    const before = store.getSyncState('demo').revision;
+    const e = await connect(port);
+    await wait(50);
+
+    send(e.ws, { type: 'sync_push', scope: 'garbage', config: { evil: true }, deviceId: 'devA', baseRevision: before });
+    await wait(150);
+
+    expect(e.sync.find((m) => m.type === 'sync_update')).toBeUndefined();
+    expect(store.getSyncState('demo').revision).toBe(before);
+    e.ws.close();
+  });
 });
 
 describe('server config sync — disabled + secrets gate', () => {

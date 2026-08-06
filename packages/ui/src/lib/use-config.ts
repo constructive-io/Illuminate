@@ -20,8 +20,11 @@ export interface GridConfig {
  * Fetch the resolved layout/config from the runtime API route.
  * A single UI build serves any installation — the layout (fixtures,
  * topology, counts) is the source of geometry.
+ *
+ * `refetchKey` re-runs the fetch when it changes — bump it when a config
+ * change is replicated over the sync channel so the browser stays current.
  */
-export function useConfig(): GridConfig | null {
+export function useConfig(refetchKey: number = 0): GridConfig | null {
   const [config, setConfig] = useState<GridConfig | null>(null);
 
   useEffect(() => {
@@ -37,7 +40,7 @@ export function useConfig(): GridConfig | null {
           gridColumns: layout.cols
         });
       });
-  }, []);
+  }, [refetchKey]);
 
   return config;
 }

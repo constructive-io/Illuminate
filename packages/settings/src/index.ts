@@ -22,6 +22,7 @@ export {
   type ConfigUpdate,
   deviceScope,
   type DivergentDevice,
+  isValidScope,
   projectScope,
   type SyncEntry,
   type SyncScope,

@@ -35,6 +35,19 @@ export function deviceScope(deviceId: string): SyncScope {
   return `device:${deviceId}`;
 }
 
+/**
+ * Whether `scope` is a well-formed sync scope. The wire type is a bare string,
+ * so a peer could push anything; this is the one gate that keeps junk out of
+ * the replicated document. Accepts the project scope, a `device:<id>` scope,
+ * and the secret scopes (`secrets` / `secret:<name>` / `secrets:<name>`), which
+ * the server separately gates behind `sync.secrets`.
+ */
+export function isValidScope(scope: unknown): scope is SyncScope {
+  if (typeof scope !== 'string' || scope.length === 0) return false;
+  if (scope === 'project' || scope === 'secrets') return true;
+  return /^device:.+$/.test(scope) || /^secrets?:.+$/.test(scope);
+}
+
 /** One revisioned config entry within a project. */
 export interface SyncEntry {
   scope: SyncScope;
@@ -106,6 +119,7 @@ function write(paths: StorePaths, project: string, state: SyncState): void {
  */
 export function applyUpdate(paths: StorePaths, project: string, update: ConfigUpdate): ApplyResult {
   if (!update.scope) throw new Error('A config update requires a scope.');
+  if (!isValidScope(update.scope)) throw new Error(`Invalid sync scope: ${update.scope}`);
   const state = readSyncState(paths, project);
   const staleBase =
     typeof update.baseRevision === 'number' && update.baseRevision < state.revision;
@@ -150,6 +164,7 @@ export function mergeRemote(
   const state = readSyncState(paths, project);
   let changed = false;
   for (const [scope, incoming] of Object.entries(remote.entries ?? {})) {
+    if (!isValidScope(scope)) continue; // never let a peer inject a junk scope
     const current = state.entries[scope];
     if (!current || wins(incoming, current)) {
       state.entries[scope] = incoming;

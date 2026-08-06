@@ -1,6 +1,6 @@
 import { advertise, type AdvertiseHandle } from '@wavegrid/discovery';
 import { type Layout, loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
-import { openStore } from '@wavegrid/settings';
+import { isValidScope, openStore } from '@wavegrid/settings';
 import * as fs from 'fs';
 import http from 'http';
 import { resolve } from 'path';
@@ -380,6 +380,8 @@ function broadcastSync(update: SyncUpdateMessage): void {
 /** Serialize + persist a client's config push, then broadcast the revision. */
 function handleSyncPush(msg: SyncPushMessage): void {
   if (!msg.scope) return;
+  // Reject anything that isn't a known scope (project / device:<id> / secrets).
+  if (!isValidScope(msg.scope)) return;
   // Replication off: the edit stays local to the laptop that made it.
   if (!syncEnabled()) return;
   // Secrets never ride the sync channel unless explicitly opted in.
