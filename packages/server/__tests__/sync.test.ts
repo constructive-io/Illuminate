@@ -230,4 +230,37 @@ describe('server config sync — secrets scope gate', () => {
 
     a.ws.close();
   });
+
+  it('reconciles a re-homing peer via sync_merge (highest revision wins, secrets stripped, broadcasts state)', async () => {
+    const a = await connect(port);
+    await wait(50);
+
+    // A transient coordinator hands over its document: a higher-revision device
+    // entry (should win) plus a secrets entry (should be stripped, secrets off).
+    send(a.ws, {
+      type: 'sync_merge',
+      state: {
+        version: 1,
+        revision: 9,
+        entries: {
+          'device:devB': { scope: 'device:devB', config: { shard: [0, 5] }, revision: 7, updatedAt: '2099-01-01T00:00:00.000Z', deviceId: 'devB' },
+          secrets: { scope: 'secrets', config: { jwt: 'leak' }, revision: 9, updatedAt: '2099-01-01T00:00:00.000Z', deviceId: 'devB' }
+        },
+        acks: {}
+      }
+    });
+    await wait(150);
+
+    const state = openStore().getSyncState('sec');
+    expect(state.entries['device:devB']).toBeTruthy();       // merged
+    expect(state.entries.secrets).toBeUndefined();           // secret scope stripped
+    expect(state.revision).toBe(7);                          // max of merged entries
+
+    // The reconciled document is broadcast so clients converge.
+    const stateMsg = a.sync.find((m) => m.type === 'sync_state');
+    expect(stateMsg).toBeTruthy();
+    expect((stateMsg!.entries as Record<string, unknown>)['device:devB']).toBeTruthy();
+
+    a.ws.close();
+  });
 });

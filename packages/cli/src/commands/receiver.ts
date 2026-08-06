@@ -10,12 +10,13 @@
  * machine); `--shard start-end` restricts which cannons this laptop drives.
  */
 import { browse, type DiscoveredBrain } from '@wavegrid/discovery';
-import { loadWavegridConfig } from '@wavegrid/layout';
+import { loadWavegridConfig, type ResolvedConfig } from '@wavegrid/layout';
 import type { Inquirerer, Question } from 'inquirerer';
 import c from 'yanse';
 
 import { type Flags, getStore, resolveProjectName } from '../project';
-import { applyReceiverEnv, applyShardFlag } from './runtime';
+import { coordinate } from './coordinate';
+import { applyReceiverEnv, applyServerEnv, applyShardFlag } from './runtime';
 
 /** Turn a discovered brain into the ws:// URL the receiver dials. */
 export function brainToWsUrl(brain: DiscoveredBrain): string {
@@ -71,14 +72,14 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   const flags = opts.flags ?? {};
 
   // `--server ws://host:port` sets the upstream the receiver dials. Without it
-  // we try mDNS discovery, then fall back to the config/localhost default.
+  // we try mDNS discovery, then (if nothing is found) hold a coordinator
+  // election, and only then fall back to the config/localhost default.
   let serverFlag = typeof flags.server === 'string' ? flags.server : undefined;
   const discover = flags.discover !== false && flags['no-discover'] !== true;
   if (!serverFlag && !opts.dryRun && discover) {
     const discovered = await discoverServer(opts);
     if (discovered) serverFlag = discovered;
   }
-  if (serverFlag) process.env.SIMULATOR_URL = serverFlag;
 
   if (!applyShardFlag(flags.shard)) {
     console.log(c.red(`Invalid --shard: expected "start-end" (e.g. 0-24), got "${String(flags.shard)}"`));
@@ -96,6 +97,26 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   const project = await selectProject(opts);
 
   const resolved = loadWavegridConfig({ cwd });
+
+  // No brain on the LAN and this project replicates config across devices →
+  // elect a coordinator so sync still has an authority. The winner promotes
+  // itself to a transient brain (server + local receiver); everyone else homes
+  // to it. Simple/one-laptop projects skip this entirely.
+  if (!serverFlag && discover && p2pEligible(resolved, flags)) {
+    const device = store.getDevice();
+    console.log(c.gray('  No brain on the LAN — holding a coordinator election (mDNS)…'));
+    const result = await coordinate({ project, deviceId: device.id });
+    if (result.role === 'client' && result.server) {
+      console.log(`  ${c.green('✓')} homing to elected brain ${c.cyan(result.server)}`);
+      serverFlag = result.server;
+    } else {
+      console.log(`  ${c.green('▶')} ${c.bold('promoted to transient brain')} ${c.gray('— no server on the LAN; peers will connect here.')}`);
+      return promoteToBrain({ store, project, resolved });
+    }
+  }
+
+  if (serverFlag) process.env.SIMULATOR_URL = serverFlag;
+
   // Wire env first (may set SHARD_START/END from this device's assigned shard)
   // so the printed plan reflects the shard the receiver will actually drive.
   applyReceiverEnv(store, project, resolved);
@@ -124,6 +145,64 @@ export async function runReceiver(opts: ReceiverOptions = {}): Promise<ReceiverR
   console.log('');
 
   return { server: process.env.SIMULATOR_URL ?? '', stop };
+}
+
+/**
+ * Whether this receiver should hold a coordinator election when no brain is
+ * found. Only for distributed projects that replicate config — a simple
+ * one-laptop project (or one with sync turned off) never elects anything, so
+ * the server-less machinery stays invisible. `--no-p2p` opts out explicitly.
+ */
+export function p2pEligible(resolved: ResolvedConfig, flags: Flags): boolean {
+  if (flags['no-p2p'] === true || flags.p2p === false) return false;
+  if (resolved.config.sync?.enabled === false) return false;
+  return resolved.runMode === 'distributed';
+}
+
+/**
+ * Promote this laptop to a transient brain: run the server (advertised as
+ * transient so a dedicated brain can later supersede it) plus a local receiver,
+ * exactly like `wavegrid start` but flagged so peers know it's a stand-in.
+ */
+async function promoteToBrain(ctx: {
+  store: ReturnType<typeof getStore>;
+  project: string;
+  resolved: ResolvedConfig;
+}): Promise<ReceiverResult> {
+  const { store, project, resolved } = ctx;
+  applyServerEnv(store, project, resolved);
+  applyReceiverEnv(store, project, resolved);
+  const device = store.getDevice();
+
+  const { startServer } = await import('@wavegrid/server');
+  const { startReceiver } = await import('@wavegrid/receiver');
+  const serverHandle = startServer(resolved, {
+    advertise: { project, deviceId: device.id, deviceName: device.name, transient: true }
+  });
+  // Let the server bind before the local receiver dials in.
+  await new Promise((r) => setTimeout(r, 250));
+  const receiverHandle = startReceiver(resolved);
+
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    receiverHandle.stop();
+    serverHandle.stop();
+  };
+  const onSignal = () => {
+    console.log('\n  Shutting down...');
+    stop();
+    process.exit(0);
+  };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+
+  const port = resolved.config.server.port;
+  console.log('');
+  console.log(`  ${c.green('▶')} transient brain + receiver up on ${c.cyan(`:${port}`)}.  ${c.gray('Ctrl-C stops everything.')}`);
+  console.log('');
+  return { server: `ws://localhost:${port}`, stop };
 }
 
 /**

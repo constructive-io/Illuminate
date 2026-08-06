@@ -13,7 +13,7 @@ Core rules that make this sane:
 
 - **Projects are portable; devices are not.** A project export carries config, layout, secrets, and users — never device identity. Every machine keeps its own locally-generated identity (`~/.wavegrid/device.json`: uuid + friendly name) and **registers itself with its own IP** when it joins, so imports can never confuse two machines.
 - **Every device carries the whole project** — including the device-scoped configs of *all* other devices (shards, light-maps, OSC targets). Any laptop can view or edit any device's config; sync brings everyone to the same complete picture.
-- **The server is the sync authority when present.** Edits push to the server, which bumps the project revision and broadcasts; peers pull. Peer-to-peer sync is the fallback when no server is running. Highest rev wins; `doctor` flags divergence — never a silent merge.
+- **The server is the sync authority when present.** Edits push to the server, which bumps the project revision and broadcasts; peers pull. **When no `wavegrid server` is on the LAN, the receivers hold a quick election — "someone is always the brain" — and the winner self-promotes to a transient brain the others home to.** When a dedicated server later appears, the transient brain hands its edits over (`sync_merge`) and everyone re-homes. Highest rev wins; `doctor` flags divergence — never a silent merge.
 
 > **Implementation status:** this skill documents the target model from
 > [constructive-planning#1465](https://github.com/constructive-io/constructive-planning/issues/1465).

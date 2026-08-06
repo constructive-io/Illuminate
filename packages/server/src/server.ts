@@ -19,6 +19,7 @@ import type {
   ClientInfo,
   HelloMessage,
   SyncAckMessage,
+  SyncMergeMessage,
   SyncPushMessage,
   SyncRequestMessage,
   SyncUpdateMessage,
@@ -41,7 +42,7 @@ export interface StartServerOptions {
    * machine-local device identity; omit (or pass false) to stay silent.
    * Discovery is convenience only — connections still authenticate.
    */
-  advertise?: { project: string; deviceId: string; deviceName: string } | false;
+  advertise?: { project: string; deviceId: string; deviceName: string; transient?: boolean } | false;
 }
 
 /**
@@ -429,6 +430,48 @@ function handleSyncAck(msg: SyncAckMessage): void {
   }
 }
 
+/**
+ * Reconcile a re-homing peer's whole sync document into ours, then broadcast
+ * the reconciled state so every client converges. This is the offline→online
+ * handover: a transient coordinator hands the edits it accepted to the
+ * dedicated brain, which merges deterministically (highest revision per scope).
+ */
+function handleSyncMerge(msg: SyncMergeMessage): void {
+  if (!syncEnabled()) return;
+  if (!msg.state || typeof msg.state !== 'object' || typeof msg.state.entries !== 'object') return;
+  const target = resolveSyncTarget();
+  if (!target) return;
+  try {
+    // Secrets never ride the sync channel unless explicitly opted in — strip
+    // any secret-scoped entries from the incoming document before merging.
+    const remote =
+      resolved.config.sync?.secrets === true
+        ? msg.state
+        : { ...msg.state, entries: filterSecretScopes(msg.state.entries) };
+    const { state, changed } = target.store.mergeSync(target.project, remote);
+    if (changed) broadcastSyncStateTo(state);
+  } catch {
+    /* sync is best-effort; never drop the connection over a bad merge */
+  }
+}
+
+/** Drop secret-scoped entries from a sync document's entry map. */
+function filterSecretScopes<T>(entries: Record<string, T>): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [scope, entry] of Object.entries(entries)) {
+    if (!isSecretScope(scope)) out[scope] = entry;
+  }
+  return out;
+}
+
+/** Broadcast the full replicated document to every client (post-merge convergence). */
+function broadcastSyncStateTo(state: { revision: number; entries: unknown }): void {
+  const payload = JSON.stringify({ type: 'sync_state', revision: state.revision, entries: state.entries });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
+  });
+}
+
 /** Sync summary for `system_status` (revision + devices that lag it). */
 function buildSyncStatus(): SystemStatus['sync'] {
   const target = resolveSyncTarget();
@@ -556,6 +599,10 @@ wss.on('connection', (ws, req: http.IncomingMessage) => {
       }
       if (msg.type === 'sync_ack') {
         handleSyncAck(msg as SyncAckMessage);
+        return;
+      }
+      if (msg.type === 'sync_merge') {
+        handleSyncMerge(msg as SyncMergeMessage);
         return;
       }
       handleMessage(msg);
