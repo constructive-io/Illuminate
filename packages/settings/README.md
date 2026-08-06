@@ -1,5 +1,10 @@
 # @wavegrid/settings
 
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+
 Centralized settings for Wavegrid, backed by [appstash](https://www.npmjs.com/package/appstash).
 
 Everything that used to live in scattered env vars, a repo-root `.users` file, and

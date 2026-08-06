@@ -1,5 +1,10 @@
 # @wavegrid/layout
 
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+
 Config-driven fixture layouts — the single source of truth for cannon geometry.
 
 Every other package (patterns, animations, scenes, the artist UI, the 3D viewer,

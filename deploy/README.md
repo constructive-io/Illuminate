@@ -1,5 +1,10 @@
 # deploy
 
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+
 Run config for the WaveGrid machines. **The cloud server IP is the only
 secret** — it lives in `deploy/.env` (gitignored). Everything else here is
 committed. Copy the example and fill it in once per machine:

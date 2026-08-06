@@ -1,5 +1,10 @@
 # @wavegrid/cli
 
+<p align="center" width="100%">
+  <img height="250" src="https://raw.githubusercontent.com/constructive-io/constructive/refs/heads/main/assets/outline-logo.svg" />
+</p>
+
+
 The `wavegrid` command-line tool — create a laser installation as a **project**
 in a centralized store, and run it (server + receiver, in-process) from a single
 command. New physical arrangements are pure configuration: no shape-specific
