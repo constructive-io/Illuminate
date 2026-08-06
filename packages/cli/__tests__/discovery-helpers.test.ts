@@ -11,6 +11,7 @@ function brain(partial: Partial<DiscoveredBrain>): DiscoveredBrain {
     addresses: [],
     deviceId: null,
     deviceName: null,
+    transient: false,
     ...partial
   };
 }

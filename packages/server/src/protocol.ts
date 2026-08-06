@@ -105,3 +105,15 @@ export interface SyncAckMessage {
   deviceId: string;
   revision: number;
 }
+
+/**
+ * Client → server: hand over a full local sync document for reconciliation.
+ * Sent by a transient coordinator that is re-homing to a dedicated brain, so
+ * the edits it accepted while it was the authority are not lost. The server
+ * merges it deterministically (highest revision per scope wins — never a silent
+ * overwrite) and broadcasts the reconciled `sync_state` so everyone converges.
+ */
+export interface SyncMergeMessage {
+  type: 'sync_merge';
+  state: SyncState;
+}

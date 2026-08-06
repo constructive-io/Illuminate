@@ -54,6 +54,7 @@ ${c.bold('Run')}
 ${c.bold('Receiver options')}
   --server <ws-url>   Brain to connect to (e.g. ws://192.168.1.42:3333)
   --shard <a-b>       Cannon range this receiver drives (e.g. 0-24)
+  --no-p2p            Don't self-promote to a brain when none is found on the LAN
 
 ${c.bold('Options')}
   --project <name>    Act on a specific project (else the active one)
