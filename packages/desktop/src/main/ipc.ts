@@ -18,7 +18,8 @@ import type {
   NewProjectInput,
   ProjectSummary,
   RequiredSecretInfo,
-  ShardRange
+  ShardRange,
+  UserRole
 } from '@/types/ipc';
 
 /** Resolve the light-map debugger view for a project from the shared store:
@@ -112,19 +113,38 @@ export function registerAllIpc(): void {
 
   ipcMain.handle('users:list', (_e, project: string) => {
     const store = openStore();
-    return store.hasProject(project) ? store.listUsers(project) : [];
+    return store.hasProject(project) ? store.listUserInfos(project) : [];
   });
-  ipcMain.handle('users:add', (_e, project: string, username: string, password: string) => {
+  ipcMain.handle('users:add', (_e, project: string, username: string, password: string, role: UserRole) => {
     const store = openStore();
     // addUser hashes with scrypt and throws on empty username/password; the
     // password is used here only to hash and is never echoed, returned, or logged.
-    if (store.hasProject(project)) store.addUser(project, username, password);
-    return store.hasProject(project) ? store.listUsers(project) : [];
+    if (store.hasProject(project)) store.addUser(project, username, password, role);
+    return store.hasProject(project) ? store.listUserInfos(project) : [];
   });
   ipcMain.handle('users:remove', (_e, project: string, username: string) => {
     const store = openStore();
-    if (store.hasProject(project)) store.removeUser(project, username);
-    return store.hasProject(project) ? store.listUsers(project) : [];
+    if (store.hasProject(project)) {
+      // Revoke the user's live sessions too, so a removed user can't refresh.
+      store.removeUser(project, username);
+      store.revokeUserSessions(project, username);
+    }
+    return store.hasProject(project) ? store.listUserInfos(project) : [];
+  });
+  ipcMain.handle('users:setRole', (_e, project: string, username: string, role: UserRole) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.setUserRole(project, username, role);
+    return store.hasProject(project) ? store.listUserInfos(project) : [];
+  });
+
+  ipcMain.handle('sessions:list', (_e, project: string) => {
+    const store = openStore();
+    return store.hasProject(project) ? store.listSessions(project) : [];
+  });
+  ipcMain.handle('sessions:revoke', (_e, project: string, id: string) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.revokeSession(project, id);
+    return store.hasProject(project) ? store.listSessions(project) : [];
   });
 
   ipcMain.handle('secrets:status', (_e, project: string) => secretStatus(project));

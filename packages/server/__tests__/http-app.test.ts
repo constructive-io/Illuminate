@@ -49,7 +49,8 @@ describe('createHttpApp', () => {
     const s = openStore();
     s.createProject('demo', { layout: { preset: 'grid-7x7' } });
     s.setActiveProject('demo');
-    s.addUser('demo', 'admin', 'secretpw');
+    s.addUser('demo', 'admin', 'secretpw'); // first user → admin
+    s.addUser('demo', 'op', 'operatorpw'); // second → operator
 
     mkdirSync(join(ui, 'assets'), { recursive: true });
     writeFileSync(join(ui, 'index.html'), '<!doctype html><div id="root"></div>');
@@ -104,6 +105,83 @@ describe('createHttpApp', () => {
     const body = await good.json();
     expect(body.ok).toBe(true);
     expect(body.token.split('.')).toHaveLength(3);
+    expect(body.role).toBe('admin');
+    expect(typeof body.expiresAt).toBe('number');
+  });
+
+  /** Helper: log in and return the JWT. */
+  async function login(username: string, password: string): Promise<{ token: string; role: string }> {
+    const res = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const body = await res.json();
+    return { token: body.token, role: body.role };
+  }
+
+  it('login records a session an admin can list and revoke', async () => {
+    const admin = await login('admin', 'secretpw');
+    await login('op', 'operatorpw'); // operator session exists too
+
+    const list = await fetch(`${base}/api/admin/sessions`, {
+      headers: { authorization: `Bearer ${admin.token}` }
+    });
+    expect(list.status).toBe(200);
+    const { sessions } = await list.json();
+    expect(sessions.length).toBeGreaterThanOrEqual(2);
+    expect(sessions.some((s: { username: string }) => s.username === 'op')).toBe(true);
+
+    const opSession = sessions.find((s: { username: string }) => s.username === 'op');
+    const del = await fetch(`${base}/api/admin/sessions/${opSession.id}`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${admin.token}` }
+    });
+    expect(del.status).toBe(200);
+  });
+
+  it('rejects admin endpoints for operators and anonymous callers', async () => {
+    const op = await login('op', 'operatorpw');
+    expect(op.role).toBe('operator');
+
+    const forbidden = await fetch(`${base}/api/admin/sessions`, {
+      headers: { authorization: `Bearer ${op.token}` }
+    });
+    expect(forbidden.status).toBe(403);
+
+    const anon = await fetch(`${base}/api/admin/sessions`);
+    expect(anon.status).toBe(401);
+  });
+
+  it('admin can list users with roles, add operators, promote and demote', async () => {
+    const admin = await login('admin', 'secretpw');
+    const authz = { authorization: `Bearer ${admin.token}` };
+
+    const created = await fetch(`${base}/api/admin/users`, {
+      method: 'POST',
+      headers: { ...authz, 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'charlie', password: 'pw123456', role: 'operator' })
+    });
+    expect(created.status).toBe(200);
+    const { users } = await created.json();
+    expect(users.find((u: { username: string }) => u.username === 'charlie').role).toBe('operator');
+
+    const promoted = await fetch(`${base}/api/admin/users/charlie/role`, {
+      method: 'POST',
+      headers: { ...authz, 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'admin' })
+    });
+    expect(promoted.status).toBe(200);
+
+    const meRes = await fetch(`${base}/api/me`, { headers: authz });
+    expect(meRes.status).toBe(200);
+    expect((await meRes.json()).role).toBe('admin');
+
+    const del = await fetch(`${base}/api/admin/users/charlie`, {
+      method: 'DELETE',
+      headers: authz
+    });
+    expect(del.status).toBe(200);
   });
 
   it('round-trips the light map through per-project state', async () => {

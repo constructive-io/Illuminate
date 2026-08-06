@@ -57,6 +57,17 @@ import {
   type SecretName
 } from './secrets';
 import {
+  createSession,
+  type CreateSessionInput,
+  getSession,
+  listSessions,
+  pruneSessions,
+  revokeSession,
+  revokeUserSessions,
+  type Session,
+  touchSession
+} from './sessions';
+import {
   type ApplyResult,
   applyUpdate,
   type ConfigUpdate,
@@ -67,7 +78,18 @@ import {
   recordAck,
   type SyncState
 } from './sync';
-import { addUser, listUsernames, removeUser, verifyUser } from './users';
+import {
+  addUser,
+  authenticate,
+  getUserRole,
+  listUsernames,
+  listUsers as listUserInfos,
+  removeUser,
+  setUserRole,
+  type UserInfo,
+  type UserRole,
+  verifyUser
+} from './users';
 
 export interface StoreOptions {
   /** Override the store root (defaults to ~/.wavegrid). Used by tests and hosts. */
@@ -100,9 +122,22 @@ export interface SettingsStore {
 
   // Users
   listUsers(project: string): string[];
-  addUser(project: string, username: string, password: string): void;
+  listUserInfos(project: string): UserInfo[];
+  getUserRole(project: string, username: string): UserRole | null;
+  addUser(project: string, username: string, password: string, role?: UserRole): void;
+  setUserRole(project: string, username: string, role: UserRole): UserInfo;
   removeUser(project: string, username: string): boolean;
   verifyUser(project: string, username: string, password: string): boolean;
+  authenticate(project: string, username: string, password: string): UserInfo | null;
+
+  // UI sessions (cheap server-visible login records; sockets untouched)
+  createSession(project: string, input: CreateSessionInput): Session;
+  listSessions(project: string): Session[];
+  getSession(project: string, id: string): Session | null;
+  touchSession(project: string, id: string): Session | null;
+  revokeSession(project: string, id: string): boolean;
+  revokeUserSessions(project: string, username: string): number;
+  pruneSessions(project: string): Session[];
 
   // Device identity (machine-local; never travels with project exports)
   getDevice(): DeviceIdentity;
@@ -166,9 +201,21 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     requiredSecrets: (project) => requiredSecrets(paths, project),
 
     listUsers: (project) => listUsernames(paths, project),
-    addUser: (project, username, password) => addUser(paths, project, username, password),
+    listUserInfos: (project) => listUserInfos(paths, project),
+    getUserRole: (project, username) => getUserRole(paths, project, username),
+    addUser: (project, username, password, role) => addUser(paths, project, username, password, role),
+    setUserRole: (project, username, role) => setUserRole(paths, project, username, role),
     removeUser: (project, username) => removeUser(paths, project, username),
     verifyUser: (project, username, password) => verifyUser(paths, project, username, password),
+    authenticate: (project, username, password) => authenticate(paths, project, username, password),
+
+    createSession: (project, input) => createSession(paths, project, input),
+    listSessions: (project) => listSessions(paths, project),
+    getSession: (project, id) => getSession(paths, project, id),
+    touchSession: (project, id) => touchSession(paths, project, id),
+    revokeSession: (project, id) => revokeSession(paths, project, id),
+    revokeUserSessions: (project, username) => revokeUserSessions(paths, project, username),
+    pruneSessions: (project) => pruneSessions(paths, project),
 
     getDevice: () => getDevice(paths),
     setDeviceName: (name) => setDeviceName(paths, name),

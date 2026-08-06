@@ -15,15 +15,39 @@ function base64urlDecode(str: string): string {
   return Buffer.from(padded, 'base64').toString('utf8');
 }
 
+export type Role = 'admin' | 'operator';
+
 export interface JwtPayload {
+  /** Subject — the username. */
   sub: string;
+  /** Issued-at (seconds). */
   iat: number;
+  /** Expiry (seconds). Absent on legacy tokens → treated as non-expiring. */
+  exp?: number;
+  /** Session id — ties the token to a server-side session record. */
+  sid?: string;
+  /** Privilege level carried for convenience; the store remains authoritative. */
+  role?: Role;
 }
 
-export function signJwt(sub: string): string {
+export interface SignOptions {
+  /** Session id to embed (`sid`). */
+  sid?: string;
+  /** Role to embed. */
+  role?: Role;
+  /** Lifetime in seconds; when set, an `exp` claim is added. */
+  ttlSec?: number;
+}
+
+export function signJwt(sub: string, opts: SignOptions = {}): string {
   const secret = getSecret();
+  const iat = Math.floor(Date.now() / 1000);
+  const claims: JwtPayload = { sub, iat };
+  if (opts.ttlSec != null) claims.exp = iat + opts.ttlSec;
+  if (opts.sid) claims.sid = opts.sid;
+  if (opts.role) claims.role = opts.role;
   const header = base64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-  const payload = base64url(Buffer.from(JSON.stringify({ sub, iat: Math.floor(Date.now() / 1000) })));
+  const payload = base64url(Buffer.from(JSON.stringify(claims)));
   const data = `${header}.${payload}`;
   const sig = base64url(createHmac('sha256', secret).update(data).digest());
   return `${data}.${sig}`;
@@ -38,6 +62,7 @@ export function verifyJwt(token: string): JwtPayload | null {
     const expectedSig = base64url(createHmac('sha256', secret).update(data).digest());
     if (expectedSig !== parts[2]) return null;
     const payload: JwtPayload = JSON.parse(base64urlDecode(parts[1]));
+    if (typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) return null;
     return payload;
   } catch {
     return null;

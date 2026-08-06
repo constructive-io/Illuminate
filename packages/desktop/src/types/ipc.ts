@@ -57,6 +57,27 @@ export interface EditableConfig {
   cannonCount: number;
 }
 
+/** A user's privilege level. */
+export type UserRole = 'admin' | 'operator';
+
+/** A UI login and its role. Password material never crosses IPC. */
+export interface UserAccount {
+  username: string;
+  role: UserRole;
+}
+
+/** A cheap server-visible login session. IP/user-agent are admin-only. */
+export interface SessionInfo {
+  id: string;
+  username: string;
+  role: UserRole;
+  ip: string;
+  userAgent: string;
+  issuedAt: number;
+  lastSeen: number;
+  expiresAt: number;
+}
+
 /** A required project secret and whether it is currently set. Only the name,
  *  description, and presence flag ever cross IPC — never the secret value. */
 export interface RequiredSecretInfo {
@@ -177,9 +198,16 @@ export interface WavegridApi {
     saveConfig(project: string, config: EditableConfig): Promise<EditableConfig | null>;
   };
   users: {
-    list(project: string): Promise<string[]>;
-    add(project: string, username: string, password: string): Promise<string[]>;
-    remove(project: string, username: string): Promise<string[]>;
+    list(project: string): Promise<UserAccount[]>;
+    add(project: string, username: string, password: string, role: UserRole): Promise<UserAccount[]>;
+    remove(project: string, username: string): Promise<UserAccount[]>;
+    setRole(project: string, username: string, role: UserRole): Promise<UserAccount[]>;
+  };
+  sessions: {
+    /** Active (non-expired) UI login sessions for a project, newest first. */
+    list(project: string): Promise<SessionInfo[]>;
+    /** Revoke a session by id (takes effect on the client's next token refresh). */
+    revoke(project: string, id: string): Promise<SessionInfo[]>;
   };
   secrets: {
     status(project: string): Promise<RequiredSecretInfo[]>;

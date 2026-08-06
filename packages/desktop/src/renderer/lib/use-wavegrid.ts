@@ -8,7 +8,10 @@ import type {
   NewProjectInput,
   ProjectSummary,
   RequiredSecretInfo,
-  ShardRange
+  SessionInfo,
+  ShardRange,
+  UserAccount,
+  UserRole
 } from '@/types/ipc';
 
 const EMPTY_STATUS: BrainStatus = {
@@ -131,15 +134,16 @@ export function useProjectConfig(project: string | null): {
   return { config, loading, refresh, save };
 }
 
-/** UI login users for a project (names only — password hashes never leave main).
- *  add/remove write straight through to the scrypt-backed store. */
+/** UI login users for a project (username + role — password hashes never leave
+ *  main). add/remove/setRole write straight through to the scrypt-backed store. */
 export function useProjectUsers(project: string | null): {
-  users: string[];
+  users: UserAccount[];
   refresh: () => Promise<void>;
-  add: (username: string, password: string) => Promise<void>;
+  add: (username: string, password: string, role: UserRole) => Promise<void>;
   remove: (username: string) => Promise<void>;
+  setRole: (username: string, role: UserRole) => Promise<void>;
   } {
-  const [users, setUsers] = React.useState<string[]>([]);
+  const [users, setUsers] = React.useState<UserAccount[]>([]);
 
   const refresh = React.useCallback(async () => {
     if (!project) {
@@ -150,9 +154,9 @@ export function useProjectUsers(project: string | null): {
   }, [project]);
 
   const add = React.useCallback(
-    async (username: string, password: string) => {
+    async (username: string, password: string, role: UserRole) => {
       if (!project) return;
-      setUsers(await window.wavegrid.users.add(project, username, password));
+      setUsers(await window.wavegrid.users.add(project, username, password, role));
     },
     [project]
   );
@@ -165,11 +169,48 @@ export function useProjectUsers(project: string | null): {
     [project]
   );
 
+  const setRole = React.useCallback(
+    async (username: string, role: UserRole) => {
+      if (!project) return;
+      setUsers(await window.wavegrid.users.setRole(project, username, role));
+    },
+    [project]
+  );
+
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { users, refresh, add, remove };
+  return { users, refresh, add, remove, setRole };
+}
+
+/** Active UI login sessions for a project (who's logged in). Local admin reads
+ *  straight from the shared store; revoke removes the row (the client loses
+ *  access on its next token refresh — sockets are untouched). */
+export function useSessions(project: string | null): {
+  sessions: SessionInfo[];
+  refresh: () => Promise<void>;
+  revoke: (id: string) => Promise<void>;
+  } {
+  const [sessions, setSessions] = React.useState<SessionInfo[]>([]);
+
+  const refresh = React.useCallback(async () => {
+    setSessions(project ? await window.wavegrid.sessions.list(project) : []);
+  }, [project]);
+
+  const revoke = React.useCallback(
+    async (id: string) => {
+      if (!project) return;
+      setSessions(await window.wavegrid.sessions.revoke(project, id));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { sessions, refresh, revoke };
 }
 
 /** Required-secret status for a project (name/description/set only). `generate`

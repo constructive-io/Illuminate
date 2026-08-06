@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, ShardRange, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -27,11 +27,17 @@ const api: WavegridApi = {
       ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>
   },
   users: {
-    list: (project) => ipcRenderer.invoke('users:list', project) as Promise<string[]>,
-    add: (project, username, password) =>
-      ipcRenderer.invoke('users:add', project, username, password) as Promise<string[]>,
+    list: (project) => ipcRenderer.invoke('users:list', project) as Promise<UserAccount[]>,
+    add: (project, username, password, role: UserRole) =>
+      ipcRenderer.invoke('users:add', project, username, password, role) as Promise<UserAccount[]>,
     remove: (project, username) =>
-      ipcRenderer.invoke('users:remove', project, username) as Promise<string[]>
+      ipcRenderer.invoke('users:remove', project, username) as Promise<UserAccount[]>,
+    setRole: (project, username, role: UserRole) =>
+      ipcRenderer.invoke('users:setRole', project, username, role) as Promise<UserAccount[]>
+  },
+  sessions: {
+    list: (project) => ipcRenderer.invoke('sessions:list', project) as Promise<SessionInfo[]>,
+    revoke: (project, id) => ipcRenderer.invoke('sessions:revoke', project, id) as Promise<SessionInfo[]>
   },
   secrets: {
     status: (project) => ipcRenderer.invoke('secrets:status', project) as Promise<RequiredSecretInfo[]>,

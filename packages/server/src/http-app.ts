@@ -5,12 +5,12 @@
  * — same-origin means no `ui.port` / `simulatorUrl` to keep in sync.
  */
 import { type ResolvedConfig } from '@wavegrid/layout';
-import { openStore } from '@wavegrid/settings';
+import { DEFAULT_SESSION_TTL_MS, openStore, type UserRole } from '@wavegrid/settings';
 import * as fs from 'fs';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { extname, join, normalize, resolve } from 'path';
 
-import { signJwt } from './jwt';
+import { signJwt, verifyJwt } from './jwt';
 
 export interface HttpAppOptions {
   /** Directory of the built UI (Vite `dist`). Static serving is skipped if unset/missing. */
@@ -57,6 +57,60 @@ function readBody(req: IncomingMessage): Promise<string> {
 function activeProject(): string | null {
   const store = openStore();
   return process.env.WAVEGRID_PROJECT ?? store.getActiveProject();
+}
+
+/** Best-effort client IP, honouring a reverse proxy's x-forwarded-for. */
+function clientIp(req: IncomingMessage): string {
+  const fwd = req.headers['x-forwarded-for'];
+  const first = Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]?.trim();
+  return first || req.socket.remoteAddress || 'unknown';
+}
+
+/** Extract the bearer token from an Authorization header or `?token=` query. */
+function bearerToken(req: IncomingMessage, url: URL): string | null {
+  const auth = req.headers.authorization;
+  if (auth && /^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, '').trim();
+  return url.searchParams.get('token');
+}
+
+interface AuthedCaller {
+  project: string;
+  username: string;
+  role: UserRole;
+}
+
+/**
+ * Authenticate an admin caller for a privileged HTTP endpoint. Requires a valid
+ * (unexpired) JWT whose session still exists AND whose role is `admin` per the
+ * store (the store is authoritative — a stale `role` claim can't grant admin).
+ * The shared receiver key is never accepted here. Returns null and writes the
+ * appropriate 401/403 response on failure.
+ */
+function requireAdmin(req: IncomingMessage, url: URL, res: ServerResponse): AuthedCaller | null {
+  const token = bearerToken(req, url);
+  const payload = token ? verifyJwt(token) : null;
+  if (!payload) {
+    sendJson(res, 401, { ok: false, error: 'Authentication required' });
+    return null;
+  }
+  const project = activeProject();
+  if (!project) {
+    sendJson(res, 503, { ok: false, error: 'No active project' });
+    return null;
+  }
+  const store = openStore();
+  // A session id, when present, must still be live (supports revocation).
+  if (payload.sid && !store.getSession(project, payload.sid)) {
+    sendJson(res, 401, { ok: false, error: 'Session expired or revoked' });
+    return null;
+  }
+  const role = store.getUserRole(project, payload.sub);
+  if (role !== 'admin') {
+    sendJson(res, 403, { ok: false, error: 'Admin privileges required' });
+    return null;
+  }
+  if (payload.sid) store.touchSession(project, payload.sid);
+  return { project, username: payload.sub, role };
 }
 
 // ── Light-map persistence (per-project state, not a cwd-relative deploy file) ──
@@ -185,12 +239,149 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
         sendJson(res, 503, { ok: false, error: 'Auth not configured' });
         return;
       }
-      if (!store.verifyUser(project, username, password)) {
+      const user = store.authenticate(project, username, password);
+      if (!user) {
         sendJson(res, 401, { ok: false, error: 'Invalid username or password' });
         return;
       }
-      sendJson(res, 200, { ok: true, username, token: signJwt(username) });
+      // Record a cheap server-side session and bind the JWT to it, so admins
+      // can see who's logged in and revoke on the next refresh. Sockets are
+      // untouched — the token remains the only credential they check.
+      const session = store.createSession(project, {
+        username: user.username,
+        role: user.role,
+        ip: clientIp(req),
+        userAgent: String(req.headers['user-agent'] ?? 'unknown'),
+        ttlMs: DEFAULT_SESSION_TTL_MS
+      });
+      const token = signJwt(user.username, {
+        sid: session.id,
+        role: user.role,
+        ttlSec: Math.floor(DEFAULT_SESSION_TTL_MS / 1000)
+      });
+      sendJson(res, 200, {
+        ok: true,
+        username: user.username,
+        role: user.role,
+        token,
+        expiresAt: session.expiresAt
+      });
       return;
+    }
+
+    // ── GET /api/me — who am I (any valid token) ────────────────────
+    if (pathname === '/api/me' && method === 'GET') {
+      const token = bearerToken(req, url);
+      const payload = token ? verifyJwt(token) : null;
+      const project = activeProject();
+      if (!payload || !project) {
+        sendJson(res, 401, { ok: false, error: 'Authentication required' });
+        return;
+      }
+      const store = openStore();
+      if (payload.sid && !store.getSession(project, payload.sid)) {
+        sendJson(res, 401, { ok: false, error: 'Session expired or revoked' });
+        return;
+      }
+      const role = store.getUserRole(project, payload.sub);
+      if (!role) {
+        sendJson(res, 401, { ok: false, error: 'Unknown user' });
+        return;
+      }
+      if (payload.sid) store.touchSession(project, payload.sid);
+      sendJson(res, 200, { ok: true, username: payload.sub, role });
+      return;
+    }
+
+    // ── Admin-only session + user management (role-gated) ───────────
+    if (pathname === '/api/admin/sessions' && method === 'GET') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      sendJson(res, 200, { ok: true, sessions: openStore().listSessions(caller.project) });
+      return;
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/sessions\/([^/]+)$/);
+      if (m && method === 'DELETE') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        const removed = openStore().revokeSession(caller.project, decodeURIComponent(m[1]));
+        sendJson(res, removed ? 200 : 404, { ok: removed });
+        return;
+      }
+    }
+    if (pathname === '/api/admin/users' && method === 'GET') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      sendJson(res, 200, { ok: true, users: openStore().listUserInfos(caller.project) });
+      return;
+    }
+    if (pathname === '/api/admin/users' && method === 'POST') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      let body: { username?: string; password?: string; role?: UserRole };
+      try {
+        body = JSON.parse((await readBody(req)) || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'Invalid request' });
+        return;
+      }
+      if (!body.username || !body.password) {
+        sendJson(res, 400, { ok: false, error: 'Missing username or password' });
+        return;
+      }
+      const role: UserRole = body.role === 'admin' ? 'admin' : 'operator';
+      try {
+        openStore().addUser(caller.project, body.username, body.password, role);
+      } catch (e) {
+        sendJson(res, 400, { ok: false, error: (e as Error).message });
+        return;
+      }
+      sendJson(res, 200, { ok: true, users: openStore().listUserInfos(caller.project) });
+      return;
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/users\/([^/]+)\/role$/);
+      if (m && method === 'POST') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        let body: { role?: UserRole };
+        try {
+          body = JSON.parse((await readBody(req)) || '{}');
+        } catch {
+          sendJson(res, 400, { ok: false, error: 'Invalid request' });
+          return;
+        }
+        if (body.role !== 'admin' && body.role !== 'operator') {
+          sendJson(res, 400, { ok: false, error: 'role must be "admin" or "operator"' });
+          return;
+        }
+        try {
+          openStore().setUserRole(caller.project, decodeURIComponent(m[1]), body.role);
+        } catch (e) {
+          sendJson(res, 400, { ok: false, error: (e as Error).message });
+          return;
+        }
+        sendJson(res, 200, { ok: true, users: openStore().listUserInfos(caller.project) });
+        return;
+      }
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/users\/([^/]+)$/);
+      if (m && method === 'DELETE') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        const username = decodeURIComponent(m[1]);
+        const store = openStore();
+        try {
+          const removed = store.removeUser(caller.project, username);
+          if (removed) store.revokeUserSessions(caller.project, username);
+          sendJson(res, removed ? 200 : 404, { ok: removed });
+        } catch (e) {
+          sendJson(res, 400, { ok: false, error: (e as Error).message });
+        }
+        return;
+      }
     }
 
     // ── GET/POST /api/light-map ─────────────────────────────────────
