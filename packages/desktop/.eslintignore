@@ -1,0 +1,8 @@
+# Constructive Blocks are installed verbatim from the @constructive registry and
+# must not be reformatted by our lint rules (they use their own code style).
+src/components/
+src/hooks/
+src/lib/
+src/styles/
+.vite/
+out/

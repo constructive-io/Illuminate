@@ -3,3 +3,10 @@ packages:
 
 minimumReleaseAgeExclude:
   - 'toml-ast'
+
+# Allow these packages' install scripts to run (pnpm 10 blocks them by default).
+# Electron/esbuild download their platform binaries in a postinstall; the desktop
+# app can't launch without them.
+onlyBuiltDependencies:
+  - electron
+  - esbuild
