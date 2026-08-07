@@ -147,6 +147,36 @@ export function registerAllIpc(): void {
     return store.hasProject(project) ? store.listSessions(project) : [];
   });
 
+  ipcMain.handle('guest:status', (_e, project: string) => {
+    const store = openStore();
+    return store.hasProject(project)
+      ? store.guestStatus(project)
+      : { configured: false, enabled: false, updatedAt: null };
+  });
+  ipcMain.handle('guest:rotate', (_e, project: string) => {
+    const store = openStore();
+    if (!store.hasProject(project)) {
+      return { passphrase: '', status: { configured: false, enabled: false, updatedAt: null } };
+    }
+    // The cleartext is returned exactly once for the admin to copy and share;
+    // only its scrypt hash is persisted. It is never logged.
+    const passphrase = store.rotateGuestPassphrase(project);
+    return { passphrase, status: store.guestStatus(project) };
+  });
+  ipcMain.handle('guest:setEnabled', (_e, project: string, enabled: boolean) => {
+    const store = openStore();
+    return store.hasProject(project)
+      ? store.setGuestEnabled(project, enabled)
+      : { configured: false, enabled: false, updatedAt: null };
+  });
+  ipcMain.handle('guest:clear', (_e, project: string) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.clearGuest(project);
+    return store.hasProject(project)
+      ? store.guestStatus(project)
+      : { configured: false, enabled: false, updatedAt: null };
+  });
+
   ipcMain.handle('secrets:status', (_e, project: string) => secretStatus(project));
   ipcMain.handle('secrets:generate', (_e, project: string, force: boolean) => {
     const store = openStore();

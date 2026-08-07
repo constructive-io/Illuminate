@@ -5,6 +5,12 @@ import { runConfigSet } from './commands/config-set';
 import { runDevicesAssign, runDevicesList, runDevicesRemove, runDevicesRename } from './commands/devices';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
+import {
+  runGuestClear,
+  runGuestEnabled,
+  runGuestRotate,
+  runGuestStatus
+} from './commands/guest';
 import { runInit } from './commands/init';
 import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runOscSetup } from './commands/osc';
@@ -35,6 +41,7 @@ ${c.bold('Projects')} — manage and edit projects
   projects config set <k> <v>   Set a field (layout, mode, port, host, ui-port)
   projects secrets list|init    List / generate the project's secrets
   projects users list|add|rm    Manage UI login users
+  projects guest status|new     Shared guest passphrase (one low-privilege operator)
   projects devices list|assign  List / name / shard-assign devices that joined
   projects osc                  Set the OSC laser target (BEYOND/FB4) — wizard
   projects export [--out f]     Write a portable project bundle
@@ -82,6 +89,7 @@ const PROJECTS_SUBS: SubCommand[] = [
   { value: 'config', description: 'Print or set the project config' },
   { value: 'secrets', description: 'List or generate the project secrets' },
   { value: 'users', description: 'List, add, or remove UI login users' },
+  { value: 'guest', description: 'Shared guest passphrase — one low-privilege operator to hand out' },
   { value: 'devices', description: 'List, rename, or forget devices that joined the project' },
   { value: 'osc', description: 'Set the OSC laser target (BEYOND/FB4/routing) — interactive wizard' },
   { value: 'export', description: 'Write a portable project bundle (no machine identity)' },
@@ -108,6 +116,14 @@ const USERS_SUBS: SubCommand[] = [
   { value: 'list', description: 'List UI login users for the current project' },
   { value: 'add', description: 'Add/replace a UI login user (password prompted)' },
   { value: 'rm', description: 'Remove a UI login user' }
+];
+
+const GUEST_SUBS: SubCommand[] = [
+  { value: 'status', description: 'Show whether shared guest access is set up / on' },
+  { value: 'new', description: 'Mint a fresh shared passphrase (printed once)' },
+  { value: 'enable', description: 'Turn shared guest logins on' },
+  { value: 'disable', description: 'Turn shared guest logins off (passphrase kept)' },
+  { value: 'rm', description: 'Remove shared guest access entirely' }
 ];
 
 const DEVICES_SUBS: SubCommand[] = [
@@ -170,6 +186,7 @@ const KNOWN_COMMANDS = [
   'print-config',
   'secrets',
   'users',
+  'guest',
   'devices',
   'env',
   'doctor'
@@ -251,6 +268,25 @@ async function dispatchUsers(
   else unknownSub('users', sub);
 }
 
+async function dispatchGuest(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  // Bare `guest` in a script prints status (safe, read-only default).
+  let given = args[0];
+  if (given == null && nonInteractive) given = 'status';
+  const sub = (await resolveSub(given, 'guest', GUEST_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'status') runGuestStatus(flags);
+  else if (sub === 'new' || sub === 'rotate') runGuestRotate(flags);
+  else if (sub === 'enable' || sub === 'on') runGuestEnabled(flags, true);
+  else if (sub === 'disable' || sub === 'off') runGuestEnabled(flags, false);
+  else if (sub === 'rm' || sub === 'remove' || sub === 'clear') runGuestClear(flags);
+  else unknownSub('guest', sub);
+}
+
 async function dispatchDevices(
   args: string[],
   flags: Flags,
@@ -318,6 +354,9 @@ async function dispatchProjects(
     break;
   case 'users':
     await dispatchUsers(rest, flags, prompter, nonInteractive);
+    break;
+  case 'guest':
+    await dispatchGuest(rest, flags, prompter, nonInteractive);
     break;
   case 'devices':
     await dispatchDevices(rest, flags, prompter, nonInteractive);
@@ -420,6 +459,9 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
       break;
     case 'users':
       await dispatchUsers(positionals.slice(1), flags, prompter, nonInteractive);
+      break;
+    case 'guest':
+      await dispatchGuest(positionals.slice(1), flags, prompter, nonInteractive);
       break;
     case 'devices':
       await dispatchDevices(positionals.slice(1), flags, prompter, nonInteractive);

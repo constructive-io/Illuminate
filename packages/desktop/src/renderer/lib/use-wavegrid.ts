@@ -4,6 +4,7 @@ import type {
   BrainStatus,
   DeviceInfo,
   EditableConfig,
+  GuestStatus,
   LightMapView,
   NewProjectInput,
   ProjectSummary,
@@ -211,6 +212,57 @@ export function useSessions(project: string | null): {
   }, [refresh]);
 
   return { sessions, refresh, revoke };
+}
+
+/** Shared guest-access status + controls. Rotate mints a fresh passphrase and
+ *  returns its cleartext once (for the admin to copy); the store keeps only a
+ *  hash. Enabling/disabling flips logins on/off without changing it. */
+export function useGuest(project: string | null): {
+  guest: GuestStatus;
+  refresh: () => Promise<void>;
+  rotate: () => Promise<string>;
+  setEnabled: (enabled: boolean) => Promise<void>;
+  clear: () => Promise<void>;
+  } {
+  const [guest, setGuest] = React.useState<GuestStatus>({
+    configured: false,
+    enabled: false,
+    updatedAt: null
+  });
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setGuest({ configured: false, enabled: false, updatedAt: null });
+      return;
+    }
+    setGuest(await window.wavegrid.guest.status(project));
+  }, [project]);
+
+  const rotate = React.useCallback(async () => {
+    if (!project) return '';
+    const { passphrase, status } = await window.wavegrid.guest.rotate(project);
+    setGuest(status);
+    return passphrase;
+  }, [project]);
+
+  const setEnabled = React.useCallback(
+    async (enabled: boolean) => {
+      if (!project) return;
+      setGuest(await window.wavegrid.guest.setEnabled(project, enabled));
+    },
+    [project]
+  );
+
+  const clear = React.useCallback(async () => {
+    if (!project) return;
+    setGuest(await window.wavegrid.guest.clear(project));
+  }, [project]);
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { guest, refresh, rotate, setEnabled, clear };
 }
 
 /** Required-secret status for a project (name/description/set only). `generate`

@@ -1,5 +1,13 @@
 import { type DeviceIdentity, getDevice, setDeviceName } from './device';
 import {
+  authenticateGuest,
+  clearGuest,
+  type GuestStatus,
+  guestStatus,
+  rotateGuestPassphrase,
+  setGuestEnabled
+} from './guest';
+import {
   deleteLightMap,
   getActiveLightMap,
   type LightMapSummary,
@@ -130,6 +138,15 @@ export interface SettingsStore {
   verifyUser(project: string, username: string, password: string): boolean;
   authenticate(project: string, username: string, password: string): UserInfo | null;
 
+  // Shared guest access (one low-privilege operator passphrase to hand out)
+  guestStatus(project: string): GuestStatus;
+  /** Mint/rotate the shared passphrase, enabling guest access. Returns the
+   *  cleartext exactly once — only its hash is persisted. */
+  rotateGuestPassphrase(project: string): string;
+  setGuestEnabled(project: string, enabled: boolean): GuestStatus;
+  clearGuest(project: string): void;
+  authenticateGuest(project: string, passphrase: string): UserInfo | null;
+
   // UI sessions (cheap server-visible login records; sockets untouched)
   createSession(project: string, input: CreateSessionInput): Session;
   listSessions(project: string): Session[];
@@ -208,6 +225,12 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     removeUser: (project, username) => removeUser(paths, project, username),
     verifyUser: (project, username, password) => verifyUser(paths, project, username, password),
     authenticate: (project, username, password) => authenticate(paths, project, username, password),
+
+    guestStatus: (project) => guestStatus(paths, project),
+    rotateGuestPassphrase: (project) => rotateGuestPassphrase(paths, project),
+    setGuestEnabled: (project, enabled) => setGuestEnabled(paths, project, enabled),
+    clearGuest: (project) => clearGuest(paths, project),
+    authenticateGuest: (project, passphrase) => authenticateGuest(paths, project, passphrase),
 
     createSession: (project, input) => createSession(paths, project, input),
     listSessions: (project) => listSessions(paths, project),

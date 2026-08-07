@@ -65,6 +65,9 @@ export { type RequiredSecret } from './required';
 // Users
 export { type StoredUser, type UserInfo, type UserRole } from './users';
 
+// Shared guest access (one low-privilege operator passphrase)
+export { GUEST_USERNAME, type GuestStatus } from './guest';
+
 // UI sessions (cheap server-visible login records)
 export {
   type CreateSessionInput,

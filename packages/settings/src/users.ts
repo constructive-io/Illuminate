@@ -85,6 +85,9 @@ export function addUser(
   if (!username || !password) {
     throw new Error('addUser requires a non-empty username and password.');
   }
+  if (username === 'guest') {
+    throw new Error('"guest" is reserved for shared guest access; pick another username.');
+  }
   const existing = readUsers(paths, project);
   const prior = existing.find((u) => u.username === username);
   const resolvedRole: UserRole =

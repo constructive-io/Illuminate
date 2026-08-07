@@ -78,6 +78,14 @@ export interface SessionInfo {
   expiresAt: number;
 }
 
+/** Shared guest-access status. The passphrase itself is never included — it is
+ *  returned only once, from a rotate action, for the admin to copy and share. */
+export interface GuestStatus {
+  configured: boolean;
+  enabled: boolean;
+  updatedAt: number | null;
+}
+
 /** A required project secret and whether it is currently set. Only the name,
  *  description, and presence flag ever cross IPC — never the secret value. */
 export interface RequiredSecretInfo {
@@ -208,6 +216,18 @@ export interface WavegridApi {
     list(project: string): Promise<SessionInfo[]>;
     /** Revoke a session by id (takes effect on the client's next token refresh). */
     revoke(project: string, id: string): Promise<SessionInfo[]>;
+  };
+  guest: {
+    /** Shared guest-access status (never the passphrase). */
+    status(project: string): Promise<GuestStatus>;
+    /** Mint/rotate the shared passphrase, enabling guest access. Returns the
+     *  cleartext exactly once for the admin to copy — it is not persisted or
+     *  retrievable afterwards. */
+    rotate(project: string): Promise<{ passphrase: string; status: GuestStatus }>;
+    /** Enable/disable guest logins without changing the passphrase. */
+    setEnabled(project: string, enabled: boolean): Promise<GuestStatus>;
+    /** Remove guest access entirely (deletes the passphrase). */
+    clear(project: string): Promise<GuestStatus>;
   };
   secrets: {
     status(project: string): Promise<RequiredSecretInfo[]>;
