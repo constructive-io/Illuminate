@@ -184,6 +184,57 @@ describe('createHttpApp', () => {
     expect(del.status).toBe(200);
   });
 
+  it('admin can mint/rotate a shared guest passphrase; guests log in as operator', async () => {
+    const admin = await login('admin', 'secretpw');
+    const authz = { authorization: `Bearer ${admin.token}` };
+
+    // Off by default.
+    const initial = await (await fetch(`${base}/api/admin/guest`, { headers: authz })).json();
+    expect(initial.guest).toEqual({ configured: false, enabled: false, updatedAt: null });
+
+    // Mint — cleartext returned exactly once.
+    const rotated = await fetch(`${base}/api/admin/guest/rotate`, { method: 'POST', headers: authz });
+    expect(rotated.status).toBe(200);
+    const { passphrase, guest } = await rotated.json();
+    expect(passphrase).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
+    expect(guest.enabled).toBe(true);
+
+    // Anyone with the passphrase logs in — as an operator, never admin.
+    const guestLogin = await login('whoever', passphrase);
+    expect(guestLogin.role).toBe('operator');
+    const forbidden = await fetch(`${base}/api/admin/guest`, {
+      headers: { authorization: `Bearer ${guestLogin.token}` }
+    });
+    expect(forbidden.status).toBe(403);
+
+    // Disabling turns logins off without deleting the passphrase.
+    const off = await fetch(`${base}/api/admin/guest/enabled`, {
+      method: 'POST',
+      headers: { ...authz, 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: false })
+    });
+    expect((await off.json()).guest.enabled).toBe(false);
+    const denied = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'whoever', password: passphrase })
+    });
+    expect(denied.status).toBe(401);
+
+    // Remove entirely.
+    const cleared = await fetch(`${base}/api/admin/guest`, { method: 'DELETE', headers: authz });
+    expect((await cleared.json()).guest.configured).toBe(false);
+  });
+
+  it('operators cannot manage guest access', async () => {
+    const op = await login('op', 'operatorpw');
+    const res = await fetch(`${base}/api/admin/guest/rotate`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${op.token}` }
+    });
+    expect(res.status).toBe(403);
+  });
+
   it('round-trips the light map through per-project state', async () => {
     const initial = await (await fetch(`${base}/api/light-map`)).json();
     expect(initial.physicalLights).toHaveLength(layout.count);

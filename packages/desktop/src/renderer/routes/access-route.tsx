@@ -1,4 +1,4 @@
-import { KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { Copy, KeyRound, MonitorSmartphone, RefreshCw, ShieldCheck, Ticket, Trash2, UserPlus, Users } from 'lucide-react';
 import * as React from 'react';
 
 import {
@@ -41,7 +41,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { RequiredSecretInfo, SessionInfo, UserAccount, UserRole } from '@/types/ipc';
+import type { GuestStatus, RequiredSecretInfo, SessionInfo, UserAccount, UserRole } from '@/types/ipc';
 
 const ROLE_STYLE = 'border-input bg-background h-8 rounded-md border px-2 text-sm';
 
@@ -368,6 +368,149 @@ function SessionsTab({
   );
 }
 
+function GuestTab({
+  guest,
+  onRotate,
+  onSetEnabled,
+  onClear,
+  busy
+}: {
+  guest: GuestStatus;
+  onRotate: () => Promise<string>;
+  onSetEnabled: (enabled: boolean) => void;
+  onClear: () => void;
+  busy: boolean;
+}) {
+  // The freshly-minted passphrase, held only in this component to reveal once.
+  const [revealed, setRevealed] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
+
+  const rotate = async () => {
+    const passphrase = await onRotate();
+    if (passphrase) {
+      setRevealed(passphrase);
+      setCopied(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!revealed) return;
+    await navigator.clipboard.writeText(revealed);
+    setCopied(true);
+  };
+
+  return (
+    <div className='flex flex-col gap-4 pt-4'>
+      <div className='flex items-center justify-between'>
+        <span className='text-muted-foreground text-sm'>
+          Shared guest access —{' '}
+          {!guest.configured ? 'not set up' : guest.enabled ? 'on' : 'off'}
+        </span>
+        <div className='flex items-center gap-2'>
+          {guest.configured && (
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={busy}
+              onClick={() => onSetEnabled(!guest.enabled)}
+            >
+              {guest.enabled ? 'Turn off' : 'Turn on'}
+            </Button>
+          )}
+          <Button size='sm' disabled={busy} onClick={() => void rotate()}>
+            <Ticket />
+            {guest.configured ? 'Rotate passphrase' : 'Create passphrase'}
+          </Button>
+        </div>
+      </div>
+
+      {!guest.configured ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <Ticket />
+            </EmptyMedia>
+            <EmptyTitle>No shared passphrase</EmptyTitle>
+            <EmptyDescription>
+              Create one shared passphrase to hand out. Anyone who signs in with it becomes an{' '}
+              <strong>operator</strong> — they can drive the show but can’t manage users, roles, or
+              sessions. Admins keep their own personal logins.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className='flex flex-col gap-2 text-sm'>
+          <div className='flex items-center gap-2'>
+            <Badge variant={guest.enabled ? 'default' : 'secondary'}>
+              {guest.enabled ? 'enabled' : 'disabled'}
+            </Badge>
+            {guest.updatedAt && (
+              <span className='text-muted-foreground text-xs'>
+                last rotated {relativeTime(guest.updatedAt)}
+              </span>
+            )}
+          </div>
+          <p className='text-muted-foreground text-xs'>
+            The passphrase is stored only as a hash — it can’t be shown again. Rotate to get a new
+            one; the old one stops working on the next token refresh. Guests always log in as{' '}
+            <strong>operator</strong>, never admin.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant='ghost' size='sm' className='text-destructive w-fit' disabled={busy}>
+                <Trash2 />
+                Remove guest access
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remove shared guest access?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The shared passphrase is deleted. Anyone using it loses access on their next
+                  refresh. Personal admin/operator logins are unaffected.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onClear}
+                  className='bg-destructive text-white hover:bg-destructive/90'
+                >
+                  Remove
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
+      <Dialog open={revealed !== null} onOpenChange={(o) => !o && setRevealed(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share this passphrase</DialogTitle>
+            <DialogDescription>
+              Copy it now — it won’t be shown again. Guest access is on; anyone with this passphrase
+              can sign in as an operator.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='flex items-center gap-2 px-6 py-2'>
+            <code className='bg-muted flex-1 rounded-md px-3 py-2 font-mono text-lg tracking-wide'>
+              {revealed}
+            </code>
+            <Button variant='outline' size='sm' onClick={() => void copy()}>
+              <Copy />
+              {copied ? 'Copied' : 'Copy'}
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRevealed(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function SecretsTab({
   secrets,
   onGenerate,
@@ -451,11 +594,15 @@ interface AccessRouteProps {
   users: UserAccount[];
   sessions: SessionInfo[];
   secrets: RequiredSecretInfo[];
+  guest: GuestStatus;
   onAddUser: (username: string, password: string, role: UserRole) => Promise<void>;
   onRemoveUser: (username: string) => void;
   onSetUserRole: (username: string, role: UserRole) => void;
   onRevokeSession: (id: string) => void;
   onRefreshSessions: () => void;
+  onRotateGuest: () => Promise<string>;
+  onSetGuestEnabled: (enabled: boolean) => void;
+  onClearGuest: () => void;
   onGenerateSecrets: (force: boolean) => void;
   busy: boolean;
 }
@@ -470,11 +617,15 @@ export function AccessRoute({
   users,
   sessions,
   secrets,
+  guest,
   onAddUser,
   onRemoveUser,
   onSetUserRole,
   onRevokeSession,
   onRefreshSessions,
+  onRotateGuest,
+  onSetGuestEnabled,
+  onClearGuest,
   onGenerateSecrets,
   busy
 }: AccessRouteProps) {
@@ -503,6 +654,7 @@ export function AccessRoute({
         <TabsList>
           <TabsTrigger value='users'>Users</TabsTrigger>
           <TabsTrigger value='sessions'>Sessions</TabsTrigger>
+          <TabsTrigger value='guest'>Guest access</TabsTrigger>
           <TabsTrigger value='secrets'>Secrets</TabsTrigger>
         </TabsList>
         <TabsContent value='users'>
@@ -519,6 +671,15 @@ export function AccessRoute({
             sessions={sessions}
             onRevoke={onRevokeSession}
             onRefresh={onRefreshSessions}
+            busy={busy}
+          />
+        </TabsContent>
+        <TabsContent value='guest'>
+          <GuestTab
+            guest={guest}
+            onRotate={onRotateGuest}
+            onSetEnabled={onSetGuestEnabled}
+            onClear={onClearGuest}
             busy={busy}
           />
         </TabsContent>

@@ -50,9 +50,20 @@ wavegrid projects config          # resolved config + provenance (secrets masked
 wavegrid projects config set layout ring-6   # fix the physical layout
 wavegrid projects config set port 3333       # change the port
 wavegrid projects secrets list    # which secrets exist (never prints values)
-wavegrid projects users list      # UI logins
+wavegrid projects users list      # UI logins (admin vs operator)
+wavegrid projects guest new       # mint ONE shared passphrase to hand out (printed once)
 wavegrid doctor                   # diagnose everything (see below)
 ```
+
+**Roles & shared guest access.** Every UI login has a role: the first user in a
+project is an **admin** (manages users, roles, sessions, secrets); later ones
+default to **operator** (drive the show only). For a "public password" everyone
+can share, use **guest access** instead of a real account: `wavegrid projects
+guest new` mints one shared passphrase — anyone who signs in with it becomes an
+**operator**, never an admin. It's printed once (only a hash is stored); rotate
+to invalidate it, `guest disable` to pause it, `guest rm` to remove it. In the
+desktop app this lives under **Access → Guest access**. The shared receiver key
+is unrelated and never grants admin.
 
 The project **name is just a label** — the physical shape comes from `layout.preset`. If the canvas shows a grid when you expected a ring, set the preset.
 

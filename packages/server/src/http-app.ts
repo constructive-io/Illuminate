@@ -5,7 +5,7 @@
  * — same-origin means no `ui.port` / `simulatorUrl` to keep in sync.
  */
 import { type ResolvedConfig } from '@wavegrid/layout';
-import { DEFAULT_SESSION_TTL_MS, openStore, type UserRole } from '@wavegrid/settings';
+import { DEFAULT_SESSION_TTL_MS, GUEST_USERNAME, openStore, type UserRole } from '@wavegrid/settings';
 import * as fs from 'fs';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { extname, join, normalize, resolve } from 'path';
@@ -235,11 +235,17 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
       }
       const project = activeProject();
       const store = openStore();
-      if (!project || store.listUsers(project).length === 0) {
+      const guestOn = project ? store.guestStatus(project).enabled : false;
+      if (!project || (store.listUsers(project).length === 0 && !guestOn)) {
         sendJson(res, 503, { ok: false, error: 'Auth not configured' });
         return;
       }
-      const user = store.authenticate(project, username, password);
+      // Try a real account first; fall back to the shared guest passphrase
+      // (always operator, never admin) so a shared "public password" just works
+      // regardless of the username typed.
+      const user =
+        store.authenticate(project, username, password) ??
+        store.authenticateGuest(project, password);
       if (!user) {
         sendJson(res, 401, { ok: false, error: 'Invalid username or password' });
         return;
@@ -283,7 +289,14 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
         sendJson(res, 401, { ok: false, error: 'Session expired or revoked' });
         return;
       }
-      const role = store.getUserRole(project, payload.sub);
+      // The shared guest isn't a stored user; it's an operator while guest
+      // access stays enabled.
+      const role =
+        payload.sub === GUEST_USERNAME
+          ? store.guestStatus(project).enabled
+            ? ('operator' as UserRole)
+            : null
+          : store.getUserRole(project, payload.sub);
       if (!role) {
         sendJson(res, 401, { ok: false, error: 'Unknown user' });
         return;
@@ -382,6 +395,50 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
         }
         return;
       }
+    }
+
+    // ── Admin-only shared guest access (role-gated) ────────────────
+    if (pathname === '/api/admin/guest' && method === 'GET') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      sendJson(res, 200, { ok: true, guest: openStore().guestStatus(caller.project) });
+      return;
+    }
+    if (pathname === '/api/admin/guest/rotate' && method === 'POST') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      // The cleartext passphrase is returned exactly once, here, for the admin
+      // to copy and share; only its hash is persisted.
+      const store = openStore();
+      const passphrase = store.rotateGuestPassphrase(caller.project);
+      sendJson(res, 200, { ok: true, passphrase, guest: store.guestStatus(caller.project) });
+      return;
+    }
+    if (pathname === '/api/admin/guest/enabled' && method === 'POST') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      let body: { enabled?: boolean };
+      try {
+        body = JSON.parse((await readBody(req)) || '{}');
+      } catch {
+        sendJson(res, 400, { ok: false, error: 'Invalid request' });
+        return;
+      }
+      try {
+        const guest = openStore().setGuestEnabled(caller.project, body.enabled === true);
+        sendJson(res, 200, { ok: true, guest });
+      } catch (e) {
+        sendJson(res, 400, { ok: false, error: (e as Error).message });
+      }
+      return;
+    }
+    if (pathname === '/api/admin/guest' && method === 'DELETE') {
+      const caller = requireAdmin(req, url, res);
+      if (!caller) return;
+      const store = openStore();
+      store.clearGuest(caller.project);
+      sendJson(res, 200, { ok: true, guest: store.guestStatus(caller.project) });
+      return;
     }
 
     // ── GET/POST /api/light-map ─────────────────────────────────────

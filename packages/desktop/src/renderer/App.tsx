@@ -8,6 +8,7 @@ import { ConstructiveIcon } from '@/components/ui/constructive-icon';
 import {
   useBrainStatus,
   useDevices,
+  useGuest,
   useLightMap,
   usePresets,
   useProjectConfig,
@@ -75,6 +76,13 @@ export function App() {
     refresh: refreshSessions,
     revoke: revokeSession
   } = useSessions(editingProject);
+  const {
+    guest,
+    refresh: refreshGuest,
+    rotate: rotateGuest,
+    setEnabled: setGuestEnabled,
+    clear: clearGuest
+  } = useGuest(editingProject);
   const {
     secrets,
     refresh: refreshSecrets,
@@ -153,10 +161,10 @@ export function App() {
     setRoute('config');
   }, []);
 
-  const withBusy = React.useCallback(async (fn: () => Promise<void>) => {
+  const withBusy = React.useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
     setBusy(true);
     try {
-      await fn();
+      return await fn();
     } finally {
       setBusy(false);
     }
@@ -248,10 +256,11 @@ export function App() {
     if (route === 'access') {
       void refreshUsers();
       void refreshSessions();
+      void refreshGuest();
       void refreshSecrets();
     }
     if (route === 'lights') void refreshLightMap();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshSecrets, refreshLightMap]);
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshGuest, refreshSecrets, refreshLightMap]);
 
   return (
     <AppShell
@@ -304,6 +313,10 @@ export function App() {
           onSetUserRole={(u, r) => void withBusy(() => setUserRole(u, r))}
           onRevokeSession={(id) => void withBusy(() => revokeSession(id))}
           onRefreshSessions={() => void refreshSessions()}
+          guest={guest}
+          onRotateGuest={() => withBusy(() => rotateGuest())}
+          onSetGuestEnabled={(enabled) => void withBusy(() => setGuestEnabled(enabled))}
+          onClearGuest={() => void withBusy(() => clearGuest())}
           onGenerateSecrets={(force) => void withBusy(() => generateSecrets(force))}
           busy={busy}
         />
