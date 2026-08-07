@@ -63,4 +63,11 @@ export {
 export { type RequiredSecret } from './required';
 
 // Users
-export { type StoredUser } from './users';
+export { type StoredUser, type UserInfo, type UserRole } from './users';
+
+// UI sessions (cheap server-visible login records)
+export {
+  type CreateSessionInput,
+  DEFAULT_SESSION_TTL_MS,
+  type Session
+} from './sessions';

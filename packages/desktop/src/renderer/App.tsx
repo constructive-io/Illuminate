@@ -13,7 +13,8 @@ import {
   useProjectConfig,
   useProjects,
   useProjectSecrets,
-  useProjectUsers
+  useProjectUsers,
+  useSessions
 } from '@/renderer/lib/use-wavegrid';
 import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
@@ -66,8 +67,14 @@ export function App() {
     users,
     refresh: refreshUsers,
     add: addUser,
-    remove: removeUser
+    remove: removeUser,
+    setRole: setUserRole
   } = useProjectUsers(editingProject);
+  const {
+    sessions,
+    refresh: refreshSessions,
+    revoke: revokeSession
+  } = useSessions(editingProject);
   const {
     secrets,
     refresh: refreshSecrets,
@@ -240,10 +247,11 @@ export function App() {
     if (route === 'config') void refreshConfig();
     if (route === 'access') {
       void refreshUsers();
+      void refreshSessions();
       void refreshSecrets();
     }
     if (route === 'lights') void refreshLightMap();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSecrets, refreshLightMap]);
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshSecrets, refreshLightMap]);
 
   return (
     <AppShell
@@ -289,9 +297,13 @@ export function App() {
         <AccessRoute
           project={editingProject}
           users={users}
+          sessions={sessions}
           secrets={secrets}
-          onAddUser={(u, p) => withBusy(() => addUser(u, p))}
+          onAddUser={(u, p, r) => withBusy(() => addUser(u, p, r))}
           onRemoveUser={(u) => void withBusy(() => removeUser(u))}
+          onSetUserRole={(u, r) => void withBusy(() => setUserRole(u, r))}
+          onRevokeSession={(id) => void withBusy(() => revokeSession(id))}
+          onRefreshSessions={() => void refreshSessions()}
           onGenerateSecrets={(force) => void withBusy(() => generateSecrets(force))}
           busy={busy}
         />
