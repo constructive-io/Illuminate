@@ -6,9 +6,9 @@ import { type AppNavigationGroup,AppShell } from '@/components/ui/app-shell';
 import { AppSplash } from '@/components/ui/app-splash';
 import { ConstructiveIcon } from '@/components/ui/constructive-icon';
 import {
+  useAccessKeys,
   useBrainStatus,
   useDevices,
-  useGuest,
   useLightMap,
   usePresets,
   useProjectConfig,
@@ -77,12 +77,14 @@ export function App() {
     revoke: revokeSession
   } = useSessions(editingProject);
   const {
-    guest,
-    refresh: refreshGuest,
-    rotate: rotateGuest,
-    setEnabled: setGuestEnabled,
-    clear: clearGuest
-  } = useGuest(editingProject);
+    keys,
+    refresh: refreshKeys,
+    mint: mintKey,
+    setEnabled: setKeyEnabled,
+    setRole: setKeyRole,
+    remove: removeKey,
+    removeAll: removeAllKeys
+  } = useAccessKeys(editingProject);
   const {
     secrets,
     refresh: refreshSecrets,
@@ -256,11 +258,11 @@ export function App() {
     if (route === 'access') {
       void refreshUsers();
       void refreshSessions();
-      void refreshGuest();
+      void refreshKeys();
       void refreshSecrets();
     }
     if (route === 'lights') void refreshLightMap();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshGuest, refreshSecrets, refreshLightMap]);
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap]);
 
   return (
     <AppShell
@@ -313,10 +315,12 @@ export function App() {
           onSetUserRole={(u, r) => void withBusy(() => setUserRole(u, r))}
           onRevokeSession={(id) => void withBusy(() => revokeSession(id))}
           onRefreshSessions={() => void refreshSessions()}
-          guest={guest}
-          onRotateGuest={() => withBusy(() => rotateGuest())}
-          onSetGuestEnabled={(enabled) => void withBusy(() => setGuestEnabled(enabled))}
-          onClearGuest={() => void withBusy(() => clearGuest())}
+          keys={keys}
+          onMintKey={(name, role) => withBusy(() => mintKey(name, role))}
+          onSetKeyEnabled={(name, enabled) => void withBusy(() => setKeyEnabled(name, enabled))}
+          onSetKeyRole={(name, role) => void withBusy(() => setKeyRole(name, role))}
+          onRemoveKey={(name) => void withBusy(() => removeKey(name))}
+          onRemoveAllKeys={() => void withBusy(() => removeAllKeys())}
           onGenerateSecrets={(force) => void withBusy(() => generateSecrets(force))}
           busy={busy}
         />

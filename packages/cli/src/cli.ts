@@ -5,13 +5,8 @@ import { runConfigSet } from './commands/config-set';
 import { runDevicesAssign, runDevicesList, runDevicesRemove, runDevicesRename } from './commands/devices';
 import { runDoctor } from './commands/doctor';
 import { runEnvExport } from './commands/env';
-import {
-  runGuestClear,
-  runGuestEnabled,
-  runGuestRotate,
-  runGuestStatus
-} from './commands/guest';
 import { runInit } from './commands/init';
+import { runKeysEnabled, runKeysList, runKeysNew, runKeysRemove } from './commands/keys';
 import { pickCommand, pickSubcommand, printSubcommands, type SubCommand } from './commands/menu';
 import { runOscSetup } from './commands/osc';
 import { runPrintConfig } from './commands/print-config';
@@ -41,7 +36,7 @@ ${c.bold('Projects')} — manage and edit projects
   projects config set <k> <v>   Set a field (layout, mode, port, host, ui-port)
   projects secrets list|init    List / generate the project's secrets
   projects users list|add|rm    Manage UI login users
-  projects guest status|new     Shared guest passphrase (one low-privilege operator)
+  projects keys ls|new|rm       Named access keys (per-person or shared passphrases)
   projects devices list|assign  List / name / shard-assign devices that joined
   projects osc                  Set the OSC laser target (BEYOND/FB4) — wizard
   projects export [--out f]     Write a portable project bundle
@@ -89,7 +84,7 @@ const PROJECTS_SUBS: SubCommand[] = [
   { value: 'config', description: 'Print or set the project config' },
   { value: 'secrets', description: 'List or generate the project secrets' },
   { value: 'users', description: 'List, add, or remove UI login users' },
-  { value: 'guest', description: 'Shared guest passphrase — one low-privilege operator to hand out' },
+  { value: 'keys', description: 'Named access keys — a passphrase per person, or one shared with a crowd' },
   { value: 'devices', description: 'List, rename, or forget devices that joined the project' },
   { value: 'osc', description: 'Set the OSC laser target (BEYOND/FB4/routing) — interactive wizard' },
   { value: 'export', description: 'Write a portable project bundle (no machine identity)' },
@@ -118,12 +113,12 @@ const USERS_SUBS: SubCommand[] = [
   { value: 'rm', description: 'Remove a UI login user' }
 ];
 
-const GUEST_SUBS: SubCommand[] = [
-  { value: 'status', description: 'Show whether shared guest access is set up / on' },
-  { value: 'new', description: 'Mint a fresh shared passphrase (printed once)' },
-  { value: 'enable', description: 'Turn shared guest logins on' },
-  { value: 'disable', description: 'Turn shared guest logins off (passphrase kept)' },
-  { value: 'rm', description: 'Remove shared guest access entirely' }
+const KEYS_SUBS: SubCommand[] = [
+  { value: 'ls', description: 'List access keys with role, state and last use' },
+  { value: 'new', description: 'Mint a key (passphrase printed once) — add --admin for an admin key' },
+  { value: 'enable', description: 'Enable a key' },
+  { value: 'disable', description: 'Disable a key (passphrase kept)' },
+  { value: 'rm', description: 'Revoke a key, or --all to revoke every key' }
 ];
 
 const DEVICES_SUBS: SubCommand[] = [
@@ -186,7 +181,7 @@ const KNOWN_COMMANDS = [
   'print-config',
   'secrets',
   'users',
-  'guest',
+  'keys',
   'devices',
   'env',
   'doctor'
@@ -268,23 +263,23 @@ async function dispatchUsers(
   else unknownSub('users', sub);
 }
 
-async function dispatchGuest(
+async function dispatchKeys(
   args: string[],
   flags: Flags,
   prompter: Inquirerer,
   nonInteractive: boolean
 ): Promise<void> {
-  // Bare `guest` in a script prints status (safe, read-only default).
+  // Bare `keys` in a script lists them (safe, read-only default).
   let given = args[0];
-  if (given == null && nonInteractive) given = 'status';
-  const sub = (await resolveSub(given, 'guest', GUEST_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (given == null && nonInteractive) given = 'ls';
+  const sub = (await resolveSub(given, 'keys', KEYS_SUBS, prompter, nonInteractive)) ?? undefined;
   if (sub == null) return;
-  if (sub === 'status') runGuestStatus(flags);
-  else if (sub === 'new' || sub === 'rotate') runGuestRotate(flags);
-  else if (sub === 'enable' || sub === 'on') runGuestEnabled(flags, true);
-  else if (sub === 'disable' || sub === 'off') runGuestEnabled(flags, false);
-  else if (sub === 'rm' || sub === 'remove' || sub === 'clear') runGuestClear(flags);
-  else unknownSub('guest', sub);
+  if (sub === 'ls' || sub === 'list') runKeysList(flags);
+  else if (sub === 'new' || sub === 'add' || sub === 'mint') runKeysNew(flags, args[1]);
+  else if (sub === 'enable' || sub === 'on') runKeysEnabled(flags, args[1], true);
+  else if (sub === 'disable' || sub === 'off') runKeysEnabled(flags, args[1], false);
+  else if (sub === 'rm' || sub === 'remove' || sub === 'revoke') runKeysRemove(flags, args[1]);
+  else unknownSub('keys', sub);
 }
 
 async function dispatchDevices(
@@ -355,8 +350,8 @@ async function dispatchProjects(
   case 'users':
     await dispatchUsers(rest, flags, prompter, nonInteractive);
     break;
-  case 'guest':
-    await dispatchGuest(rest, flags, prompter, nonInteractive);
+  case 'keys':
+    await dispatchKeys(rest, flags, prompter, nonInteractive);
     break;
   case 'devices':
     await dispatchDevices(rest, flags, prompter, nonInteractive);
@@ -460,8 +455,8 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
     case 'users':
       await dispatchUsers(positionals.slice(1), flags, prompter, nonInteractive);
       break;
-    case 'guest':
-      await dispatchGuest(positionals.slice(1), flags, prompter, nonInteractive);
+    case 'keys':
+      await dispatchKeys(positionals.slice(1), flags, prompter, nonInteractive);
       break;
     case 'devices':
       await dispatchDevices(positionals.slice(1), flags, prompter, nonInteractive);

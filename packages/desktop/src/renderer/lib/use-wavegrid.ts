@@ -1,10 +1,10 @@
 import * as React from 'react';
 
 import type {
+  AccessKeyInfo,
   BrainStatus,
   DeviceInfo,
   EditableConfig,
-  GuestStatus,
   LightMapView,
   NewProjectInput,
   ProjectSummary,
@@ -214,55 +214,72 @@ export function useSessions(project: string | null): {
   return { sessions, refresh, revoke };
 }
 
-/** Shared guest-access status + controls. Rotate mints a fresh passphrase and
- *  returns its cleartext once (for the admin to copy); the store keeps only a
- *  hash. Enabling/disabling flips logins on/off without changing it. */
-export function useGuest(project: string | null): {
-  guest: GuestStatus;
+/** A project's access keys + controls. `mint` creates (or replaces) a named key
+ *  and returns its cleartext once, for the admin to copy; the store keeps only a
+ *  hash. Every other action just reshapes the list. */
+export function useAccessKeys(project: string | null): {
+  keys: AccessKeyInfo[];
   refresh: () => Promise<void>;
-  rotate: () => Promise<string>;
-  setEnabled: (enabled: boolean) => Promise<void>;
-  clear: () => Promise<void>;
+  mint: (name: string, role: UserRole) => Promise<string>;
+  setEnabled: (name: string, enabled: boolean) => Promise<void>;
+  setRole: (name: string, role: UserRole) => Promise<void>;
+  remove: (name: string) => Promise<void>;
+  removeAll: () => Promise<void>;
   } {
-  const [guest, setGuest] = React.useState<GuestStatus>({
-    configured: false,
-    enabled: false,
-    updatedAt: null
-  });
+  const [keys, setKeys] = React.useState<AccessKeyInfo[]>([]);
 
   const refresh = React.useCallback(async () => {
     if (!project) {
-      setGuest({ configured: false, enabled: false, updatedAt: null });
+      setKeys([]);
       return;
     }
-    setGuest(await window.wavegrid.guest.status(project));
+    setKeys(await window.wavegrid.keys.list(project));
   }, [project]);
 
-  const rotate = React.useCallback(async () => {
-    if (!project) return '';
-    const { passphrase, status } = await window.wavegrid.guest.rotate(project);
-    setGuest(status);
-    return passphrase;
-  }, [project]);
-
-  const setEnabled = React.useCallback(
-    async (enabled: boolean) => {
-      if (!project) return;
-      setGuest(await window.wavegrid.guest.setEnabled(project, enabled));
+  const mint = React.useCallback(
+    async (name: string, role: UserRole) => {
+      if (!project) return '';
+      const minted = await window.wavegrid.keys.mint(project, name, role);
+      setKeys(minted.keys);
+      return minted.passphrase;
     },
     [project]
   );
 
-  const clear = React.useCallback(async () => {
+  const setEnabled = React.useCallback(
+    async (name: string, enabled: boolean) => {
+      if (!project) return;
+      setKeys(await window.wavegrid.keys.setEnabled(project, name, enabled));
+    },
+    [project]
+  );
+
+  const setRole = React.useCallback(
+    async (name: string, role: UserRole) => {
+      if (!project) return;
+      setKeys(await window.wavegrid.keys.setRole(project, name, role));
+    },
+    [project]
+  );
+
+  const remove = React.useCallback(
+    async (name: string) => {
+      if (!project) return;
+      setKeys(await window.wavegrid.keys.remove(project, name));
+    },
+    [project]
+  );
+
+  const removeAll = React.useCallback(async () => {
     if (!project) return;
-    setGuest(await window.wavegrid.guest.clear(project));
+    setKeys(await window.wavegrid.keys.removeAll(project));
   }, [project]);
 
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  return { guest, refresh, rotate, setEnabled, clear };
+  return { keys, refresh, mint, setEnabled, setRole, remove, removeAll };
 }
 
 /** Required-secret status for a project (name/description/set only). `generate`
