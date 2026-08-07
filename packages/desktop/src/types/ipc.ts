@@ -78,12 +78,15 @@ export interface SessionInfo {
   expiresAt: number;
 }
 
-/** Shared guest-access status. The passphrase itself is never included — it is
- *  returned only once, from a rotate action, for the admin to copy and share. */
-export interface GuestStatus {
-  configured: boolean;
+/** A named access key. The passphrase itself is never included — it is returned
+ *  only once, from a mint action, for the admin to copy and hand over. */
+export interface AccessKeyInfo {
+  name: string;
+  role: UserRole;
   enabled: boolean;
-  updatedAt: number | null;
+  createdAt: number;
+  /** Last successful login with this key, or null if never used. */
+  lastUsedAt: number | null;
 }
 
 /** A required project secret and whether it is currently set. Only the name,
@@ -217,17 +220,24 @@ export interface WavegridApi {
     /** Revoke a session by id (takes effect on the client's next token refresh). */
     revoke(project: string, id: string): Promise<SessionInfo[]>;
   };
-  guest: {
-    /** Shared guest-access status (never the passphrase). */
-    status(project: string): Promise<GuestStatus>;
-    /** Mint/rotate the shared passphrase, enabling guest access. Returns the
-     *  cleartext exactly once for the admin to copy — it is not persisted or
-     *  retrievable afterwards. */
-    rotate(project: string): Promise<{ passphrase: string; status: GuestStatus }>;
-    /** Enable/disable guest logins without changing the passphrase. */
-    setEnabled(project: string, enabled: boolean): Promise<GuestStatus>;
-    /** Remove guest access entirely (deletes the passphrase). */
-    clear(project: string): Promise<GuestStatus>;
+  keys: {
+    /** Every access key in the project (never the passphrases). */
+    list(project: string): Promise<AccessKeyInfo[]>;
+    /** Mint (or re-mint) a named key. Returns the cleartext exactly once for the
+     *  admin to copy — it is not persisted or retrievable afterwards. */
+    mint(
+      project: string,
+      name: string,
+      role: UserRole
+    ): Promise<{ passphrase: string; keys: AccessKeyInfo[] }>;
+    /** Turn one key on/off without changing its passphrase. */
+    setEnabled(project: string, name: string, enabled: boolean): Promise<AccessKeyInfo[]>;
+    /** Change the role a key grants. */
+    setRole(project: string, name: string, role: UserRole): Promise<AccessKeyInfo[]>;
+    /** Revoke a single key. */
+    remove(project: string, name: string): Promise<AccessKeyInfo[]>;
+    /** Revoke every key in the project. */
+    removeAll(project: string): Promise<AccessKeyInfo[]>;
   };
   secrets: {
     status(project: string): Promise<RequiredSecretInfo[]>;

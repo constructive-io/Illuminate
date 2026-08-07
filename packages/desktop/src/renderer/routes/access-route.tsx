@@ -41,7 +41,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { GuestStatus, RequiredSecretInfo, SessionInfo, UserAccount, UserRole } from '@/types/ipc';
+import type { AccessKeyInfo, RequiredSecretInfo, SessionInfo, UserAccount, UserRole } from '@/types/ipc';
 
 const ROLE_STYLE = 'border-input bg-background h-8 rounded-md border px-2 text-sm';
 
@@ -368,134 +368,269 @@ function SessionsTab({
   );
 }
 
-function GuestTab({
-  guest,
-  onRotate,
-  onSetEnabled,
-  onClear,
+/** Name a new key and pick the role it grants. */
+function MintKeyDialog({
+  existing,
+  onMint,
   busy
 }: {
-  guest: GuestStatus;
-  onRotate: () => Promise<string>;
-  onSetEnabled: (enabled: boolean) => void;
-  onClear: () => void;
+  existing: string[];
+  onMint: (name: string, role: UserRole) => Promise<void>;
+  busy: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [role, setRole] = React.useState<UserRole>('operator');
+
+  const wellFormed = /^[a-z0-9][a-z0-9-]{0,30}$/.test(name);
+  const duplicate = existing.includes(name);
+  const valid = wellFormed && !duplicate;
+
+  const submit = async () => {
+    if (!valid) return;
+    await onMint(name, role);
+    setName('');
+    setRole('operator');
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size='sm' disabled={busy}>
+          <Ticket />
+          New key
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mint an access key</DialogTitle>
+          <DialogDescription>
+            Name it after whoever holds it — a person (“dan-ipad”) or a group (“friday-guests”). The
+            passphrase is generated here and shown once.
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex flex-col gap-3 px-6 py-2'>
+          <Input
+            autoFocus
+            placeholder='friday-guests'
+            value={name}
+            onChange={(e) => setName(e.target.value.toLowerCase())}
+          />
+          <select
+            className={ROLE_STYLE}
+            value={role}
+            onChange={(e) => setRole(e.target.value as UserRole)}
+          >
+            <option value='operator'>operator — drive the show</option>
+            <option value='admin'>admin — also manage access</option>
+          </select>
+          {name && !wellFormed && (
+            <span className='text-destructive text-xs'>
+              Lowercase letters, numbers and dashes only.
+            </span>
+          )}
+          {duplicate && (
+            <span className='text-destructive text-xs'>
+              “{name}” already exists — minting it again would replace its passphrase.
+            </span>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant='outline' onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={busy || !valid}>
+            Mint key
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KeysTab({
+  keys,
+  onMint,
+  onSetEnabled,
+  onSetRole,
+  onRemove,
+  onRemoveAll,
+  busy
+}: {
+  keys: AccessKeyInfo[];
+  onMint: (name: string, role: UserRole) => Promise<string>;
+  onSetEnabled: (name: string, enabled: boolean) => void;
+  onSetRole: (name: string, role: UserRole) => void;
+  onRemove: (name: string) => void;
+  onRemoveAll: () => void;
   busy: boolean;
 }) {
   // The freshly-minted passphrase, held only in this component to reveal once.
-  const [revealed, setRevealed] = React.useState<string | null>(null);
+  const [revealed, setRevealed] = React.useState<{ name: string; passphrase: string } | null>(null);
   const [copied, setCopied] = React.useState(false);
 
-  const rotate = async () => {
-    const passphrase = await onRotate();
+  const mint = async (name: string, role: UserRole) => {
+    const passphrase = await onMint(name, role);
     if (passphrase) {
-      setRevealed(passphrase);
+      setRevealed({ name, passphrase });
       setCopied(false);
     }
   };
 
   const copy = async () => {
     if (!revealed) return;
-    await navigator.clipboard.writeText(revealed);
+    await navigator.clipboard.writeText(revealed.passphrase);
     setCopied(true);
   };
 
   return (
-    <div className='flex flex-col gap-4 pt-4'>
+    <div className='flex flex-col gap-3 pt-4'>
       <div className='flex items-center justify-between'>
         <span className='text-muted-foreground text-sm'>
-          Shared guest access —{' '}
-          {!guest.configured ? 'not set up' : guest.enabled ? 'on' : 'off'}
+          {keys.length} access key{keys.length === 1 ? '' : 's'}
         </span>
         <div className='flex items-center gap-2'>
-          {guest.configured && (
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={busy}
-              onClick={() => onSetEnabled(!guest.enabled)}
-            >
-              {guest.enabled ? 'Turn off' : 'Turn on'}
-            </Button>
+          {keys.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant='outline' size='sm' className='text-destructive' disabled={busy}>
+                  <Trash2 />
+                  Revoke all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Revoke all {keys.length} keys?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Every key is deleted and its holders lose access on their next refresh. Personal
+                    admin/operator logins are unaffected.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onRemoveAll}
+                    className='bg-destructive text-white hover:bg-destructive/90'
+                  >
+                    Revoke all
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
-          <Button size='sm' disabled={busy} onClick={() => void rotate()}>
-            <Ticket />
-            {guest.configured ? 'Rotate passphrase' : 'Create passphrase'}
-          </Button>
+          <MintKeyDialog existing={keys.map((k) => k.name)} onMint={mint} busy={busy} />
         </div>
       </div>
 
-      {!guest.configured ? (
+      {keys.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
               <Ticket />
             </EmptyMedia>
-            <EmptyTitle>No shared passphrase</EmptyTitle>
+            <EmptyTitle>No access keys</EmptyTitle>
             <EmptyDescription>
-              Create one shared passphrase to hand out. Anyone who signs in with it becomes an{' '}
-              <strong>operator</strong> — they can drive the show but can’t manage users, roles, or
-              sessions. Admins keep their own personal logins.
+              Mint a key to let someone in without their own account — one per person, or one shared
+              with a crowd. Keys default to <strong>operator</strong>: drive the show, but no access
+              management. Revoke any single key without disturbing the others.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className='flex flex-col gap-2 text-sm'>
-          <div className='flex items-center gap-2'>
-            <Badge variant={guest.enabled ? 'default' : 'secondary'}>
-              {guest.enabled ? 'enabled' : 'disabled'}
-            </Badge>
-            {guest.updatedAt && (
-              <span className='text-muted-foreground text-xs'>
-                last rotated {relativeTime(guest.updatedAt)}
-              </span>
-            )}
-          </div>
-          <p className='text-muted-foreground text-xs'>
-            The passphrase is stored only as a hash — it can’t be shown again. Rotate to get a new
-            one; the old one stops working on the next token refresh. Guests always log in as{' '}
-            <strong>operator</strong>, never admin.
-          </p>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant='ghost' size='sm' className='text-destructive w-fit' disabled={busy}>
-                <Trash2 />
-                Remove guest access
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Remove shared guest access?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  The shared passphrase is deleted. Anyone using it loses access on their next
-                  refresh. Personal admin/operator logins are unaffected.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onClear}
-                  className='bg-destructive text-white hover:bg-destructive/90'
-                >
-                  Remove
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Key</TableHead>
+              <TableHead className='w-48'>Role</TableHead>
+              <TableHead className='w-28'>State</TableHead>
+              <TableHead>Last used</TableHead>
+              <TableHead className='w-28' />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {keys.map((k) => (
+              <TableRow key={k.name} className={k.enabled ? undefined : 'opacity-60'}>
+                <TableCell className='font-medium'>{k.name}</TableCell>
+                <TableCell>
+                  <select
+                    className={ROLE_STYLE}
+                    value={k.role}
+                    disabled={busy}
+                    onChange={(e) => onSetRole(k.name, e.target.value as UserRole)}
+                  >
+                    <option value='operator'>operator</option>
+                    <option value='admin'>admin</option>
+                  </select>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={k.enabled ? 'default' : 'secondary'}>
+                    {k.enabled ? 'enabled' : 'disabled'}
+                  </Badge>
+                </TableCell>
+                <TableCell className='text-muted-foreground text-sm'>
+                  {k.lastUsedAt ? relativeTime(k.lastUsedAt) : 'never'}
+                </TableCell>
+                <TableCell className='text-right'>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    disabled={busy}
+                    title={k.enabled ? 'Disable key' : 'Enable key'}
+                    onClick={() => onSetEnabled(k.name, !k.enabled)}
+                  >
+                    {k.enabled ? 'Disable' : 'Enable'}
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant='ghost' size='sm' disabled={busy} title='Revoke key'>
+                        <Trash2 />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Revoke “{k.name}”?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          The passphrase stops working and any session opened with it is revoked.
+                          Other keys are unaffected.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onRemove(k.name)}
+                          className='bg-destructive text-white hover:bg-destructive/90'
+                        >
+                          Revoke
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
+
+      <span className='text-muted-foreground text-xs'>
+        Keys are stored only as hashes — a passphrase can’t be shown again, so a forgotten one is
+        re-minted, not recovered. Disabling or revoking takes effect on the holder’s next token
+        refresh; open sockets aren’t force-closed.
+      </span>
 
       <Dialog open={revealed !== null} onOpenChange={(o) => !o && setRevealed(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Share this passphrase</DialogTitle>
+            <DialogTitle>Share “{revealed?.name}”</DialogTitle>
             <DialogDescription>
-              Copy it now — it won’t be shown again. Guest access is on; anyone with this passphrase
-              can sign in as an operator.
+              Copy it now — it won’t be shown again. Anyone with this passphrase signs in as{' '}
+              {revealed?.name}.
             </DialogDescription>
           </DialogHeader>
           <div className='flex items-center gap-2 px-6 py-2'>
             <code className='bg-muted flex-1 rounded-md px-3 py-2 font-mono text-lg tracking-wide'>
-              {revealed}
+              {revealed?.passphrase}
             </code>
             <Button variant='outline' size='sm' onClick={() => void copy()}>
               <Copy />
@@ -594,15 +729,17 @@ interface AccessRouteProps {
   users: UserAccount[];
   sessions: SessionInfo[];
   secrets: RequiredSecretInfo[];
-  guest: GuestStatus;
+  keys: AccessKeyInfo[];
   onAddUser: (username: string, password: string, role: UserRole) => Promise<void>;
   onRemoveUser: (username: string) => void;
   onSetUserRole: (username: string, role: UserRole) => void;
   onRevokeSession: (id: string) => void;
   onRefreshSessions: () => void;
-  onRotateGuest: () => Promise<string>;
-  onSetGuestEnabled: (enabled: boolean) => void;
-  onClearGuest: () => void;
+  onMintKey: (name: string, role: UserRole) => Promise<string>;
+  onSetKeyEnabled: (name: string, enabled: boolean) => void;
+  onSetKeyRole: (name: string, role: UserRole) => void;
+  onRemoveKey: (name: string) => void;
+  onRemoveAllKeys: () => void;
   onGenerateSecrets: (force: boolean) => void;
   busy: boolean;
 }
@@ -617,15 +754,17 @@ export function AccessRoute({
   users,
   sessions,
   secrets,
-  guest,
+  keys,
   onAddUser,
   onRemoveUser,
   onSetUserRole,
   onRevokeSession,
   onRefreshSessions,
-  onRotateGuest,
-  onSetGuestEnabled,
-  onClearGuest,
+  onMintKey,
+  onSetKeyEnabled,
+  onSetKeyRole,
+  onRemoveKey,
+  onRemoveAllKeys,
   onGenerateSecrets,
   busy
 }: AccessRouteProps) {
@@ -654,7 +793,7 @@ export function AccessRoute({
         <TabsList>
           <TabsTrigger value='users'>Users</TabsTrigger>
           <TabsTrigger value='sessions'>Sessions</TabsTrigger>
-          <TabsTrigger value='guest'>Guest access</TabsTrigger>
+          <TabsTrigger value='keys'>Access keys</TabsTrigger>
           <TabsTrigger value='secrets'>Secrets</TabsTrigger>
         </TabsList>
         <TabsContent value='users'>
@@ -674,12 +813,14 @@ export function AccessRoute({
             busy={busy}
           />
         </TabsContent>
-        <TabsContent value='guest'>
-          <GuestTab
-            guest={guest}
-            onRotate={onRotateGuest}
-            onSetEnabled={onSetGuestEnabled}
-            onClear={onClearGuest}
+        <TabsContent value='keys'>
+          <KeysTab
+            keys={keys}
+            onMint={onMintKey}
+            onSetEnabled={onSetKeyEnabled}
+            onSetRole={onSetKeyRole}
+            onRemove={onRemoveKey}
+            onRemoveAll={onRemoveAllKeys}
             busy={busy}
           />
         </TabsContent>

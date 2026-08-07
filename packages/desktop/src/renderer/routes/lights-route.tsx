@@ -66,6 +66,15 @@ export function LightsRoute({
   const [strategy, setStrategy] = React.useState('');
   const [identifyOn, setIdentifyOn] = React.useState(false);
   const [newName, setNewName] = React.useState('');
+  const tableScrollRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Tapping a fixture on the canvas brings its row into view in the table's own
+  // scroll area, so the two halves always agree on what's selected.
+  React.useEffect(() => {
+    if (selected == null) return;
+    const row = tableScrollRef.current?.querySelector(`[data-logical="${selected}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
 
   React.useEffect(() => {
     if (view) setDraft(view.physicalLights);
@@ -153,11 +162,17 @@ export function LightsRoute({
 
   const selectedRow = selected != null ? view.rows[selected] : null;
 
+  // Simple one-laptop shows have no shard owners and no device-local rebase —
+  // those columns would read "all cannons"/"—" on every row, so they're hidden
+  // until the project is actually distributed.
+  const distributed = view.rows.some((r) => r.shardOwner != null);
+  const hasLocalIndex = view.rows.some((r) => r.localIndex != null);
+
   return (
-    <div className='flex flex-col gap-4 p-4'>
+    <div className='flex h-full min-h-0 flex-col gap-3 p-4'>
       {/* Header + save controls */}
-      <div className='flex items-start justify-between gap-4'>
-        <div className='flex flex-col gap-1'>
+      <div className='flex shrink-0 items-center justify-between gap-4'>
+        <div className='flex items-baseline gap-2'>
           <span className='font-medium'>{project}</span>
           <span className='text-muted-foreground text-sm'>
             {view.layoutName} · {N} fixtures
@@ -201,7 +216,7 @@ export function LightsRoute({
       </div>
 
       {hasConflicts && (
-        <div className='border-destructive/40 bg-destructive/8 text-destructive-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-sm'>
+        <div className='border-destructive/40 bg-destructive/8 text-destructive-foreground flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm'>
           <AlertTriangle className='size-4 shrink-0' />
           <span>
             Two or more fixtures point at the same physical output (highlighted red).
@@ -211,261 +226,239 @@ export function LightsRoute({
         </div>
       )}
 
-      {/* Mapping library: pick which saved correction is active (or none = identity). */}
-      <div className='flex flex-wrap items-end gap-3 rounded-md border p-3'>
-        <div className='flex flex-col gap-1'>
-          <span className='text-muted-foreground text-xs'>Active mapping</span>
-          <select
-            className='border-input bg-background h-9 min-w-48 rounded-md border px-2 text-sm'
-            value={activeMap ?? ''}
-            disabled={busy}
-            onChange={(e) => onActivate(e.target.value || null)}
-          >
-            <option value=''>None (identity — no correction)</option>
-            {view.maps.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Compact toolbar: which correction is active, auto-map candidates, save-as. */}
+      <div className='flex shrink-0 flex-wrap items-center gap-2 rounded-md border px-3 py-2'>
+        <span className='text-muted-foreground text-xs'>Mapping</span>
+        <select
+          className='border-input bg-background h-8 min-w-44 rounded-md border px-2 text-sm'
+          value={activeMap ?? ''}
+          disabled={busy}
+          onChange={(e) => onActivate(e.target.value || null)}
+        >
+          <option value=''>None (identity)</option>
+          {view.maps.map((m) => (
+            <option key={m.name} value={m.name}>
+              {m.name}
+            </option>
+          ))}
+        </select>
         {activeMap && (
           <Button
-            variant='outline'
+            variant='ghost'
             size='sm'
             disabled={busy}
+            title={`Delete “${activeMap}”`}
             onClick={() => onDeleteMap(activeMap)}
           >
             <Trash2 />
-            Delete “{activeMap}”
           </Button>
         )}
-        <Separator orientation='vertical' className='h-9' />
-        <div className='flex flex-col gap-1'>
-          <span className='text-muted-foreground text-xs'>Save current as</span>
-          <div className='flex items-center gap-2'>
-            <Input
-              className='h-9 w-44'
-              placeholder='new map name'
-              value={newName}
-              disabled={busy}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={busy || trimmedName.length === 0 || hasConflicts}
-              onClick={() => {
-                onSaveMap(trimmedName, draft);
-                onActivate(trimmedName);
-                setNewName('');
-              }}
-            >
-              <FilePlus2 />
-              {nameExists ? 'Overwrite' : 'Save as'}
-            </Button>
-          </div>
-        </div>
+
+        <Separator orientation='vertical' className='h-6' />
+
+        <Wand2 className='text-muted-foreground size-4' />
+        <select
+          className='border-input bg-background h-8 min-w-48 rounded-md border px-2 text-sm'
+          value={strategy}
+          disabled={busy}
+          title={view.strategies.find((s) => s.id === strategy)?.description}
+          onChange={(e) => {
+            setStrategy(e.target.value);
+            void applyStrategy(e.target.value);
+          }}
+        >
+          <option value=''>Auto-map heuristic…</option>
+          {view.strategies.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+
+        <Separator orientation='vertical' className='h-6' />
+
+        <Input
+          className='h-8 w-36'
+          placeholder='save as…'
+          value={newName}
+          disabled={busy}
+          onChange={(e) => setNewName(e.target.value)}
+        />
+        <Button
+          variant='outline'
+          size='sm'
+          disabled={busy || trimmedName.length === 0 || hasConflicts}
+          onClick={() => {
+            onSaveMap(trimmedName, draft);
+            onActivate(trimmedName);
+            setNewName('');
+          }}
+        >
+          <FilePlus2 />
+          {nameExists ? 'Overwrite' : 'Save as'}
+        </Button>
       </div>
 
-      <p className='text-muted-foreground text-sm'>
-        Identity (physical = logical) is the default — you only need a map when the
-        hardware is wired out of order. Tap a fixture to select it, then set the
-        physical output it's actually wired to, or flash it on the live rig to see
-        which laser lights.
-      </p>
-
-      <div className='grid gap-4 lg:grid-cols-[1fr_20rem]'>
-        {/* Canvas */}
-        <div className='bg-muted/30 rounded-md border p-3'>
-          <MappingCanvas
-            view={view}
-            draft={draft}
-            selected={selected}
-            conflicts={conflicts}
-            onSelect={setSelected}
-          />
-          <div className='text-muted-foreground mt-2 flex items-center gap-4 text-xs'>
-            <span className='flex items-center gap-1'>
-              <span className='bg-muted-foreground/40 inline-block size-3 rounded-full' /> identity
-            </span>
-            <span className='flex items-center gap-1'>
-              <span className='bg-warning inline-block size-3 rounded-full' /> corrected
-            </span>
-            <span className='flex items-center gap-1'>
-              <span className='bg-destructive inline-block size-3 rounded-full' /> conflict
-            </span>
-            <span className='flex items-center gap-1'>
-              <span className='ring-primary inline-block size-3 rounded-full ring-2' /> selected
-            </span>
-          </div>
-        </div>
-
-        {/* Inspector / auto-map */}
-        <div className='flex flex-col gap-4'>
-          {/* Auto-map */}
-          <div className='flex flex-col gap-2 rounded-md border p-3'>
-            <span className='flex items-center gap-2 text-sm font-medium'>
-              <Wand2 className='size-4' /> Auto-map
-            </span>
-            <p className='text-muted-foreground text-xs'>
-              Deterministic candidates — previewed in the canvas, saved only when you Save.
-            </p>
-            <select
-              className='border-input bg-background h-9 rounded-md border px-2 text-sm'
-              value={strategy}
-              disabled={busy}
-              onChange={(e) => {
-                setStrategy(e.target.value);
-                void applyStrategy(e.target.value);
-              }}
-            >
-              <option value=''>Choose a heuristic…</option>
-              {view.strategies.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            {strategy && (
-              <p className='text-muted-foreground text-xs'>
-                {view.strategies.find((s) => s.id === strategy)?.description}
-              </p>
-            )}
+      {/* Two columns, each scrolling on its own: the page itself never scrolls,
+          so the fixture table can't fall below the fold on a short screen. */}
+      <div className='grid min-h-0 flex-1 gap-3 lg:grid-cols-2'>
+        {/* Canvas + inspector */}
+        <div className='flex min-h-0 flex-col gap-3'>
+          <div className='bg-muted/30 flex min-h-0 flex-1 flex-col rounded-md border p-3'>
+            <div className='flex min-h-0 flex-1 items-center justify-center'>
+              <MappingCanvas
+                view={view}
+                draft={draft}
+                selected={selected}
+                conflicts={conflicts}
+                onSelect={setSelected}
+              />
+            </div>
+            <div className='text-muted-foreground mt-2 flex shrink-0 flex-wrap items-center gap-3 text-xs'>
+              <span className='flex items-center gap-1'>
+                <span className='bg-muted-foreground/40 inline-block size-2.5 rounded-full' /> identity
+              </span>
+              <span className='flex items-center gap-1'>
+                <span className='bg-warning inline-block size-2.5 rounded-full' /> corrected
+              </span>
+              <span className='flex items-center gap-1'>
+                <span className='bg-destructive inline-block size-2.5 rounded-full' /> conflict
+              </span>
+              <span className='flex items-center gap-1'>
+                <span className='ring-primary inline-block size-2.5 rounded-full ring-2' /> selected
+              </span>
+            </div>
           </div>
 
-          {/* Selected fixture */}
-          <div className='flex flex-col gap-3 rounded-md border p-3'>
-            <span className='text-sm font-medium'>Selected fixture</span>
+          {/* Selected fixture — one compact strip instead of a tall card. */}
+          <div className='shrink-0 rounded-md border p-3'>
             {selectedRow == null ? (
-              <p className='text-muted-foreground text-xs'>Tap a fixture in the canvas to inspect and remap it.</p>
+              <p className='text-muted-foreground text-xs'>
+                Identity (physical = logical) is the default — you only need a map when the hardware
+                is wired out of order. Tap a fixture to set the output it's actually wired to, or
+                flash it on the live rig to see which laser lights.
+              </p>
             ) : (
-              <div className='flex flex-col gap-3'>
-                <div className='grid grid-cols-2 gap-x-3 gap-y-1 text-sm'>
-                  <span className='text-muted-foreground'>Logical</span>
-                  <span className='font-mono'>{selectedRow.logical}</span>
-                  <span className='text-muted-foreground'>Label</span>
-                  <span className='font-medium'>{selectedRow.label}</span>
-                  <span className='text-muted-foreground'>Position</span>
-                  <span>{selectedRow.position}</span>
-                  <span className='text-muted-foreground'>Driven by</span>
-                  <span>{selectedRow.shardOwner ?? 'all cannons'}</span>
+              <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-sm'>
+                <span className='font-medium'>{selectedRow.label}</span>
+                <span className='text-muted-foreground text-xs'>
+                  logical <span className='font-mono'>{selectedRow.logical}</span> ·{' '}
+                  {selectedRow.position}
                   {selectedRow.localIndex != null && (
                     <>
-                      <span className='text-muted-foreground'>Device-local</span>
-                      <span className='font-mono'>{selectedRow.localIndex}</span>
+                      {' '}
+                      · local <span className='font-mono'>{selectedRow.localIndex}</span>
                     </>
+                  )}{' '}
+                  · <span className='font-mono'>{selectedRow.oscTarget}</span>
+                </span>
+                <div className='flex items-center gap-1'>
+                  <span className='text-muted-foreground text-xs'>output</span>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={busy || draftPhysical == null || draftPhysical <= 0}
+                    onClick={() => assignPhysical(selected!, (draftPhysical ?? 0) - 1)}
+                  >
+                    −
+                  </Button>
+                  <Input
+                    type='number'
+                    min={0}
+                    max={N - 1}
+                    className='h-8 w-16 text-center'
+                    disabled={busy}
+                    value={draftPhysical ?? 0}
+                    onChange={(e) => assignPhysical(selected!, Number(e.target.value))}
+                  />
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={busy || draftPhysical == null || draftPhysical >= N - 1}
+                    onClick={() => assignPhysical(selected!, (draftPhysical ?? 0) + 1)}
+                  >
+                    +
+                  </Button>
+                  {selected != null && conflicts.has(selected) ? (
+                    <Badge variant='destructive'>duplicate</Badge>
+                  ) : draftPhysical === selected ? (
+                    <Badge variant='outline'>identity</Badge>
+                  ) : (
+                    <Badge variant='warning'>corrected</Badge>
                   )}
-                  <span className='text-muted-foreground'>OSC</span>
-                  <span className='font-mono text-xs'>{selectedRow.oscTarget}</span>
                 </div>
-
-                <Separator />
-
-                <div className='flex flex-col gap-1'>
-                  <span className='text-muted-foreground text-xs'>Physical output (wired to this fixture)</span>
-                  <div className='flex items-center gap-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      disabled={busy || draftPhysical == null || draftPhysical <= 0}
-                      onClick={() => assignPhysical(selected!, (draftPhysical ?? 0) - 1)}
-                    >
-                      −
-                    </Button>
-                    <Input
-                      type='number'
-                      min={0}
-                      max={N - 1}
-                      className='h-8 w-20 text-center'
-                      disabled={busy}
-                      value={draftPhysical ?? 0}
-                      onChange={(e) => assignPhysical(selected!, Number(e.target.value))}
-                    />
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      disabled={busy || draftPhysical == null || draftPhysical >= N - 1}
-                      onClick={() => assignPhysical(selected!, (draftPhysical ?? 0) + 1)}
-                    >
-                      +
-                    </Button>
-                    {selected != null && conflicts.has(selected) ? (
-                      <Badge variant='destructive'>duplicate</Badge>
-                    ) : draftPhysical === selected ? (
-                      <Badge variant='outline'>identity</Badge>
-                    ) : (
-                      <Badge variant='warning'>corrected</Badge>
-                    )}
-                  </div>
-                </div>
-
                 <Button
                   variant={identifyOn ? 'default' : 'outline'}
                   size='sm'
                   disabled={!brainLive}
+                  title={brainLive ? undefined : "Start this project's brain to flash fixtures."}
                   onClick={() => setIdentifyOn((v) => !v)}
                 >
                   <Zap />
-                  {identifyOn ? 'Flashing — click to stop' : 'Identify (flash on rig)'}
+                  {identifyOn ? 'Flashing — stop' : 'Identify'}
                 </Button>
-                {!brainLive && (
-                  <p className='text-muted-foreground text-xs'>
-                    Start this project's brain to flash fixtures on the live rig.
-                  </p>
-                )}
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Full chain table */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className='w-20'>Logical</TableHead>
-            <TableHead className='w-28'>Physical</TableHead>
-            <TableHead>Fixture</TableHead>
-            <TableHead>Position</TableHead>
-            <TableHead>Driven by</TableHead>
-            <TableHead className='w-24'>Local idx</TableHead>
-            <TableHead>OSC target</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {view.rows.map((row) => {
-            const physical = draft[row.logical] ?? row.physical;
-            const corrected = physical !== row.logical;
-            const conflict = conflicts.has(row.logical);
-            return (
-              <TableRow
-                key={row.logical}
-                data-state={selected === row.logical ? 'selected' : undefined}
-                className={cn('cursor-pointer', conflict ? 'bg-destructive/8' : corrected && 'bg-warning/8')}
-                onClick={() => setSelected(row.logical)}
-              >
-                <TableCell className='font-mono text-sm'>{row.logical}</TableCell>
-                <TableCell
-                  className={cn(
-                    'font-mono text-sm',
-                    conflict ? 'text-destructive font-medium' : corrected && 'text-warning-foreground font-medium'
-                  )}
-                >
-                  {physical}
-                </TableCell>
-                <TableCell className='font-medium'>{row.label}</TableCell>
-                <TableCell className='text-muted-foreground text-sm'>{row.position}</TableCell>
-                <TableCell className='text-sm'>{row.shardOwner ?? 'all cannons'}</TableCell>
-                <TableCell className='text-muted-foreground font-mono text-xs'>
-                  {row.localIndex ?? '—'}
-                </TableCell>
-                <TableCell className='text-muted-foreground font-mono text-xs'>{row.oscTarget}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+        {/* Full chain table — its own scroll area with a sticky header. */}
+        <div className='flex min-h-0 flex-col overflow-hidden rounded-md border'>
+          <div ref={tableScrollRef} className='min-h-0 flex-1 overflow-auto'>
+            <Table>
+              <TableHeader className='bg-background sticky top-0 z-10'>
+                <TableRow>
+                  <TableHead className='w-14'>Log</TableHead>
+                  <TableHead className='w-16'>Phys</TableHead>
+                  <TableHead>Fixture</TableHead>
+                  {distributed && <TableHead>Driven by</TableHead>}
+                  {hasLocalIndex && <TableHead className='w-16'>Local</TableHead>}
+                  <TableHead>OSC target</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {view.rows.map((row) => {
+                  const physical = draft[row.logical] ?? row.physical;
+                  const corrected = physical !== row.logical;
+                  const conflict = conflicts.has(row.logical);
+                  return (
+                    <TableRow
+                      key={row.logical}
+                      data-logical={row.logical}
+                      data-state={selected === row.logical ? 'selected' : undefined}
+                      className={cn('cursor-pointer', conflict ? 'bg-destructive/8' : corrected && 'bg-warning/8')}
+                      onClick={() => setSelected(row.logical)}
+                    >
+                      <TableCell className='font-mono text-sm'>{row.logical}</TableCell>
+                      <TableCell
+                        className={cn(
+                          'font-mono text-sm',
+                          conflict ? 'text-destructive font-medium' : corrected && 'text-warning-foreground font-medium'
+                        )}
+                      >
+                        {physical}
+                      </TableCell>
+                      <TableCell className='text-sm'>
+                        <span className='font-medium'>{row.label}</span>{' '}
+                        <span className='text-muted-foreground text-xs'>{row.position}</span>
+                      </TableCell>
+                      {distributed && (
+                        <TableCell className='text-sm'>{row.shardOwner ?? 'all cannons'}</TableCell>
+                      )}
+                      {hasLocalIndex && (
+                        <TableCell className='text-muted-foreground font-mono text-xs'>
+                          {row.localIndex ?? '—'}
+                        </TableCell>
+                      )}
+                      <TableCell className='text-muted-foreground font-mono text-xs'>{row.oscTarget}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -490,7 +483,13 @@ function MappingCanvas({
   const r = Math.max(2.4, Math.min(6, 40 / Math.sqrt(Math.max(N, 1))));
 
   return (
-    <svg viewBox='0 0 100 100' className='h-auto w-full' role='img' aria-label='Light map canvas'>
+    <svg
+      viewBox='0 0 100 100'
+      preserveAspectRatio='xMidYMid meet'
+      className='h-full w-full'
+      role='img'
+      aria-label='Light map canvas'
+    >
       {view.rows.map((row) => {
         const physical = draft[row.logical] ?? row.physical;
         const corrected = physical !== row.logical;

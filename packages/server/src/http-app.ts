@@ -5,7 +5,7 @@
  * — same-origin means no `ui.port` / `simulatorUrl` to keep in sync.
  */
 import { type ResolvedConfig } from '@wavegrid/layout';
-import { DEFAULT_SESSION_TTL_MS, GUEST_USERNAME, openStore, type UserRole } from '@wavegrid/settings';
+import { DEFAULT_SESSION_TTL_MS, openStore, type UserRole } from '@wavegrid/settings';
 import * as fs from 'fs';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { extname, join, normalize, resolve } from 'path';
@@ -81,10 +81,12 @@ interface AuthedCaller {
 
 /**
  * Authenticate an admin caller for a privileged HTTP endpoint. Requires a valid
- * (unexpired) JWT whose session still exists AND whose role is `admin` per the
- * store (the store is authoritative — a stale `role` claim can't grant admin).
- * The shared receiver key is never accepted here. Returns null and writes the
- * appropriate 401/403 response on failure.
+ * (unexpired) JWT whose session still exists AND whose identity — a user account
+ * or an access key — currently grants `admin` per the store (the store is
+ * authoritative, so a stale `role` claim can't grant admin, and disabling the
+ * key or demoting the account revokes it on the next call). The shared receiver
+ * key is never accepted here. Returns null and writes the appropriate 401/403
+ * response on failure.
  */
 function requireAdmin(req: IncomingMessage, url: URL, res: ServerResponse): AuthedCaller | null {
   const token = bearerToken(req, url);
@@ -104,7 +106,8 @@ function requireAdmin(req: IncomingMessage, url: URL, res: ServerResponse): Auth
     sendJson(res, 401, { ok: false, error: 'Session expired or revoked' });
     return null;
   }
-  const role = store.getUserRole(project, payload.sub);
+  const role =
+    store.getUserRole(project, payload.sub) ?? store.getAccessKeyRole(project, payload.sub);
   if (role !== 'admin') {
     sendJson(res, 403, { ok: false, error: 'Admin privileges required' });
     return null;
@@ -235,17 +238,17 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
       }
       const project = activeProject();
       const store = openStore();
-      const guestOn = project ? store.guestStatus(project).enabled : false;
-      if (!project || (store.listUsers(project).length === 0 && !guestOn)) {
+      const hasKeys = project ? store.listAccessKeys(project).some((k) => k.enabled) : false;
+      if (!project || (store.listUsers(project).length === 0 && !hasKeys)) {
         sendJson(res, 503, { ok: false, error: 'Auth not configured' });
         return;
       }
-      // Try a real account first; fall back to the shared guest passphrase
-      // (always operator, never admin) so a shared "public password" just works
-      // regardless of the username typed.
+      // Try a real account first, then the project's access keys. A key is
+      // handed around as a passphrase alone, so it matches regardless of the
+      // username typed, and logs in as the key's own name and role.
       const user =
         store.authenticate(project, username, password) ??
-        store.authenticateGuest(project, password);
+        store.authenticateAccessKey(project, password);
       if (!user) {
         sendJson(res, 401, { ok: false, error: 'Invalid username or password' });
         return;
@@ -289,14 +292,10 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
         sendJson(res, 401, { ok: false, error: 'Session expired or revoked' });
         return;
       }
-      // The shared guest isn't a stored user; it's an operator while guest
-      // access stays enabled.
-      const role =
-        payload.sub === GUEST_USERNAME
-          ? store.guestStatus(project).enabled
-            ? ('operator' as UserRole)
-            : null
-          : store.getUserRole(project, payload.sub);
+      // An access-key holder isn't a stored user — the key itself carries the
+      // role, and disabling or deleting it drops the role on the next check.
+      const role: UserRole | null =
+        store.getUserRole(project, payload.sub) ?? store.getAccessKeyRole(project, payload.sub);
       if (!role) {
         sendJson(res, 401, { ok: false, error: 'Unknown user' });
         return;
@@ -397,48 +396,123 @@ export function createHttpApp(resolved: ResolvedConfig, opts: HttpAppOptions = {
       }
     }
 
-    // ── Admin-only shared guest access (role-gated) ────────────────
-    if (pathname === '/api/admin/guest' && method === 'GET') {
+    // ── Admin-only access keys (role-gated) ─────────────────────────
+    if (pathname === '/api/admin/keys' && method === 'GET') {
       const caller = requireAdmin(req, url, res);
       if (!caller) return;
-      sendJson(res, 200, { ok: true, guest: openStore().guestStatus(caller.project) });
+      sendJson(res, 200, { ok: true, keys: openStore().listAccessKeys(caller.project) });
       return;
     }
-    if (pathname === '/api/admin/guest/rotate' && method === 'POST') {
+    if (pathname === '/api/admin/keys' && method === 'POST') {
       const caller = requireAdmin(req, url, res);
       if (!caller) return;
-      // The cleartext passphrase is returned exactly once, here, for the admin
-      // to copy and share; only its hash is persisted.
-      const store = openStore();
-      const passphrase = store.rotateGuestPassphrase(caller.project);
-      sendJson(res, 200, { ok: true, passphrase, guest: store.guestStatus(caller.project) });
-      return;
-    }
-    if (pathname === '/api/admin/guest/enabled' && method === 'POST') {
-      const caller = requireAdmin(req, url, res);
-      if (!caller) return;
-      let body: { enabled?: boolean };
+      let body: { name?: string; role?: UserRole };
       try {
         body = JSON.parse((await readBody(req)) || '{}');
       } catch {
         sendJson(res, 400, { ok: false, error: 'Invalid request' });
         return;
       }
+      if (!body.name) {
+        sendJson(res, 400, { ok: false, error: 'Missing key name' });
+        return;
+      }
+      // The cleartext passphrase is returned exactly once, here, for the admin
+      // to copy and hand over; only its hash is persisted.
+      const store = openStore();
       try {
-        const guest = openStore().setGuestEnabled(caller.project, body.enabled === true);
-        sendJson(res, 200, { ok: true, guest });
+        const minted = store.mintAccessKey(
+          caller.project,
+          body.name,
+          body.role === 'admin' ? 'admin' : 'operator'
+        );
+        sendJson(res, 200, {
+          ok: true,
+          passphrase: minted.passphrase,
+          keys: store.listAccessKeys(caller.project)
+        });
       } catch (e) {
         sendJson(res, 400, { ok: false, error: (e as Error).message });
       }
       return;
     }
-    if (pathname === '/api/admin/guest' && method === 'DELETE') {
+    if (pathname === '/api/admin/keys' && method === 'DELETE') {
       const caller = requireAdmin(req, url, res);
       if (!caller) return;
       const store = openStore();
-      store.clearGuest(caller.project);
-      sendJson(res, 200, { ok: true, guest: store.guestStatus(caller.project) });
+      const removed = store.removeAllAccessKeys(caller.project);
+      sendJson(res, 200, { ok: true, removed, keys: store.listAccessKeys(caller.project) });
       return;
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/keys\/([^/]+)\/enabled$/);
+      if (m && method === 'POST') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        let body: { enabled?: boolean };
+        try {
+          body = JSON.parse((await readBody(req)) || '{}');
+        } catch {
+          sendJson(res, 400, { ok: false, error: 'Invalid request' });
+          return;
+        }
+        const store = openStore();
+        const key = store.setAccessKeyEnabled(
+          caller.project,
+          decodeURIComponent(m[1]),
+          body.enabled === true
+        );
+        if (!key) {
+          sendJson(res, 404, { ok: false, error: 'No such key' });
+          return;
+        }
+        sendJson(res, 200, { ok: true, keys: store.listAccessKeys(caller.project) });
+        return;
+      }
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/keys\/([^/]+)\/role$/);
+      if (m && method === 'POST') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        let body: { role?: UserRole };
+        try {
+          body = JSON.parse((await readBody(req)) || '{}');
+        } catch {
+          sendJson(res, 400, { ok: false, error: 'Invalid request' });
+          return;
+        }
+        if (body.role !== 'admin' && body.role !== 'operator') {
+          sendJson(res, 400, { ok: false, error: 'role must be "admin" or "operator"' });
+          return;
+        }
+        const store = openStore();
+        const key = store.setAccessKeyRole(caller.project, decodeURIComponent(m[1]), body.role);
+        if (!key) {
+          sendJson(res, 404, { ok: false, error: 'No such key' });
+          return;
+        }
+        sendJson(res, 200, { ok: true, keys: store.listAccessKeys(caller.project) });
+        return;
+      }
+    }
+    {
+      const m = pathname.match(/^\/api\/admin\/keys\/([^/]+)$/);
+      if (m && method === 'DELETE') {
+        const caller = requireAdmin(req, url, res);
+        if (!caller) return;
+        const name = decodeURIComponent(m[1]);
+        const store = openStore();
+        const removed = store.removeAccessKey(caller.project, name);
+        // Sessions opened with the key go too — revoking a key shouldn't leave
+        // its holders logged in.
+        if (removed) store.revokeUserSessions(caller.project, name);
+        sendJson(res, removed ? 200 : 404, {
+          ok: removed,
+          keys: store.listAccessKeys(caller.project)
+        });
+        return;
+      }
     }
 
     // ── GET/POST /api/light-map ─────────────────────────────────────

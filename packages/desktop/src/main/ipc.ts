@@ -147,34 +147,45 @@ export function registerAllIpc(): void {
     return store.hasProject(project) ? store.listSessions(project) : [];
   });
 
-  ipcMain.handle('guest:status', (_e, project: string) => {
+  ipcMain.handle('keys:list', (_e, project: string) => {
     const store = openStore();
-    return store.hasProject(project)
-      ? store.guestStatus(project)
-      : { configured: false, enabled: false, updatedAt: null };
+    return store.hasProject(project) ? store.listAccessKeys(project) : [];
   });
-  ipcMain.handle('guest:rotate', (_e, project: string) => {
+  ipcMain.handle('keys:mint', (_e, project: string, name: string, role: UserRole) => {
     const store = openStore();
-    if (!store.hasProject(project)) {
-      return { passphrase: '', status: { configured: false, enabled: false, updatedAt: null } };
+    if (!store.hasProject(project)) return { passphrase: '', keys: [] };
+    // The cleartext is returned exactly once for the admin to copy and hand
+    // over; only its scrypt hash is persisted. It is never logged.
+    const minted = store.mintAccessKey(project, name, role);
+    return { passphrase: minted.passphrase, keys: store.listAccessKeys(project) };
+  });
+  ipcMain.handle('keys:setEnabled', (_e, project: string, name: string, enabled: boolean) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.setAccessKeyEnabled(project, name, enabled);
+    return store.hasProject(project) ? store.listAccessKeys(project) : [];
+  });
+  ipcMain.handle('keys:setRole', (_e, project: string, name: string, role: UserRole) => {
+    const store = openStore();
+    if (store.hasProject(project)) store.setAccessKeyRole(project, name, role);
+    return store.hasProject(project) ? store.listAccessKeys(project) : [];
+  });
+  ipcMain.handle('keys:remove', (_e, project: string, name: string) => {
+    const store = openStore();
+    if (store.hasProject(project)) {
+      // Revoke sessions opened with the key too, so its holders can't refresh.
+      if (store.removeAccessKey(project, name)) store.revokeUserSessions(project, name);
     }
-    // The cleartext is returned exactly once for the admin to copy and share;
-    // only its scrypt hash is persisted. It is never logged.
-    const passphrase = store.rotateGuestPassphrase(project);
-    return { passphrase, status: store.guestStatus(project) };
+    return store.hasProject(project) ? store.listAccessKeys(project) : [];
   });
-  ipcMain.handle('guest:setEnabled', (_e, project: string, enabled: boolean) => {
+  ipcMain.handle('keys:removeAll', (_e, project: string) => {
     const store = openStore();
-    return store.hasProject(project)
-      ? store.setGuestEnabled(project, enabled)
-      : { configured: false, enabled: false, updatedAt: null };
-  });
-  ipcMain.handle('guest:clear', (_e, project: string) => {
-    const store = openStore();
-    if (store.hasProject(project)) store.clearGuest(project);
-    return store.hasProject(project)
-      ? store.guestStatus(project)
-      : { configured: false, enabled: false, updatedAt: null };
+    if (store.hasProject(project)) {
+      for (const key of store.listAccessKeys(project)) {
+        store.revokeUserSessions(project, key.name);
+      }
+      store.removeAllAccessKeys(project);
+    }
+    return store.hasProject(project) ? store.listAccessKeys(project) : [];
   });
 
   ipcMain.handle('secrets:status', (_e, project: string) => secretStatus(project));

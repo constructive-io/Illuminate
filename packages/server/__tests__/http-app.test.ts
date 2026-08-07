@@ -120,6 +120,16 @@ describe('createHttpApp', () => {
     return { token: body.token, role: body.role };
   }
 
+  /** Helper: attempt a login and return only the status code. */
+  async function loginStatus(username: string, password: string): Promise<number> {
+    const res = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    return res.status;
+  }
+
   it('login records a session an admin can list and revoke', async () => {
     const admin = await login('admin', 'secretpw');
     await login('op', 'operatorpw'); // operator session exists too
@@ -184,53 +194,112 @@ describe('createHttpApp', () => {
     expect(del.status).toBe(200);
   });
 
-  it('admin can mint/rotate a shared guest passphrase; guests log in as operator', async () => {
+  /** Helper: mint an access key as the admin, returning its cleartext. */
+  async function mintKey(
+    authz: Record<string, string>,
+    name: string,
+    role?: string
+  ): Promise<string> {
+    const res = await fetch(`${base}/api/admin/keys`, {
+      method: 'POST',
+      headers: { ...authz, 'content-type': 'application/json' },
+      body: JSON.stringify({ name, role })
+    });
+    expect(res.status).toBe(200);
+    return (await res.json()).passphrase;
+  }
+
+  it('admin mints access keys; a holder logs in as the key with its role', async () => {
     const admin = await login('admin', 'secretpw');
     const authz = { authorization: `Bearer ${admin.token}` };
 
-    // Off by default.
-    const initial = await (await fetch(`${base}/api/admin/guest`, { headers: authz })).json();
-    expect(initial.guest).toEqual({ configured: false, enabled: false, updatedAt: null });
+    // None by default.
+    const initial = await (await fetch(`${base}/api/admin/keys`, { headers: authz })).json();
+    expect(initial.keys).toEqual([]);
 
-    // Mint — cleartext returned exactly once.
-    const rotated = await fetch(`${base}/api/admin/guest/rotate`, { method: 'POST', headers: authz });
-    expect(rotated.status).toBe(200);
-    const { passphrase, guest } = await rotated.json();
+    const passphrase = await mintKey(authz, 'friday-guests');
     expect(passphrase).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
-    expect(guest.enabled).toBe(true);
 
-    // Anyone with the passphrase logs in — as an operator, never admin.
-    const guestLogin = await login('whoever', passphrase);
-    expect(guestLogin.role).toBe('operator');
-    const forbidden = await fetch(`${base}/api/admin/guest`, {
-      headers: { authorization: `Bearer ${guestLogin.token}` }
+    // The passphrase alone logs in, whatever username is typed, as the key's
+    // own identity and role.
+    const holder = await login('whoever', passphrase);
+    expect(holder.role).toBe('operator');
+    const me = await (
+      await fetch(`${base}/api/me`, { headers: { authorization: `Bearer ${holder.token}` } })
+    ).json();
+    expect(me.username).toBe('friday-guests');
+
+    // An operator key can't administer.
+    const forbidden = await fetch(`${base}/api/admin/keys`, {
+      headers: { authorization: `Bearer ${holder.token}` }
     });
     expect(forbidden.status).toBe(403);
 
-    // Disabling turns logins off without deleting the passphrase.
-    const off = await fetch(`${base}/api/admin/guest/enabled`, {
+    await fetch(`${base}/api/admin/keys/friday-guests`, { method: 'DELETE', headers: authz });
+  });
+
+  it('manages many keys independently — disable, revoke one, revoke all', async () => {
+    const admin = await login('admin', 'secretpw');
+    const authz = { authorization: `Bearer ${admin.token}` };
+
+    const crew = await mintKey(authz, 'crew');
+    const ipad = await mintKey(authz, 'dan-ipad');
+
+    const { keys } = await (await fetch(`${base}/api/admin/keys`, { headers: authz })).json();
+    expect(keys.map((k: { name: string }) => k.name)).toEqual(['crew', 'dan-ipad']);
+
+    // Disabling one leaves the other working.
+    const off = await fetch(`${base}/api/admin/keys/crew/enabled`, {
       method: 'POST',
       headers: { ...authz, 'content-type': 'application/json' },
       body: JSON.stringify({ enabled: false })
     });
-    expect((await off.json()).guest.enabled).toBe(false);
-    const denied = await fetch(`${base}/api/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'whoever', password: passphrase })
-    });
-    expect(denied.status).toBe(401);
+    expect(off.status).toBe(200);
+    expect(await loginStatus('whoever', crew)).toBe(401);
+    expect((await login('whoever', ipad)).role).toBe('operator');
 
-    // Remove entirely.
-    const cleared = await fetch(`${base}/api/admin/guest`, { method: 'DELETE', headers: authz });
-    expect((await cleared.json()).guest.configured).toBe(false);
+    // Revoking one is independent too.
+    const delOne = await fetch(`${base}/api/admin/keys/dan-ipad`, { method: 'DELETE', headers: authz });
+    expect(delOne.status).toBe(200);
+    expect(await loginStatus('whoever', ipad)).toBe(401);
+
+    // And they can all be dropped at once.
+    const delAll = await fetch(`${base}/api/admin/keys`, { method: 'DELETE', headers: authz });
+    expect((await delAll.json()).keys).toEqual([]);
+
+    expect(
+      (await fetch(`${base}/api/admin/keys/nobody`, { method: 'DELETE', headers: authz })).status
+    ).toBe(404);
   });
 
-  it('operators cannot manage guest access', async () => {
-    const op = await login('op', 'operatorpw');
-    const res = await fetch(`${base}/api/admin/guest/rotate`, {
+  it('an admin-role key can administer, and losing the role revokes it', async () => {
+    const admin = await login('admin', 'secretpw');
+    const authz = { authorization: `Bearer ${admin.token}` };
+
+    const passphrase = await mintKey(authz, 'tech-lead', 'admin');
+    const lead = await login('whoever', passphrase);
+    expect(lead.role).toBe('admin');
+    const leadAuthz = { authorization: `Bearer ${lead.token}` };
+    expect((await fetch(`${base}/api/admin/keys`, { headers: leadAuthz })).status).toBe(200);
+
+    // Demoting the key takes effect on the next call — the store is
+    // authoritative, so the already-issued token stops granting admin.
+    await fetch(`${base}/api/admin/keys/tech-lead/role`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${op.token}` }
+      headers: { ...authz, 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'operator' })
+    });
+    expect((await fetch(`${base}/api/admin/keys`, { headers: leadAuthz })).status).toBe(403);
+
+    await fetch(`${base}/api/admin/keys/tech-lead`, { method: 'DELETE', headers: authz });
+  });
+
+  it('operators cannot manage access keys', async () => {
+    const op = await login('op', 'operatorpw');
+    const res = await fetch(`${base}/api/admin/keys`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${op.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'sneaky', role: 'admin' })
     });
     expect(res.status).toBe(403);
   });

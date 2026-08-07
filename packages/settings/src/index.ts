@@ -65,8 +65,8 @@ export { type RequiredSecret } from './required';
 // Users
 export { type StoredUser, type UserInfo, type UserRole } from './users';
 
-// Shared guest access (one low-privilege operator passphrase)
-export { GUEST_USERNAME, type GuestStatus } from './guest';
+// Access keys (named passphrases, minted at runtime, revocable one by one)
+export { type AccessKeyInfo, type MintedAccessKey } from './access-keys';
 
 // UI sessions (cheap server-visible login records)
 export {

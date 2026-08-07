@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { BrainStatus, DeviceInfo, EditableConfig, GuestStatus, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { AccessKeyInfo, BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -39,13 +39,20 @@ const api: WavegridApi = {
     list: (project) => ipcRenderer.invoke('sessions:list', project) as Promise<SessionInfo[]>,
     revoke: (project, id) => ipcRenderer.invoke('sessions:revoke', project, id) as Promise<SessionInfo[]>
   },
-  guest: {
-    status: (project) => ipcRenderer.invoke('guest:status', project) as Promise<GuestStatus>,
-    rotate: (project) =>
-      ipcRenderer.invoke('guest:rotate', project) as Promise<{ passphrase: string; status: GuestStatus }>,
-    setEnabled: (project, enabled) =>
-      ipcRenderer.invoke('guest:setEnabled', project, enabled) as Promise<GuestStatus>,
-    clear: (project) => ipcRenderer.invoke('guest:clear', project) as Promise<GuestStatus>
+  keys: {
+    list: (project) => ipcRenderer.invoke('keys:list', project) as Promise<AccessKeyInfo[]>,
+    mint: (project, name, role: UserRole) =>
+      ipcRenderer.invoke('keys:mint', project, name, role) as Promise<{
+        passphrase: string;
+        keys: AccessKeyInfo[];
+      }>,
+    setEnabled: (project, name, enabled) =>
+      ipcRenderer.invoke('keys:setEnabled', project, name, enabled) as Promise<AccessKeyInfo[]>,
+    setRole: (project, name, role: UserRole) =>
+      ipcRenderer.invoke('keys:setRole', project, name, role) as Promise<AccessKeyInfo[]>,
+    remove: (project, name) =>
+      ipcRenderer.invoke('keys:remove', project, name) as Promise<AccessKeyInfo[]>,
+    removeAll: (project) => ipcRenderer.invoke('keys:removeAll', project) as Promise<AccessKeyInfo[]>
   },
   secrets: {
     status: (project) => ipcRenderer.invoke('secrets:status', project) as Promise<RequiredSecretInfo[]>,

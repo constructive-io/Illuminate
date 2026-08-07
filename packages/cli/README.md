@@ -47,13 +47,17 @@ global store setup lives under `settings`; `start` and `doctor` are top-level.
 | `wavegrid projects users list` | List UI usernames. |
 | `wavegrid projects users add [name]` | Add/replace a UI login user (password hashed). |
 | `wavegrid projects users rm <name>` | Remove a UI login user. |
+| `wavegrid projects keys ls` | List named access keys with role, state and last use. |
+| `wavegrid projects keys new <name>` | Mint an access key (passphrase printed once); `--admin` for an admin key. |
+| `wavegrid projects keys enable\|disable <name>` | Turn one key's logins on/off, keeping its passphrase. |
+| `wavegrid projects keys rm <name>` | Revoke one key (`--all` revokes every key). |
 | `wavegrid projects env export` | Write a `.env` for the current project (`--file` to override). |
 | `wavegrid settings environment` | Show the store location + environment (paths, active project, base override). |
 | `wavegrid settings initialize` | Create/ensure the global store scaffold. |
 | `wavegrid start` | Load the active project and run server + receiver in-process. |
 | `wavegrid doctor` | Diagnose this laptop (env hijacks, ports, secrets, users, shard) and — if a server is reachable — the whole installation: connected receivers + shard coverage (gaps/overlaps). `--json` for scripting, `--server ws://host:port` to point at a remote server. |
 
-`init`, `config`, `secrets`, `users`, and `env` remain as top-level shortcut
+`init`, `config`, `secrets`, `users`, `keys`, and `env` remain as top-level shortcut
 aliases for the `projects …` forms. Every command acts on the active project
 unless you pass `--project <name>` (or set `WAVEGRID_PROJECT`).
 

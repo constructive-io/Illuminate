@@ -1,12 +1,16 @@
-import { type DeviceIdentity, getDevice, setDeviceName } from './device';
 import {
-  authenticateGuest,
-  clearGuest,
-  type GuestStatus,
-  guestStatus,
-  rotateGuestPassphrase,
-  setGuestEnabled
-} from './guest';
+  type AccessKeyInfo,
+  authenticateAccessKey,
+  getAccessKeyRole,
+  listAccessKeys,
+  mintAccessKey,
+  type MintedAccessKey,
+  removeAccessKey,
+  removeAllAccessKeys,
+  setAccessKeyEnabled,
+  setAccessKeyRole
+} from './access-keys';
+import { type DeviceIdentity, getDevice, setDeviceName } from './device';
 import {
   deleteLightMap,
   getActiveLightMap,
@@ -138,14 +142,18 @@ export interface SettingsStore {
   verifyUser(project: string, username: string, password: string): boolean;
   authenticate(project: string, username: string, password: string): UserInfo | null;
 
-  // Shared guest access (one low-privilege operator passphrase to hand out)
-  guestStatus(project: string): GuestStatus;
-  /** Mint/rotate the shared passphrase, enabling guest access. Returns the
-   *  cleartext exactly once — only its hash is persisted. */
-  rotateGuestPassphrase(project: string): string;
-  setGuestEnabled(project: string, enabled: boolean): GuestStatus;
-  clearGuest(project: string): void;
-  authenticateGuest(project: string, passphrase: string): UserInfo | null;
+  // Access keys — named passphrases minted at runtime and revocable one by one.
+  // Handed to a person or shared with a crowd; each carries its own role.
+  listAccessKeys(project: string): AccessKeyInfo[];
+  getAccessKeyRole(project: string, name: string): UserRole | null;
+  /** Mint (or re-mint) a key. The cleartext comes back exactly once — only its
+   *  hash is persisted, so a forgotten key is replaced, not recovered. */
+  mintAccessKey(project: string, name: string, role?: UserRole): MintedAccessKey;
+  setAccessKeyEnabled(project: string, name: string, enabled: boolean): AccessKeyInfo | null;
+  setAccessKeyRole(project: string, name: string, role: UserRole): AccessKeyInfo | null;
+  removeAccessKey(project: string, name: string): boolean;
+  removeAllAccessKeys(project: string): number;
+  authenticateAccessKey(project: string, passphrase: string): UserInfo | null;
 
   // UI sessions (cheap server-visible login records; sockets untouched)
   createSession(project: string, input: CreateSessionInput): Session;
@@ -220,17 +228,35 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     listUsers: (project) => listUsernames(paths, project),
     listUserInfos: (project) => listUserInfos(paths, project),
     getUserRole: (project, username) => getUserRole(paths, project, username),
-    addUser: (project, username, password, role) => addUser(paths, project, username, password, role),
+    // A key's name *is* the identity its holder logs in as, so accounts and keys
+    // share one namespace — guard both directions rather than resolving a clash
+    // at login time.
+    addUser: (project, username, password, role) => {
+      if (listAccessKeys(paths, project).some((k) => k.name === username)) {
+        throw new Error(`"${username}" is already an access key in ${project}; pick another name.`);
+      }
+      addUser(paths, project, username, password, role);
+    },
     setUserRole: (project, username, role) => setUserRole(paths, project, username, role),
     removeUser: (project, username) => removeUser(paths, project, username),
     verifyUser: (project, username, password) => verifyUser(paths, project, username, password),
     authenticate: (project, username, password) => authenticate(paths, project, username, password),
 
-    guestStatus: (project) => guestStatus(paths, project),
-    rotateGuestPassphrase: (project) => rotateGuestPassphrase(paths, project),
-    setGuestEnabled: (project, enabled) => setGuestEnabled(paths, project, enabled),
-    clearGuest: (project) => clearGuest(paths, project),
-    authenticateGuest: (project, passphrase) => authenticateGuest(paths, project, passphrase),
+    listAccessKeys: (project) => listAccessKeys(paths, project),
+    getAccessKeyRole: (project, name) => getAccessKeyRole(paths, project, name),
+    mintAccessKey: (project, name, role) => {
+      if (listUsernames(paths, project).includes(name)) {
+        throw new Error(`"${name}" is already a user account in ${project}; pick another name.`);
+      }
+      return mintAccessKey(paths, project, name, role);
+    },
+    setAccessKeyEnabled: (project, name, enabled) =>
+      setAccessKeyEnabled(paths, project, name, enabled),
+    setAccessKeyRole: (project, name, role) => setAccessKeyRole(paths, project, name, role),
+    removeAccessKey: (project, name) => removeAccessKey(paths, project, name),
+    removeAllAccessKeys: (project) => removeAllAccessKeys(paths, project),
+    authenticateAccessKey: (project, passphrase) =>
+      authenticateAccessKey(paths, project, passphrase),
 
     createSession: (project, input) => createSession(paths, project, input),
     listSessions: (project) => listSessions(paths, project),

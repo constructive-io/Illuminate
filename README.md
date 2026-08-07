@@ -278,7 +278,19 @@ wavegrid projects users list
 wavegrid projects users rm <name>
 ```
 
-When the active project has users, the UI requires login; with none, login is unavailable (503) — add a user first. Session tokens are JWTs signed with the project's store-held `jwtSecret` (generated once at project creation; the store is authoritative on both UI and server, so they can never desync).
+Alongside real accounts there are **access keys** — named passphrases minted at runtime, one per person or one shared with a crowd:
+
+```sh
+wavegrid projects keys new dan-ipad        # a personal key
+wavegrid projects keys new friday-guests   # a shared "guest passphrase"
+wavegrid projects keys ls                  # role, state, last use
+wavegrid projects keys disable friday-guests
+wavegrid projects keys rm friday-guests    # --all revokes every key
+```
+
+The passphrase is generated and printed once (only a salted scrypt hash is stored); re-mint the same name to replace a forgotten one. Keys default to the **operator** role — drive the show, no access management — with `--admin` for a deliberate admin key. Each key is independently enabled, disabled or revoked, and revoking one drops the sessions opened with it. The shared receiver key is unrelated and never grants admin.
+
+When the active project has users or enabled keys, the UI requires login; with none, login is unavailable (503) — add a user or mint a key first. Session tokens are JWTs signed with the project's store-held `jwtSecret` (generated once at project creation; the store is authoritative on both UI and server, so they can never desync).
 
 ### Environment Variables Reference
 
