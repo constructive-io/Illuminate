@@ -3,7 +3,15 @@ import { autoMap, resolveLayout } from '@wavegrid/layout';
 import { openStore } from '@wavegrid/settings';
 import { ipcMain } from 'electron';
 
-import { sendToBrain, startBrain, status, stopBrain } from '@/main/brain';
+import {
+  sendToBrain,
+  startBrain,
+  startLocalReceiver,
+  status,
+  stopBrain,
+  stopLocalReceiver
+} from '@/main/brain';
+import { buildDoctorReport } from '@/main/doctor';
 import { type LaserSyncState, syncLaser } from '@/main/laser-view';
 import { buildLightMapView } from '@/main/light-map';
 import { applyOscTarget, toOscTarget } from '@/main/osc-target';
@@ -93,6 +101,13 @@ export function registerAllIpc(): void {
   ipcMain.handle('brain:status', () => status());
   ipcMain.handle('brain:start', (_e, project: string) => startBrain(project));
   ipcMain.handle('brain:stop', () => stopBrain());
+  // Receiver-only controls: the output stage reads its OSC target, shard, and
+  // light map at startup, so restarting just the receiver applies a config
+  // change without dropping the server, the laser UI, or connected clients.
+  ipcMain.handle('brain:startReceiver', () => startLocalReceiver());
+  ipcMain.handle('brain:stopReceiver', () => stopLocalReceiver());
+
+  ipcMain.handle('doctor:report', (_e, project: string) => buildDoctorReport(project));
 
   ipcMain.handle('projects:list', () => projectSummaries());
   ipcMain.handle('projects:active', () => openStore().getActiveProject());

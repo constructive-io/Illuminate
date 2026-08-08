@@ -1,198 +1,15 @@
 import { loadWavegridConfig } from '@wavegrid/layout';
-import { formatRanges, type SystemStatus } from '@wavegrid/server';
-import { projectSecretsFile } from '@wavegrid/settings';
-import { accessSync, constants, existsSync, statSync } from 'fs';
-import net from 'net';
-import { dirname } from 'path';
-import { URL } from 'url';
-import { WebSocket } from 'ws';
-import c from 'yanse';
-
-import { type Flags, getStore } from '../project';
 import {
   type Check,
   checkEnvHijack,
-  checkOsc,
-  checkShard,
-  isSecureMode,
+  collectDiagnostics,
+  type Diagnostics,
   overallStatus
-} from './doctor-checks';
+} from '@wavegrid/doctor';
+import { formatRanges, type SystemStatus } from '@wavegrid/server';
+import c from 'yanse';
 
-const NODE_MIN_MAJOR = 18;
-
-/** TCP probe: resolve 'open' if something is listening, else 'closed'. */
-function tcpProbe(host: string, port: number, timeoutMs = 1500): Promise<'open' | 'closed'> {
-  const target = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host;
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    const done = (result: 'open' | 'closed') => {
-      socket.destroy();
-      resolve(result);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once('connect', () => done('open'));
-    socket.once('timeout', () => done('closed'));
-    socket.once('error', () => done('closed'));
-    socket.connect(port, target);
-  });
-}
-
-interface StatusProbe {
-  status?: SystemStatus;
-  /** 'unauthorized' when the server rejected our receiver key. */
-  error?: 'unauthorized' | 'timeout' | 'refused' | 'not-wavegrid';
-}
-
-/** Connect to a running server and request a system_status snapshot. */
-function querySystemStatus(url: string, key: string, timeoutMs = 3000): Promise<StatusProbe> {
-  return new Promise((resolve) => {
-    const u = new URL(url);
-    if (key) u.searchParams.set('key', key);
-    let settled = false;
-    const finish = (probe: StatusProbe) => {
-      if (settled) return;
-      settled = true;
-      try { ws.close(); } catch { /* ignore */ }
-      resolve(probe);
-    };
-    const timer = setTimeout(() => finish({ error: 'timeout' }), timeoutMs);
-    const ws = new WebSocket(u.toString());
-
-    ws.on('open', () => ws.send(JSON.stringify({ type: 'system_status' })));
-    ws.on('unexpected-response', (_req, res) => {
-      clearTimeout(timer);
-      finish({ error: res.statusCode === 401 ? 'unauthorized' : 'not-wavegrid' });
-    });
-    ws.on('message', (raw) => {
-      try {
-        const msg = JSON.parse(raw.toString());
-        if (msg.type === 'system_status') {
-          clearTimeout(timer);
-          finish({ status: msg as SystemStatus });
-        }
-      } catch { /* ignore non-JSON frames */ }
-    });
-    ws.on('error', () => {
-      clearTimeout(timer);
-      finish({ error: 'refused' });
-    });
-  });
-}
-
-/**
- * Whether `dir` is (or can be) writable. Store subdirs are created lazily at
- * `start`, so a missing dir is fine as long as its nearest existing ancestor
- * is writable — otherwise a fresh project would spuriously fail the check.
- */
-function dirWritable(dir: string): boolean {
-  let target = dir;
-  while (!existsSync(target)) {
-    const parent = dirname(target);
-    if (parent === target) return false;
-    target = parent;
-  }
-  try {
-    accessSync(target, constants.W_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Build the local (this-laptop) checks. */
-function localChecks(flags: Flags, cwd: string): { checks: Check[]; project?: string; serverUrl?: string; key?: string } {
-  const checks: Check[] = [];
-
-  // Node version
-  const major = parseInt(process.versions.node.split('.')[0], 10);
-  checks.push(
-    major >= NODE_MIN_MAJOR
-      ? { name: 'Node', status: 'pass', detail: `v${process.versions.node}` }
-      : { name: 'Node', status: 'warn', detail: `v${process.versions.node} < ${NODE_MIN_MAJOR}`, remedy: `install Node ${NODE_MIN_MAJOR}+` }
-  );
-
-  // Store reachable + writable
-  const store = getStore();
-  checks.push(
-    dirWritable(store.paths.root)
-      ? { name: 'Store', status: 'pass', detail: store.paths.root }
-      : { name: 'Store', status: 'fail', detail: `not writable: ${store.paths.root}`, remedy: 'check permissions or APPSTASH_BASE_DIR' }
-  );
-
-  // Machine-local device identity (self-registration / discovery).
-  const device = store.getDevice();
-  checks.push({ name: 'Device', status: 'pass', detail: `${device.name} (${device.id.slice(0, 8)}…)` });
-
-  // Active project resolution
-  const explicit = (typeof flags.project === 'string' ? flags.project : undefined) ?? process.env.WAVEGRID_PROJECT;
-  const project = explicit ?? store.getActiveProject() ?? undefined;
-  if (!project || !store.hasProject(project)) {
-    checks.push({
-      name: 'Project',
-      status: 'fail',
-      detail: project ? `unknown project "${project}"` : 'no active project',
-      remedy: 'wavegrid init <name>   (or `wavegrid use <name>`)'
-    });
-    // Everything below needs a project; return early.
-    checks.push(checkEnvHijack(process.env));
-    return { checks };
-  }
-  checks.push({ name: 'Project', status: 'pass', detail: project });
-  if (store.getActiveProject() !== project) store.setActiveProject(project);
-
-  // Resolve config (layout, mode, ports)
-  const resolved = loadWavegridConfig({ cwd });
-  const { config, layout, runMode } = resolved;
-  checks.push({ name: 'Layout', status: 'pass', detail: `${layout.name} (${layout.topology}, ${layout.count} cannons) · ${runMode}` });
-
-  // Shard bounds
-  checks.push(checkShard(layout.count, config.receiver.shard));
-
-  // Secrets present + secure perms
-  for (const s of store.requiredSecrets(project)) {
-    if (!s.set) {
-      checks.push({ name: `Secret ${s.name}`, status: 'fail', detail: 'NOT SET', remedy: 'wavegrid secrets init' });
-      continue;
-    }
-    let modeOk = true;
-    try {
-      const mode = statSync(projectSecretsFile(store.paths, project)).mode;
-      modeOk = isSecureMode(mode);
-    } catch { /* file existence already implied by s.set */ }
-    checks.push(
-      modeOk
-        ? { name: `Secret ${s.name}`, status: 'pass', detail: 'set (0600)' }
-        : { name: `Secret ${s.name}`, status: 'warn', detail: 'set but file is group/other-readable', remedy: `chmod 600 ${projectSecretsFile(store.paths, project)}` }
-    );
-  }
-
-  // Users
-  const users = store.listUsers(project);
-  checks.push(
-    users.length > 0
-      ? { name: 'Users', status: 'pass', detail: `${users.length} UI login(s)` }
-      : { name: 'Users', status: 'warn', detail: 'no UI users — login returns 503', remedy: 'wavegrid users add <name>' }
-  );
-
-  // State + logs writable
-  for (const [label, dir] of [['State dir', store.stateDir(project)], ['Logs dir', store.logsDir(project)]] as const) {
-    checks.push(
-      dirWritable(dir)
-        ? { name: label, status: 'pass', detail: dir }
-        : { name: label, status: 'warn', detail: `not writable: ${dir}`, remedy: 'check store permissions' }
-    );
-  }
-
-  // OSC
-  checks.push(checkOsc(config));
-
-  // Ambient env footgun
-  checks.push(checkEnvHijack(process.env));
-
-  const key = store.hasSecret(project, 'receiverKey') ? store.requireSecret(project, 'receiverKey') : undefined;
-  const serverUrl = process.env.SIMULATOR_URL || `ws://localhost:${config.server.port}`;
-  return { checks, project, serverUrl, key };
-}
+import { type Flags, getStore } from '../project';
 
 function renderCheck(check: Check): void {
   const icon = check.status === 'pass' ? c.green('✓') : check.status === 'warn' ? c.yellow('!') : c.red('✗');
@@ -229,13 +46,11 @@ function renderSystem(status: SystemStatus): void {
 }
 
 /** Render the project device registry (devices that have joined, incl. offline). */
-function renderDevices(project: string): void {
-  const store = getStore();
-  const devices = store.listDevices(project);
-  if (devices.length === 0) return;
+function renderDevices(diag: Diagnostics): void {
+  if (diag.devices.length === 0) return;
   console.log('');
-  console.log(c.bold(`  Devices (registered · ${project})`));
-  for (const d of devices) {
+  console.log(c.bold(`  Devices (registered · ${diag.project})`));
+  for (const d of diag.devices) {
     const at = d.address ? c.gray(d.address) : c.gray('—');
     const seen = d.lastSeen ? c.gray(seenAgo(d.lastSeen)) : c.gray('never');
     console.log(`      • ${c.cyan(d.name)}  ${at}  ${seen}`);
@@ -244,40 +59,34 @@ function renderDevices(project: string): void {
 
 /**
  * Render config-sync state: the current project revision and any devices that
- * lag it (divergence is surfaced, never hidden). Prefers the server's
- * authoritative view; falls back to this laptop's local sync state offline.
- * Silent for a simple project with no synced edits — no pay-as-you-go noise.
+ * lag it (divergence is surfaced, never hidden). Silent for a simple project
+ * with no synced edits — no pay-as-you-go noise.
  */
-function renderSync(project: string, serverSync?: SystemStatus['sync']): void {
-  const store = getStore();
-  const local = store.getSyncState(project);
-  const revision = serverSync?.revision ?? local.revision;
-  const hasEdits = revision > 0 || Object.keys(local.entries).length > 0;
+function renderSync(diag: Diagnostics): void {
+  const { sync, project } = diag;
 
   // Explicitly-off sync is worth a one-liner (edits won't propagate); an
-  // untouched simple project with sync on stays silent — no pay-as-you-go noise.
-  if (store.getProjectConfig(project)?.sync?.enabled === false) {
+  // untouched simple project with sync on stays silent.
+  if (!sync.enabled) {
     console.log('');
     console.log(c.bold(`  Config sync (${project})`));
     console.log(`  ${c.yellow('○')} disabled ${c.gray('— edits stay local to each device (`wavegrid config set sync true` to replicate)')}`);
     return;
   }
 
-  if (!hasEdits) return;
+  if (sync.revision === 0 && sync.entryCount === 0) return;
 
-  const known = store.listDevices(project);
-  const nameFor = (id: string): string => known.find((d) => d.id === id)?.name ?? `${id.slice(0, 8)}…`;
-  const divergent = serverSync?.divergent ?? store.divergentDevices(project, known.map((d) => d.id));
-  const source = serverSync ? 'server-reported' : 'local';
+  const nameFor = (id: string): string => diag.devices.find((d) => d.id === id)?.name ?? `${id.slice(0, 8)}…`;
+  const source = sync.fromServer ? 'server-reported' : 'local';
 
   console.log('');
   console.log(c.bold(`  Config sync (${project})`));
-  console.log(`  → Revision: ${c.cyan(String(revision))} ${c.gray(`(${source})`)}`);
-  if (divergent.length === 0) {
-    console.log(`  ${c.green('✓')} all devices at revision ${revision}`);
+  console.log(`  → Revision: ${c.cyan(String(sync.revision))} ${c.gray(`(${source})`)}`);
+  if (sync.divergent.length === 0) {
+    console.log(`  ${c.green('✓')} all devices at revision ${sync.revision}`);
   } else {
-    console.log(c.yellow(`  ! ${divergent.length} device(s) behind:`));
-    for (const d of divergent) {
+    console.log(c.yellow(`  ! ${sync.divergent.length} device(s) behind:`));
+    for (const d of sync.divergent) {
       console.log(`      • ${c.cyan(nameFor(d.deviceId))}  ${c.gray(`acked rev ${d.ackedRevision}, behind by ${d.behindBy}`)}`);
     }
     console.log(`      ${c.gray('↳ reconnect the device(s) to the brain to resync (`wavegrid receiver` / reopen the UI)')}`);
@@ -294,37 +103,49 @@ function seenAgo(lastSeen: number): string {
   return `seen ${Math.round(hrs / 24)}d ago`;
 }
 
+/** Report the one case the shared collector cannot: no project to diagnose. */
+function reportNoProject(project: string | undefined, json: boolean): void {
+  const checks: Check[] = [
+    {
+      name: 'Project',
+      status: 'fail',
+      detail: project ? `unknown project "${project}"` : 'no active project',
+      remedy: 'wavegrid init <name>   (or `wavegrid use <name>`)'
+    },
+    checkEnvHijack(process.env)
+  ];
+  if (json) {
+    console.log(JSON.stringify({ checks, overall: overallStatus(checks), server: null }, null, 2));
+  } else {
+    console.log('');
+    console.log(c.bold('  Wavegrid · doctor'));
+    console.log('');
+    for (const check of checks) renderCheck(check);
+    console.log('');
+    console.log(`  Result: ${c.red('problems found')}`);
+    console.log('');
+  }
+  process.exitCode = 1;
+}
+
 /** `wavegrid doctor [--project name] [--server ws://host:port] [--json]` */
 export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise<void> {
-  const { checks, project, serverUrl, key } = localChecks(flags, cwd);
-
-  // System view: connect to the configured (or --server) server if reachable.
-  const url = (typeof flags.server === 'string' ? flags.server : undefined) ?? serverUrl;
-  let system: StatusProbe | undefined;
-  let portState: 'open' | 'closed' | undefined;
-  if (url) {
-    const u = new URL(url);
-    const port = parseInt(u.port || '3000', 10);
-    portState = await tcpProbe(u.hostname, port);
-    if (portState === 'open') {
-      system = await querySystemStatus(url, key ?? '');
-    }
+  const store = getStore();
+  const explicit = (typeof flags.project === 'string' ? flags.project : undefined) ?? process.env.WAVEGRID_PROJECT;
+  const project = explicit ?? store.getActiveProject() ?? undefined;
+  if (!project || !store.hasProject(project)) {
+    reportNoProject(project, Boolean(flags.json));
+    return;
   }
+  if (store.getActiveProject() !== project) store.setActiveProject(project);
+
+  const resolved = loadWavegridConfig({ cwd });
+  const serverUrl = (typeof flags.server === 'string' ? flags.server : undefined) ?? process.env.SIMULATOR_URL;
+  const diag = await collectDiagnostics({ store, project, resolved, serverUrl });
 
   if (flags.json) {
-    console.log(JSON.stringify({
-      checks,
-      overall: overallStatus(checks),
-      devices: project ? getStore().listDevices(project) : [],
-      sync: project ? getStore().getSyncState(project) : null,
-      divergent: project
-        ? (system?.status?.sync?.divergent ??
-            getStore().divergentDevices(project, getStore().listDevices(project).map((d) => d.id)))
-        : [],
-      server: system?.status ?? null,
-      serverError: system?.error ?? (portState === 'closed' ? 'not-running' : undefined)
-    }, null, 2));
-    process.exitCode = overallStatus(checks) === 'fail' ? 1 : 0;
+    console.log(JSON.stringify(diag, null, 2));
+    process.exitCode = diag.overall === 'fail' ? 1 : 0;
     return;
   }
 
@@ -332,31 +153,28 @@ export async function runDoctor(flags: Flags = {}, cwd = process.cwd()): Promise
   console.log(c.bold('  Wavegrid · doctor'));
   console.log('');
   console.log(c.bold('  Local'));
-  for (const check of checks) renderCheck(check);
+  for (const check of diag.checks) renderCheck(check);
 
-  if (project) renderDevices(project);
-  if (project) renderSync(project, system?.status?.sync);
+  renderDevices(diag);
+  renderSync(diag);
 
-  if (url) {
-    if (portState === 'closed') {
-      console.log('');
-      console.log(c.gray(`  Server not running at ${url} (start it with \`wavegrid start\`).`));
-    } else if (system?.status) {
-      renderSystem(system.status);
-    } else if (system?.error === 'unauthorized') {
-      console.log('');
-      console.log(c.red(`  ✗ Server at ${url} rejected our receiverKey (401).`));
-      console.log(`      ${c.gray('↳ this laptop\'s receiverKey must match the server\'s — re-sync via `wavegrid env export`')}`);
-    } else if (system?.error) {
-      console.log('');
-      console.log(c.yellow(`  ! Could not read system status from ${url} (${system.error}).`));
-    }
+  if (diag.server) {
+    renderSystem(diag.server);
+  } else if (diag.serverError === 'not-running') {
+    console.log('');
+    console.log(c.gray(`  Server not running at ${diag.serverUrl} (start it with \`wavegrid start\`).`));
+  } else if (diag.serverError === 'unauthorized') {
+    console.log('');
+    console.log(c.red(`  ✗ Server at ${diag.serverUrl} rejected our receiverKey (401).`));
+    console.log(`      ${c.gray('↳ this laptop\'s receiverKey must match the server\'s — re-sync via `wavegrid env export`')}`);
+  } else if (diag.serverError) {
+    console.log('');
+    console.log(c.yellow(`  ! Could not read system status from ${diag.serverUrl} (${diag.serverError}).`));
   }
 
-  const overall = overallStatus(checks);
   console.log('');
-  const label = overall === 'pass' ? c.green('healthy') : overall === 'warn' ? c.yellow('warnings') : c.red('problems found');
+  const label = diag.overall === 'pass' ? c.green('healthy') : diag.overall === 'warn' ? c.yellow('warnings') : c.red('problems found');
   console.log(`  Result: ${label}`);
   console.log('');
-  process.exitCode = overall === 'fail' ? 1 : 0;
+  process.exitCode = diag.overall === 'fail' ? 1 : 0;
 }

@@ -10,7 +10,14 @@ interface Runtime {
 
 export const runtime: Runtime = {
   mainWindow: null,
-  lastStatus: { running: false, url: null, project: null, runMode: null, lanUrls: [] }
+  lastStatus: {
+    running: false,
+    url: null,
+    project: null,
+    runMode: null,
+    receiverRunning: false,
+    lanUrls: []
+  }
 };
 
 /** Push an event + payload to the renderer, if a live window exists. */

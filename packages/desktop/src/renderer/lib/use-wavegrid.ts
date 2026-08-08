@@ -5,6 +5,7 @@ import type {
   BrainStatus,
   DeviceInfo,
   DiscoveredBrainInfo,
+  DoctorReport,
   EditableConfig,
   ExportResult,
   ImportRequest,
@@ -27,6 +28,7 @@ const EMPTY_STATUS: BrainStatus = {
   url: null,
   project: null,
   runMode: null,
+  receiverRunning: false,
   lanUrls: []
 };
 
@@ -512,6 +514,40 @@ export function useDevices(project: string | null): {
   }, [refresh]);
 
   return { devices, refresh, rename, assignShard };
+}
+
+/**
+ * The live health snapshot for a project — the same data `wavegrid doctor`
+ * prints. Each collection probes the brain, so refresh is explicit (or on an
+ * interval the Status screen owns) rather than on every render.
+ */
+export function useDoctor(project: string | null): {
+  report: DoctorReport | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  } {
+  const [report, setReport] = React.useState<DoctorReport | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    if (!project) {
+      setReport(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      setReport(await window.wavegrid.doctor.report(project));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [project]);
+
+  return { report, loading, error, refresh };
 }
 
 /** The global store: where it lives, what it holds, and clear-all. */

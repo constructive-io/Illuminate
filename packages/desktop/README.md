@@ -47,6 +47,19 @@ leaves exactly one target behind, and a unified routing spec (authored with
 its `ws://` URL instead of hunting for an IP. Multicast is often blocked, so
 scanning is explicit and an empty result is reported as such.
 
+The **Status** route is `wavegrid doctor` as a live screen: it calls the same
+`@wavegrid/doctor` collector the CLI does, so the two can never disagree about
+health. Left column is the show — brain version/layout/mode/uptime, its connected
+receivers with their shards and any layout mismatch, shard coverage (gaps and
+overlaps), the registered-device list and config-sync divergence. Right column is
+this laptop's checklist with the exact remedy for anything warning or failing.
+Both columns scroll independently inside a fixed-height page, so nothing falls
+below the fold on a short window. It also carries the **receiver controls**: the
+output stage can be stopped and restarted on its own, without dropping the
+server, the laser UI, or connected clients — which is how an OSC-target, shard,
+or light-map change is applied mid-session (the receiver reads all three at
+startup).
+
 The **Settings** route shows where that store lives and offers *clear all* —
 the same wipe as `wavegrid settings clear`, gated on typing `clear all`. It
 stops the brain first, then removes every project, secret, user, access key,

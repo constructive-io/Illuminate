@@ -76,6 +76,9 @@ importers:
       '@wavegrid/discovery':
         specifier: workspace:*
         version: link:../discovery/dist
+      '@wavegrid/doctor':
+        specifier: workspace:*
+        version: link:../doctor/dist
       '@wavegrid/layout':
         specifier: workspace:*
         version: link:../layout/dist
@@ -131,6 +134,9 @@ importers:
       '@wavegrid/discovery':
         specifier: workspace:*
         version: link:../discovery/dist
+      '@wavegrid/doctor':
+        specifier: workspace:*
+        version: link:../doctor/dist
       '@wavegrid/layout':
         specifier: workspace:*
         version: link:../layout/dist
@@ -238,6 +244,29 @@ importers:
         specifier: 1.4.3
         version: 1.4.3
     devDependencies:
+      makage:
+        specifier: ^0.3.0
+        version: 0.3.1
+    publishDirectory: dist
+
+  packages/doctor:
+    dependencies:
+      '@wavegrid/layout':
+        specifier: workspace:*
+        version: link:../layout/dist
+      '@wavegrid/server':
+        specifier: workspace:*
+        version: link:../server/dist
+      '@wavegrid/settings':
+        specifier: workspace:*
+        version: link:../settings/dist
+      ws:
+        specifier: ^8.18.0
+        version: 8.21.0
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.5.13
+        version: 8.18.1
       makage:
         specifier: ^0.3.0
         version: 0.3.1

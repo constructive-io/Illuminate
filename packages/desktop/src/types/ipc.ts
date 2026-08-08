@@ -9,6 +9,9 @@ export interface BrainStatus {
   url: string | null;
   project: string | null;
   runMode: RunMode | null;
+  /** Whether this machine's in-process receiver (the output stage) is running.
+   *  It can be stopped and restarted without taking the brain down. */
+  receiverRunning: boolean;
   /** LAN URLs receivers / iPads can point at while the brain is running. */
   lanUrls: string[];
 }
@@ -253,6 +256,63 @@ export interface StoreClearResult {
   info: StoreInfo;
 }
 
+/** One diagnostic and, when it isn't passing, the exact fix. */
+export interface DoctorCheck {
+  name: string;
+  status: 'pass' | 'warn' | 'fail';
+  detail: string;
+  remedy?: string;
+}
+
+/** A receiver the brain currently has connected, as the brain sees it. */
+export interface DoctorReceiver {
+  /** Device name, else host, else remote address. */
+  label: string;
+  remote: string;
+  /** "start–end" or "all cannons". */
+  shard: string;
+  version: string | null;
+  /** Set when this receiver's layout disagrees with the server's — it would
+   *  drive the wrong fixtures. */
+  layoutMismatch: string | null;
+}
+
+/** The live health snapshot behind the Status screen — the same data
+ *  `wavegrid doctor` prints, formatted for display. */
+export interface DoctorReport {
+  project: string;
+  checks: DoctorCheck[];
+  overall: 'pass' | 'warn' | 'fail';
+  devices: { name: string; address: string | null; lastSeen: number | null; shard: string | null }[];
+  sync: {
+    enabled: boolean;
+    revision: number;
+    /** True when the revision came from the running brain, not local state. */
+    fromServer: boolean;
+    /** False for an untouched project, where replication has nothing to report. */
+    relevant: boolean;
+    behind: { name: string; ackedRevision: number; behindBy: number }[];
+  };
+  /** The brain's own report, or null when it could not be read. */
+  server: {
+    version: string;
+    layoutName: string;
+    count: number;
+    mode: string;
+    port: number;
+    uptimeMs: number;
+    uiClients: number;
+    receivers: DoctorReceiver[];
+    coverage: { claimed: string; gaps: string; overlaps: string; healthy: boolean };
+  } | null;
+  serverUrl: string;
+  /** 'not-running' | 'unauthorized' | 'timeout' | 'refused' | 'not-wavegrid'. */
+  serverError: string | null;
+  /** Whether this machine's receiver is driving the show right now. */
+  receiverRunning: boolean;
+  generatedAt: number;
+}
+
 export interface LaserBounds {
   x: number;
   y: number;
@@ -272,7 +332,16 @@ export interface WavegridApi {
     status(): Promise<BrainStatus>;
     start(project: string): Promise<BrainStatus>;
     stop(): Promise<BrainStatus>;
+    /** Start this machine's receiver against the running brain (no-op if up). */
+    startReceiver(): Promise<BrainStatus>;
+    /** Stop the receiver only — the server and laser UI keep running. */
+    stopReceiver(): Promise<BrainStatus>;
     onStatus(cb: (status: BrainStatus) => void): () => void;
+  };
+  doctor: {
+    /** Collect the full health snapshot for a project (probes the brain, so it
+     *  can take up to a few seconds when nothing is listening). */
+    report(project: string): Promise<DoctorReport | null>;
   };
   projects: {
     list(): Promise<ProjectSummary[]>;
