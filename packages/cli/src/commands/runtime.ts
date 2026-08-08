@@ -4,8 +4,9 @@
  * Keeps the store→env plumbing in one place so the three entry points stay in
  * lockstep on secrets, paths, and UI asset resolution.
  */
-import { type ResolvedConfig } from '@wavegrid/layout';
+import { generateDeviceRouting, type ResolvedConfig, RoutingValidationError, type ShardConfig } from '@wavegrid/layout';
 import { type SettingsStore } from '@wavegrid/settings';
+import { mkdirSync, writeFileSync } from 'fs';
 import { networkInterfaces } from 'os';
 import { join } from 'path';
 import c from 'yanse';
@@ -51,6 +52,57 @@ export function applyReceiverEnv(store: SettingsStore, project: string, resolved
   // Distributed mode: pick up this laptop's operator-assigned shard from the
   // project registry when no explicit `--shard` was given.
   if (resolved.runMode === 'distributed') applyAssignedShard(store, project, device.id);
+  applyGeneratedRouting(store, project, resolved, device.name);
+}
+
+/** The shard this receiver will run with, per the env applied so far. */
+function envShard(): ShardConfig | undefined {
+  const start = process.env.SHARD_START;
+  const end = process.env.SHARD_END;
+  if (start === undefined || end === undefined) return undefined;
+  return { start: parseInt(start, 10), end: parseInt(end, 10) };
+}
+
+/**
+ * Turn the project's unified routing spec into THIS laptop's routing file and
+ * point the receiver at it. The generated file is derived state in the state
+ * dir — the spec is the only thing anyone edits, and no config is ever copied
+ * between machines. A pre-set `ROUTING_CONFIG` (or `osc.routingConfig`) wins,
+ * so the hand-written escape hatch still works.
+ */
+export function applyGeneratedRouting(
+  store: SettingsStore,
+  project: string,
+  resolved: ResolvedConfig,
+  deviceName: string
+): void {
+  const spec = resolved.config.osc.routing;
+  if (!spec) return;
+  if (process.env.ROUTING_CONFIG) return;
+
+  const shard = envShard();
+  try {
+    const { devices, warnings } = generateDeviceRouting(
+      spec,
+      [{ name: deviceName, ...(shard ? { shard } : {}) }],
+      resolved.layout.count
+    );
+    const dir = join(store.stateDir(project), 'routing');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'this-device.json');
+    writeFileSync(file, `${JSON.stringify(devices[0], null, 2)}\n`);
+    process.env.ROUTING_CONFIG = file;
+    for (const warning of warnings) console.log(c.yellow(`  ⚠ ${warning}`));
+  } catch (e) {
+    // Emitting a config we know is wrong would light the wrong lasers, which is
+    // worse than no OSC output at all — so refuse, loudly.
+    const problems = e instanceof RoutingValidationError ? e.problems : [(e as Error).message];
+    console.log('');
+    console.log(c.red(`  ✗ Routing spec for ${project} is invalid — OSC output disabled:`));
+    for (const problem of problems) console.log(c.red(`    - ${problem}`));
+    console.log(c.gray('    Fix it with `wavegrid projects routing show`.'));
+    console.log('');
+  }
 }
 
 /** IPv4 LAN addresses of this machine — the URLs operators point iPads/receivers at. */

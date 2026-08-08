@@ -41,6 +41,26 @@ export {
   normalizeLightMap
 } from './light-map';
 
+// Unified → per-device routing generation (shard + zone re-basing, validation)
+export {
+  type DeviceCannon,
+  type DeviceRouting,
+  generateDeviceRouting,
+  type GenerateRoutingResult,
+  looksDeviceLocal,
+  type RoutingDevice,
+  type RoutingTarget,
+  RoutingValidationError,
+  type ShardCheckOptions,
+  summarizeRanges,
+  uncoveredFixtures,
+  type UnifiedCannon,
+  type UnifiedRouting,
+  unifiedRoutingForSingleTarget,
+  validateShards,
+  validateUnifiedRouting
+} from './routing';
+
 // Config loading (confstash) + run-mode derivation
 export {
   createWavegridLoader,

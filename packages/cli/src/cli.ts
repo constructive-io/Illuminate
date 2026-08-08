@@ -13,6 +13,13 @@ import { runPrintConfig } from './commands/print-config';
 import { runProjectsExport, runProjectsImport } from './commands/project-io';
 import { runProjects, runUse } from './commands/projects';
 import { runReceiver } from './commands/receiver';
+import {
+  printRoutingUsage,
+  runRoutingClear,
+  runRoutingGenerate,
+  runRoutingImport,
+  runRoutingShow
+} from './commands/routing';
 import { runSecretsInit, runSecretsList } from './commands/secrets';
 import { runServer } from './commands/server';
 import { runSettingsEnvironment, runSettingsInitialize } from './commands/settings';
@@ -39,6 +46,7 @@ ${c.bold('Projects')} — manage and edit projects
   projects keys ls|new|rm       Named access keys (per-person or shared passphrases)
   projects devices list|assign  List / name / shard-assign devices that joined
   projects osc                  Set the OSC laser target (BEYOND/FB4) — wizard
+  projects routing show|gen     One global routing spec → per-device configs
   projects export [--out f]     Write a portable project bundle
   projects import <file>        Restore a project from a bundle
   projects env export           Write a .env for the project
@@ -87,6 +95,7 @@ const PROJECTS_SUBS: SubCommand[] = [
   { value: 'keys', description: 'Named access keys — a passphrase per person, or one shared with a crowd' },
   { value: 'devices', description: 'List, rename, or forget devices that joined the project' },
   { value: 'osc', description: 'Set the OSC laser target (BEYOND/FB4/routing) — interactive wizard' },
+  { value: 'routing', description: 'One global routing spec; each laptop\'s config is generated from it' },
   { value: 'export', description: 'Write a portable project bundle (no machine identity)' },
   { value: 'import', description: 'Restore a project from a portable bundle' },
   { value: 'env', description: 'Write a .env for the project' }
@@ -119,6 +128,13 @@ const KEYS_SUBS: SubCommand[] = [
   { value: 'enable', description: 'Enable a key' },
   { value: 'disable', description: 'Disable a key (passphrase kept)' },
   { value: 'rm', description: 'Revoke a key, or --all to revoke every key' }
+];
+
+const ROUTING_SUBS: SubCommand[] = [
+  { value: 'show', description: 'The unified spec, and what each device would be given' },
+  { value: 'import', description: 'Adopt a global routing JSON as the unified spec' },
+  { value: 'generate', description: 'Write the per-device routing files (--device for one)' },
+  { value: 'clear', description: 'Forget the unified spec' }
 ];
 
 const DEVICES_SUBS: SubCommand[] = [
@@ -282,6 +298,25 @@ async function dispatchKeys(
   else unknownSub('keys', sub);
 }
 
+async function dispatchRouting(
+  args: string[],
+  flags: Flags,
+  prompter: Inquirerer,
+  nonInteractive: boolean
+): Promise<void> {
+  // Bare `routing` in a script shows the spec (read-only default).
+  let given = args[0];
+  if (given == null && nonInteractive) given = 'show';
+  const sub = (await resolveSub(given, 'routing', ROUTING_SUBS, prompter, nonInteractive)) ?? undefined;
+  if (sub == null) return;
+  if (sub === 'show' || sub === 'ls' || sub === 'list') runRoutingShow(flags);
+  else if (sub === 'import' || sub === 'adopt') runRoutingImport(flags, args[1]);
+  else if (sub === 'generate' || sub === 'gen') runRoutingGenerate(flags);
+  else if (sub === 'clear' || sub === 'rm') runRoutingClear(flags);
+  else if (sub === 'help') printRoutingUsage();
+  else unknownSub('routing', sub);
+}
+
 async function dispatchDevices(
   args: string[],
   flags: Flags,
@@ -358,6 +393,9 @@ async function dispatchProjects(
     break;
   case 'osc':
     await runOscSetup(rest[0], flags, nonInteractive ? undefined : prompter);
+    break;
+  case 'routing':
+    await dispatchRouting(rest, flags, prompter, nonInteractive);
     break;
   case 'export':
     runProjectsExport(flags);
