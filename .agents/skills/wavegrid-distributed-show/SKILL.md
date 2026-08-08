@@ -55,6 +55,21 @@ wavegrid devices forget <device>
 
 The registry lives in project state on the server and survives restarts. Never copy `device.json` between machines.
 
+## Routing: author once globally, generate per laptop
+
+Never hand-write a routing file per machine — that's how zones drift. The project holds **one unified spec** (`osc.routing`) in global logical order: the OSC targets, which target each global cannon belongs to, and an explicit BEYOND `zoneBase` (0 or 1). Every laptop's file is generated from it, re-basing *both* index spaces at once: the shard slice makes grid indices local (`logical = global − shard.start`, so laptop B's cannons start at 0 again) and `projectorIndex` restarts at `zoneBase` per target. Generated cannons keep `globalLogical` plus a `generated` block, so a device file is always distinguishable from the spec.
+
+```sh
+wavegrid projects routing import routing.json   # adopt a global file; zones regenerated
+wavegrid projects routing import r.json --keep-zones   # pin zones for a rig that can't be renumbered
+wavegrid projects routing show                  # spec + what each device gets (global slice → local → zones)
+wavegrid projects routing generate              # write every device's file (--device <name> for one)
+```
+
+`wavegrid receiver` regenerates *this* laptop's file into project state on start and points `ROUTING_CONFIG` at it, so nothing is copied between machines and an explicit `ROUTING_CONFIG` still wins. Generation refuses rather than emitting a config that would light the wrong fixture: overlapping shards, a fixture nobody drives, a duplicate global index or pinned zone, an unknown target, an FB4 cannon with no serial — and a device-local file fed back in as if it were global (the classic double-rebase). If the spec is invalid at receiver start, OSC output stays off and the reason is printed; fix it with `routing show`.
+
+A single-laptop show needs none of this: no shard, zones `0…N-1`, and `wavegrid projects osc` points straight at BEYOND or FB4.
+
 ## Provisioning a new laptop
 
 ```sh

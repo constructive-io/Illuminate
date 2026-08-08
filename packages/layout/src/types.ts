@@ -7,6 +7,8 @@
  * the server can resolve it once and broadcast it to every client over the wire.
  */
 
+import type { UnifiedRouting } from './routing';
+
 export type Topology = 'grid' | 'ring' | 'filledRing';
 
 /**
@@ -107,14 +109,21 @@ export interface Fb4Config {
 }
 
 /**
- * OSC output. Pick ONE: a single `beyond` target, a single `fb4` target, or a
- * multi-target `routingConfig` file path. All optional — when none is set the
- * receiver runs console-only (no lasers).
+ * OSC output. Pick ONE: a single `beyond` target, a single `fb4` target, a
+ * unified `routing` spec (multi-machine installs — per-device files are
+ * generated from it), or a pre-written `routingConfig` file path. All optional —
+ * when none is set the receiver runs console-only (no lasers).
  */
 export interface OscConfig {
   beyond?: BeyondConfig;
   fb4?: Fb4Config;
-  /** Absolute path to a JSON routing file (multi-target installs). */
+  /**
+   * The authoritative routing spec in GLOBAL logical order. Each laptop's own
+   * config — shard-sliced, with zones re-based for that machine — is generated
+   * from this, so there is exactly one thing to edit. See `./routing`.
+   */
+  routing?: UnifiedRouting;
+  /** Absolute path to a JSON routing file (escape hatch / legacy installs). */
   routingConfig?: string;
 }
 

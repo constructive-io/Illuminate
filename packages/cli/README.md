@@ -51,6 +51,10 @@ global store setup lives under `settings`; `start` and `doctor` are top-level.
 | `wavegrid projects keys new <name>` | Mint an access key (passphrase printed once); `--admin` for an admin key. |
 | `wavegrid projects keys enable\|disable <name>` | Turn one key's logins on/off, keeping its passphrase. |
 | `wavegrid projects keys rm <name>` | Revoke one key (`--all` revokes every key). |
+| `wavegrid projects routing show` | The project's unified routing spec, plus what each registered device would be given (global slice → local re-base → zones). |
+| `wavegrid projects routing import <file>` | Adopt a global routing JSON as the unified spec. Zone numbers are regenerated per device unless `--keep-zones` pins them as installed. |
+| `wavegrid projects routing generate` | Write the per-device routing files (`--device <name>` for one, `--out <dir>` to place them). Refuses on shard gaps/overlaps. |
+| `wavegrid projects routing clear` | Forget the unified spec. |
 | `wavegrid projects env export` | Write a `.env` for the current project (`--file` to override). |
 | `wavegrid settings environment` | Show the store location + environment (paths, active project, base override). |
 | `wavegrid settings initialize` | Create/ensure the global store scaffold. |
@@ -77,6 +81,20 @@ this is the whole installation on one machine — LAN-only, no internet required
 In **distributed** mode it runs the same pair but the receiver shards via the
 project's `receiver.shard` (`SHARD_START` / `SHARD_END`). The artist UI is a
 separate app that reads the same store; it is not launched here.
+
+### Multi-laptop routing is generated, not hand-written
+
+A show with more than one machine keeps **one** spec — every cannon in global
+logical order, with an explicit BEYOND zone base. Each laptop's routing file is
+derived from it: the shard slice re-bases grid indices to 0 for that machine, and
+zones restart per machine too. `wavegrid receiver` regenerates this laptop's file
+into the project state dir on start, so no config is ever copied between
+machines, and a config that would light the wrong fixture (shard gap or overlap,
+duplicate zone, or a device-local file fed back in as global) is refused rather
+than emitted. See [`docs/light-indexing.md`](../../docs/light-indexing.md).
+
+A one-laptop show skips all of it — `wavegrid projects osc` points straight at
+BEYOND or FB4.
 
 ### `wavegrid config` (or `wavegrid --print-config`)
 

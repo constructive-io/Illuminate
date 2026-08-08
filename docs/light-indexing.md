@@ -112,3 +112,46 @@ is exactly what `projectorIndex` (stage 4) and, optionally, `physicalLights`
 
 ⚠️ Combining a shard slice (re-based grid) with a routing config keyed by **global**
 `logical` double-rebases and misaddresses. Pick one convention per receiver.
+
+## Don't hand-write either one — generate them
+
+Both conventions above are hand-maintenance traps, so a project no longer carries
+per-machine routing files. It carries **one unified spec** in global logical order
+(`osc.routing` in the project config): targets, which target each global cannon
+belongs to, and an explicit `zoneBase` (0 or 1). Zones are *not* authored.
+
+Each laptop's file is generated from it (`@wavegrid/layout`'s
+`generateDeviceRouting`), re-basing both index spaces at once:
+
+| | authored (unified) | generated (device) |
+|---|---|---|
+| grid index | global `0…48` | `logical` = `global − shard.start` (stage 3) |
+| BEYOND zone | — | `projectorIndex`, restarting at `zoneBase` per target (stage 4) |
+| provenance | — | `globalLogical` + a `generated` block |
+
+```
+49 cannons, pc-a shard 0–24, pc-b shard 25–48
+  pc-b: global 25 → { logical: 0, globalLogical: 25, projectorIndex: 0 }
+```
+
+The generator refuses rather than emitting a config that would light the wrong
+fixture: overlapping shards, a gap nobody drives, a duplicate global index, an
+unknown target, an FB4 cannon with no serial, two fixtures pinned to one zone —
+and specifically **a device-local file fed back in as if it were global** (it
+carries the `generated` block, so the double-rebase is caught, not silent).
+
+A cannon may still pin `projectorIndex` in the unified spec, for rigs whose zone
+list can't be renumbered (`routing-production-hardware.json` above); generation
+then routes the other zones around the pin.
+
+```bash
+wavegrid projects routing import examples/routing-4x7-lead.json  # zones regenerated
+wavegrid projects routing import ... --keep-zones                # zones as installed
+wavegrid projects routing show                                   # per-device preview
+wavegrid projects routing generate [--device pc-b]               # write the files
+```
+
+`wavegrid receiver` regenerates *this* laptop's file into the project state dir on
+every start, so nothing is copied between machines. A one-laptop show is the
+degenerate case — one device, no shard, zones `0…N-1` — and needs no spec at all:
+`wavegrid projects osc` points it straight at BEYOND or FB4.
