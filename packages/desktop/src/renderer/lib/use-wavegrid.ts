@@ -4,9 +4,11 @@ import type {
   AccessKeyInfo,
   BrainStatus,
   DeviceInfo,
+  DiscoveredBrainInfo,
   EditableConfig,
   LightMapView,
   NewProjectInput,
+  OscTarget,
   ProjectSummary,
   RequiredSecretInfo,
   SessionInfo,
@@ -135,6 +137,59 @@ export function useProjectConfig(project: string | null): {
   }, [refresh]);
 
   return { config, loading, refresh, save };
+}
+
+/** A project's laser output target (BEYOND / FB4 / routing file / none). */
+export function useOscTarget(project: string | null): {
+  target: OscTarget | null;
+  refresh: () => Promise<void>;
+  save: (target: OscTarget) => Promise<void>;
+  } {
+  const [target, setTarget] = React.useState<OscTarget | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    setTarget(project ? await window.wavegrid.osc.get(project) : null);
+  }, [project]);
+
+  const save = React.useCallback(
+    async (next: OscTarget) => {
+      if (!project) return;
+      setTarget(await window.wavegrid.osc.set(project, next));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { target, refresh, save };
+}
+
+/** Brains advertising themselves on the LAN. Browsing takes a couple of seconds
+ *  and resolves empty when multicast is blocked, so it is explicitly triggered
+ *  (never on a timer) and reports whether a scan has ever completed. */
+export function useDiscovery(): {
+  brains: DiscoveredBrainInfo[];
+  scanning: boolean;
+  scanned: boolean;
+  scan: () => Promise<void>;
+  } {
+  const [brains, setBrains] = React.useState<DiscoveredBrainInfo[]>([]);
+  const [scanning, setScanning] = React.useState(false);
+  const [scanned, setScanned] = React.useState(false);
+
+  const scan = React.useCallback(async () => {
+    setScanning(true);
+    try {
+      setBrains(await window.wavegrid.discovery.browse());
+      setScanned(true);
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
+  return { brains, scanning, scanned, scan };
 }
 
 /** UI login users for a project (username + role — password hashes never leave

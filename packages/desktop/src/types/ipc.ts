@@ -57,6 +57,35 @@ export interface EditableConfig {
   cannonCount: number;
 }
 
+/** How a project drives lasers — the same four choices as the CLI's
+ *  `wavegrid projects osc` wizard, flattened for the editor. */
+export interface OscTarget {
+  kind: 'none' | 'beyond' | 'fb4' | 'routing';
+  host: string;
+  port: number;
+  /** BEYOND only: how BEYOND enumerates a grid's fixtures. */
+  gridOrder: 'row' | 'column';
+  /** `routing` only: absolute path to a routing JSON file. */
+  file: string;
+  /** True when the project also holds a unified routing spec, which generates
+   *  each device's config — authored separately, not owned by this screen. */
+  hasUnifiedRouting: boolean;
+}
+
+/** A brain advertising itself on the LAN over mDNS. */
+export interface DiscoveredBrainInfo {
+  name: string;
+  project: string;
+  host: string;
+  port: number;
+  addresses: string[];
+  deviceName: string | null;
+  /** True for a receiver that self-promoted because no dedicated brain was found. */
+  transient: boolean;
+  /** ws:// URL a receiver can be pointed at (`wavegrid receiver --server …`). */
+  serverUrl: string;
+}
+
 /** A user's privilege level. */
 export type UserRole = 'admin' | 'operator';
 
@@ -285,6 +314,18 @@ export interface WavegridApi {
     identify(project: string, physicalIndex: number): Promise<boolean>;
     /** Clear any active identify flash. */
     identifyClear(project: string): Promise<void>;
+  };
+  osc: {
+    /** The project's current laser output target. */
+    get(project: string): Promise<OscTarget | null>;
+    /** Persist a target. Exactly one of beyond/fb4/routing survives; a unified
+     *  routing spec (authored elsewhere) is preserved. */
+    set(project: string, target: OscTarget): Promise<OscTarget | null>;
+  };
+  discovery: {
+    /** Browse the LAN for advertised brains. Resolves [] when multicast is
+     *  unavailable — never rejects, so a blocked network just shows nothing. */
+    browse(timeoutMs?: number): Promise<DiscoveredBrainInfo[]>;
   };
   store: {
     /** Where the store lives + what it currently holds (for the Settings screen). */

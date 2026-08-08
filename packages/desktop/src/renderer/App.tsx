@@ -1,4 +1,4 @@
-import { Cog, Cpu, FolderKanban, Lightbulb, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Cog, Cpu, FolderKanban, Lightbulb, MonitorPlay, Radio, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
@@ -9,7 +9,9 @@ import {
   useAccessKeys,
   useBrainStatus,
   useDevices,
+  useDiscovery,
   useLightMap,
+  useOscTarget,
   usePresets,
   useProjectConfig,
   useProjects,
@@ -22,11 +24,20 @@ import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
 import { DevicesRoute } from '@/renderer/routes/devices-route';
 import { LightsRoute } from '@/renderer/routes/lights-route';
+import { OutputRoute } from '@/renderer/routes/output-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
 import { SettingsRoute } from '@/renderer/routes/settings-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
 
-type Route = 'show' | 'projects' | 'config' | 'access' | 'lights' | 'devices' | 'settings';
+type Route =
+  | 'show'
+  | 'projects'
+  | 'config'
+  | 'access'
+  | 'lights'
+  | 'output'
+  | 'devices'
+  | 'settings';
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
@@ -34,6 +45,7 @@ const ROUTE_LABEL: Record<Route, string> = {
   config: 'Config',
   access: 'Users & Secrets',
   lights: 'Lights',
+  output: 'Output',
   devices: 'Devices',
   settings: 'Settings'
 };
@@ -44,6 +56,7 @@ const ROUTES: Route[] = [
   'config',
   'access',
   'lights',
+  'output',
   'devices',
   'settings'
 ];
@@ -113,6 +126,8 @@ export function App() {
     identifyClear: identifyClearLights
   } = useLightMap(editingProject);
   const { info: storeInfo, refresh: refreshStore, clear: clearStore } = useStore();
+  const { target: oscTarget, refresh: refreshOsc, save: saveOsc } = useOscTarget(editingProject);
+  const discovery = useDiscovery();
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -252,6 +267,13 @@ export function App() {
           isActive: route === 'lights'
         },
         {
+          id: 'output',
+          label: 'Output',
+          href: '#output',
+          icon: Radio,
+          isActive: route === 'output'
+        },
+        {
           id: 'devices',
           label: 'Devices',
           href: '#devices',
@@ -281,8 +303,9 @@ export function App() {
       void refreshSecrets();
     }
     if (route === 'lights') void refreshLightMap();
+    if (route === 'output') void refreshOsc();
     if (route === 'settings') void refreshStore();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap, refreshStore]);
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap, refreshOsc, refreshStore]);
 
   return (
     <AppShell
@@ -366,6 +389,20 @@ export function App() {
           devices={devices}
           onRename={(id, name) => void renameDevice(id, name)}
           onAssignShard={(id, shard) => void assignShard(id, shard)}
+          busy={busy}
+          discovery={{
+            brains: discovery.brains,
+            scanning: discovery.scanning,
+            scanned: discovery.scanned,
+            onScan: () => void discovery.scan()
+          }}
+        />
+      )}
+      {route === 'output' && (
+        <OutputRoute
+          activeProject={editingProject}
+          target={oscTarget}
+          onSave={(target) => withBusy(() => saveOsc(target))}
           busy={busy}
         />
       )}
