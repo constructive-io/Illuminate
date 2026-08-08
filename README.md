@@ -18,6 +18,11 @@ Layouts are presets, not code: `grid-7x7`, `grid-7x2`, `ring-6`, `ring-25-filled
 
 ## Running a Show (operators)
 
+A show needs **no checkout of this repo** — the CLI ships the brain, the receiver
+and the built artist UI, and every file it writes lives under `~/.wavegrid`
+(`pnpm verify:install` proves this on every CI run by booting a show from the
+real npm tarballs).
+
 ```sh
 npm i -g @wavegrid/cli
 
@@ -47,6 +52,28 @@ pnpm build
 
 - Node.js 18+
 - pnpm
+
+### Releasing
+
+Operators get Wavegrid from npm, so a release is a publish — nothing is bundled,
+signed, or downloaded from GitHub:
+
+```sh
+pnpm verify:install          # boots a show from the real tarballs (also a CI gate)
+pnpm release:version         # lerna, independent versions, conventional commits
+git push --follow-tags       # the v* tag runs .github/workflows/release.yml
+```
+
+The workflow rebuilds, re-verifies, then `pnpm -r publish`es every public
+package (private ones — `desktop`, `webgl` — are skipped) and cuts a GitHub
+release. It needs an `NPM_TOKEN` repository secret with publish rights to the
+`@wavegrid` scope. Already-published versions are skipped, so re-running a
+release is safe.
+
+Because the packages depend on each other by exact version, they must be
+published **together**: `verify:install` fails the build if any published
+package depends on one that isn't published, which is otherwise invisible from
+inside the workspace.
 
 ## Packages
 

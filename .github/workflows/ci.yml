@@ -39,6 +39,11 @@ jobs:
       - name: Test
         run: pnpm -r --if-present run test
 
+      # Packs the real tarballs and boots a show from them, so a published
+      # install can never silently depend on the workspace.
+      - name: Verify a global install
+        run: pnpm run verify:install
+
   build-windows:
     runs-on: windows-latest
 
