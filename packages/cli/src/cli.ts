@@ -13,6 +13,7 @@ import { runPrintConfig } from './commands/print-config';
 import { runProjectsExport, runProjectsImport } from './commands/project-io';
 import { runProjects, runUse } from './commands/projects';
 import { runReceiver } from './commands/receiver';
+import { runSettingsClear } from './commands/reset';
 import {
   printRoutingUsage,
   runRoutingClear,
@@ -54,6 +55,7 @@ ${c.bold('Projects')} — manage and edit projects
 ${c.bold('Settings')} — global store
   settings environment          Show the store location + environment
   settings initialize           Create/ensure the global store scaffold
+  settings clear                Wipe the whole store — every project (confirm required)
 
 ${c.bold('Run')}
   start                         Run the active project — server + UI + receiver (one laptop)
@@ -78,7 +80,7 @@ ${c.gray('Shortcuts: `init`, `config`, `secrets`, `users`, `devices`, `env` work
 /** Top-level menu (bare `wavegrid`). */
 const COMMANDS: SubCommand[] = [
   { value: 'projects', description: 'Manage projects: list, create, use, config, secrets, users, env' },
-  { value: 'settings', description: 'Global store: environment, initialize' },
+  { value: 'settings', description: 'Global store: environment, initialize, clear all' },
   { value: 'start', description: 'Run the active project — server + UI + receiver (one laptop)' },
   { value: 'server', description: 'Run the brain only — server + UI + API + WebSocket (no receiver)' },
   { value: 'receiver', description: 'Run a receiver only — connects to a brain, drives its shard' },
@@ -103,7 +105,8 @@ const PROJECTS_SUBS: SubCommand[] = [
 
 const SETTINGS_SUBS: SubCommand[] = [
   { value: 'environment', description: 'Show the store location + environment' },
-  { value: 'initialize', description: 'Create/ensure the global store scaffold' }
+  { value: 'initialize', description: 'Create/ensure the global store scaffold' },
+  { value: 'clear', description: 'Clear all — wipe every project, secret and key (irreversible)' }
 ];
 
 const CONFIG_SUBS: SubCommand[] = [
@@ -344,6 +347,7 @@ function dispatchEnv(args: string[], flags: Flags): void {
 
 async function dispatchSettings(
   args: string[],
+  flags: Flags,
   prompter: Inquirerer,
   nonInteractive: boolean
 ): Promise<void> {
@@ -351,7 +355,9 @@ async function dispatchSettings(
   if (sub == null) return;
   if (sub === 'environment' || sub === 'env') runSettingsEnvironment();
   else if (sub === 'initialize' || sub === 'init') runSettingsInitialize();
-  else unknownSub('settings', sub);
+  else if (sub === 'clear' || sub === 'reset') {
+    await runSettingsClear(flags, nonInteractive ? undefined : prompter);
+  } else unknownSub('settings', sub);
 }
 
 async function dispatchProjects(
@@ -479,7 +485,7 @@ export async function run(argvInput: string[] = process.argv.slice(2)): Promise<
       await dispatchProjects(positionals.slice(1), flags, prompter, nonInteractive);
       break;
     case 'settings':
-      await dispatchSettings(positionals.slice(1), prompter, nonInteractive);
+      await dispatchSettings(positionals.slice(1), flags, prompter, nonInteractive);
       break;
     case 'print-config':
       runPrintConfig(process.cwd(), flags);

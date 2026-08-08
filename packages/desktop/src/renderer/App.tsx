@@ -1,4 +1,4 @@
-import { Cpu, FolderKanban, Lightbulb, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Cog, Cpu, FolderKanban, Lightbulb, MonitorPlay, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
@@ -15,16 +15,18 @@ import {
   useProjects,
   useProjectSecrets,
   useProjectUsers,
-  useSessions
+  useSessions,
+  useStore
 } from '@/renderer/lib/use-wavegrid';
 import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
 import { DevicesRoute } from '@/renderer/routes/devices-route';
 import { LightsRoute } from '@/renderer/routes/lights-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
+import { SettingsRoute } from '@/renderer/routes/settings-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
 
-type Route = 'show' | 'projects' | 'config' | 'access' | 'lights' | 'devices';
+type Route = 'show' | 'projects' | 'config' | 'access' | 'lights' | 'devices' | 'settings';
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
@@ -32,10 +34,19 @@ const ROUTE_LABEL: Record<Route, string> = {
   config: 'Config',
   access: 'Users & Secrets',
   lights: 'Lights',
-  devices: 'Devices'
+  devices: 'Devices',
+  settings: 'Settings'
 };
 
-const ROUTES: Route[] = ['show', 'projects', 'config', 'access', 'lights', 'devices'];
+const ROUTES: Route[] = [
+  'show',
+  'projects',
+  'config',
+  'access',
+  'lights',
+  'devices',
+  'settings'
+];
 
 export function App() {
   const [route, setRoute] = React.useState<Route>('show');
@@ -101,6 +112,7 @@ export function App() {
     identify: identifyLight,
     identifyClear: identifyClearLights
   } = useLightMap(editingProject);
+  const { info: storeInfo, refresh: refreshStore, clear: clearStore } = useStore();
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -246,6 +258,13 @@ export function App() {
           icon: Cpu,
           isActive: route === 'devices',
           badge: devices.length || undefined
+        },
+        {
+          id: 'settings',
+          label: 'Settings',
+          href: '#settings',
+          icon: Cog,
+          isActive: route === 'settings'
         }
       ]
     }
@@ -262,7 +281,8 @@ export function App() {
       void refreshSecrets();
     }
     if (route === 'lights') void refreshLightMap();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap]);
+    if (route === 'settings') void refreshStore();
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap, refreshStore]);
 
   return (
     <AppShell
@@ -346,6 +366,25 @@ export function App() {
           devices={devices}
           onRename={(id, name) => void renameDevice(id, name)}
           onAssignShard={(id, shard) => void assignShard(id, shard)}
+          busy={busy}
+        />
+      )}
+      {route === 'settings' && (
+        <SettingsRoute
+          info={storeInfo}
+          onClear={async (keepDevice) => {
+            setBusy(true);
+            try {
+              const result = await clearStore(keepDevice);
+              // Everything the other screens mirror just vanished — re-read it all
+              // so no route keeps showing a project that no longer exists.
+              setConfigProject(null);
+              await refresh();
+              return result;
+            } finally {
+              setBusy(false);
+            }
+          }}
           busy={busy}
         />
       )}

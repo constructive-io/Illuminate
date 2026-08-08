@@ -19,6 +19,8 @@ import type {
   ProjectSummary,
   RequiredSecretInfo,
   ShardRange,
+  StoreClearResult,
+  StoreInfo,
   UserRole
 } from '@/types/ipc';
 
@@ -53,6 +55,17 @@ function secretStatus(project: string): RequiredSecretInfo[] {
     description: s.description,
     set: s.set
   }));
+}
+
+/** Where the store lives and what it holds — no secrets, no key material. */
+function storeInfo(): StoreInfo {
+  const store = openStore();
+  return {
+    root: store.paths.root,
+    baseOverride: process.env.APPSTASH_BASE_DIR ?? null,
+    projects: store.listProjects(),
+    deviceName: store.getDevice().name
+  };
 }
 
 function projectSummaries(): ProjectSummary[] {
@@ -251,6 +264,16 @@ export function registerAllIpc(): void {
   ipcMain.handle('lights:identifyClear', (_e, project: string) => {
     sendToBrain(project, { type: 'physical_preview_clear' });
     sendToBrain(project, { type: 'calibration_mode', enabled: false });
+  });
+
+  ipcMain.handle('store:info', () => storeInfo());
+  ipcMain.handle('store:clear', async (_e, keepDevice: boolean): Promise<StoreClearResult> => {
+    // Stop the brain first: it holds the project whose state is about to vanish,
+    // and a running receiver would keep writing into the wiped state dir.
+    await stopBrain();
+    syncLaser({ url: null, bounds: { x: 0, y: 0, width: 0, height: 0 }, visible: false });
+    const summary = openStore().reset({ keepDevice });
+    return { ...summary, info: storeInfo() };
   });
 
   ipcMain.on('laser:sync', (_e, state: LaserSyncState) => syncLaser(state));

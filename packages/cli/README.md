@@ -58,6 +58,7 @@ global store setup lives under `settings`; `start` and `doctor` are top-level.
 | `wavegrid projects env export` | Write a `.env` for the current project (`--file` to override). |
 | `wavegrid settings environment` | Show the store location + environment (paths, active project, base override). |
 | `wavegrid settings initialize` | Create/ensure the global store scaffold. |
+| `wavegrid settings clear` | Clear all — wipe every project, secret, user, access key, session, device record, light map and log. Asks you to type `clear all`; `--yes` for scripts, `--keep-device` to keep this machine's identity. Irreversible: secrets are generated once and cannot be recovered. |
 | `wavegrid start` | Load the active project and run server + receiver in-process. |
 | `wavegrid doctor` | Diagnose this laptop (env hijacks, ports, secrets, users, shard) and — if a server is reachable — the whole installation: connected receivers + shard coverage (gaps/overlaps). `--json` for scripting, `--server ws://host:port` to point at a remote server. |
 

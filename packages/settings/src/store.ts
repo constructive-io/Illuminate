@@ -59,6 +59,7 @@ import {
   renameDevice
 } from './registry';
 import { type RequiredSecret,requiredSecrets } from './required';
+import { type ResetOptions, resetStore, type ResetSummary } from './reset';
 import {
   type GenerateResult,
   generateSecrets,
@@ -203,6 +204,14 @@ export interface SettingsStore {
   // Runtime paths
   stateDir(project: string): string;
   logsDir(project: string): string;
+
+  /**
+   * Wipe every project, secret, user, key, session, device record, light map
+   * and log from this store, leaving the empty scaffold. Irreversible —
+   * secrets are generated once and cannot be recovered — so callers must
+   * confirm first.
+   */
+  reset(opts?: ResetOptions): ResetSummary;
 }
 
 export function openStore(opts: StoreOptions = {}): SettingsStore {
@@ -293,6 +302,8 @@ export function openStore(opts: StoreOptions = {}): SettingsStore {
     setActiveLightMap: (project, name) => setActiveLightMap(paths, project, name),
 
     stateDir: (project) => projectStateDir(paths, project),
-    logsDir: (project) => projectLogsDir(paths, project)
+    logsDir: (project) => projectLogsDir(paths, project),
+
+    reset: (o) => resetStore(paths, o)
   };
 }

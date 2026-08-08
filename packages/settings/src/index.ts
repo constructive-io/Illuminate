@@ -62,6 +62,9 @@ export {
 // Required-secrets report
 export { type RequiredSecret } from './required';
 
+// Store reset (clear-all; irreversible, callers must confirm)
+export { type ResetOptions, type ResetSummary } from './reset';
+
 // Users
 export { type StoredUser, type UserInfo, type UserRole } from './users';
 
