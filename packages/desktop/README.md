@@ -32,6 +32,12 @@ Desktop reuses `@wavegrid/settings` and `@wavegrid/layout` directly, so the
 active project, config, secrets, users, and devices are the **same files** the
 CLI reads and writes. No duplicate Desktop storage, no import step.
 
+The **Settings** route shows where that store lives and offers *clear all* —
+the same wipe as `wavegrid settings clear`, gated on typing `clear all`. It
+stops the brain first, then removes every project, secret, user, access key,
+session, device record, light map and log; secrets are generated once and are
+not recoverable.
+
 ## Develop
 
 The workspace libraries must be built first (Desktop consumes their `dist/`):

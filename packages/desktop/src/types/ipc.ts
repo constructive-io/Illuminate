@@ -177,6 +177,25 @@ export interface DeviceInfo {
   shard?: ShardRange | null;
 }
 
+/** Where the store lives and what it holds — the Settings screen's read model. */
+export interface StoreInfo {
+  root: string;
+  /** Set when APPSTASH_BASE_DIR relocates the store (otherwise null). */
+  baseOverride: string | null;
+  projects: string[];
+  /** This machine's device name, so an operator sees what a wipe would forget. */
+  deviceName: string;
+}
+
+/** What a clear-all removed, so the UI reports facts instead of guessing. */
+export interface StoreClearResult {
+  projects: string[];
+  secrets: number;
+  logs: number;
+  device: boolean;
+  info: StoreInfo;
+}
+
 export interface LaserBounds {
   x: number;
   y: number;
@@ -266,6 +285,16 @@ export interface WavegridApi {
     identify(project: string, physicalIndex: number): Promise<boolean>;
     /** Clear any active identify flash. */
     identifyClear(project: string): Promise<void>;
+  };
+  store: {
+    /** Where the store lives + what it currently holds (for the Settings screen). */
+    info(): Promise<StoreInfo>;
+    /**
+     * Clear all: wipe every project, secret, user, key, session, device record,
+     * light map and log. Irreversible (secrets cannot be recovered), so the
+     * renderer must confirm first; the brain is stopped before the wipe.
+     */
+    clear(keepDevice: boolean): Promise<StoreClearResult>;
   };
 }
 

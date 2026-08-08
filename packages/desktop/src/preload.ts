@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { AccessKeyInfo, BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { AccessKeyInfo, BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -80,6 +80,11 @@ const api: WavegridApi = {
       ipcRenderer.invoke('lights:identify', project, physicalIndex) as Promise<boolean>,
     identifyClear: (project) =>
       ipcRenderer.invoke('lights:identifyClear', project) as Promise<void>
+  },
+  store: {
+    info: () => ipcRenderer.invoke('store:info') as Promise<StoreInfo>,
+    clear: (keepDevice) =>
+      ipcRenderer.invoke('store:clear', keepDevice) as Promise<StoreClearResult>
   }
 };
 

@@ -11,6 +11,8 @@ import type {
   RequiredSecretInfo,
   SessionInfo,
   ShardRange,
+  StoreClearResult,
+  StoreInfo,
   UserAccount,
   UserRole
 } from '@/types/ipc';
@@ -426,4 +428,29 @@ export function useDevices(project: string | null): {
   }, [refresh]);
 
   return { devices, refresh, rename, assignShard };
+}
+
+/** The global store: where it lives, what it holds, and clear-all. */
+export function useStore(): {
+  info: StoreInfo | null;
+  refresh: () => Promise<void>;
+  clear: (keepDevice: boolean) => Promise<StoreClearResult>;
+  } {
+  const [info, setInfo] = React.useState<StoreInfo | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    setInfo(await window.wavegrid.store.info());
+  }, []);
+
+  const clear = React.useCallback(async (keepDevice: boolean) => {
+    const result = await window.wavegrid.store.clear(keepDevice);
+    setInfo(result.info);
+    return result;
+  }, []);
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { info, refresh, clear };
 }
