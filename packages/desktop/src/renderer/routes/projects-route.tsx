@@ -21,7 +21,17 @@ import {
   EmptyTitle
 } from '@/components/ui/empty';
 import { CreateProjectDialog } from '@/renderer/routes/create-project-dialog';
-import type { NewProjectInput, ProjectSummary } from '@/types/ipc';
+import {
+  ExportProjectDialog,
+  ImportProjectDialog
+} from '@/renderer/routes/transfer-dialogs';
+import type {
+  ExportResult,
+  ImportRequest,
+  ImportSummary,
+  NewProjectInput,
+  ProjectSummary
+} from '@/types/ipc';
 
 interface ProjectsRouteProps {
   projects: ProjectSummary[];
@@ -30,6 +40,8 @@ interface ProjectsRouteProps {
   onCreate: (input: NewProjectInput) => Promise<void>;
   onRemove: (name: string) => void;
   onEditConfig: (name: string) => void;
+  onExport: (project: string, includeSecrets: boolean) => Promise<ExportResult | null>;
+  onImport: (req: ImportRequest) => Promise<ImportSummary | null>;
   busy: boolean;
 }
 
@@ -43,6 +55,8 @@ export function ProjectsRoute({
   onCreate,
   onRemove,
   onEditConfig,
+  onExport,
+  onImport,
   busy
 }: ProjectsRouteProps) {
   const existing = projects.map((p) => p.name);
@@ -53,12 +67,15 @@ export function ProjectsRoute({
         <span className='text-muted-foreground text-sm'>
           {projects.length} project{projects.length === 1 ? '' : 's'} · shared with the CLI
         </span>
-        <CreateProjectDialog
-          presets={presets}
-          existing={existing}
-          onCreate={onCreate}
-          busy={busy}
-        />
+        <div className='flex items-center gap-2'>
+          <ImportProjectDialog onImport={onImport} busy={busy} />
+          <CreateProjectDialog
+            presets={presets}
+            existing={existing}
+            onCreate={onCreate}
+            busy={busy}
+          />
+        </div>
       </div>
 
       {projects.length === 0 ? (
@@ -86,6 +103,7 @@ export function ProjectsRoute({
                 {p.active && <Badge>active</Badge>}
               </div>
               <div className='flex items-center gap-2'>
+                <ExportProjectDialog project={p.name} onExport={onExport} busy={busy} />
                 <Button
                   variant='ghost'
                   size='sm'

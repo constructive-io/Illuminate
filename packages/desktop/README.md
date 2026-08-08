@@ -32,6 +32,11 @@ Desktop reuses `@wavegrid/settings` and `@wavegrid/layout` directly, so the
 active project, config, secrets, users, and devices are the **same files** the
 CLI reads and writes. No duplicate Desktop storage, no import step.
 
+**Projects** can export a portable bundle and import one through native file
+dialogs — the same `PortableProject` format as `wavegrid projects export/import`.
+Secrets only travel when explicitly asked for (that file is a credential);
+without them an import generates fresh ones and says so.
+
 The **Output** route owns the project's `osc` block — BEYOND / FB4 / a routing
 file / none, the same four targets as `wavegrid projects osc`. Switching kinds
 leaves exactly one target behind, and a unified routing spec (authored with

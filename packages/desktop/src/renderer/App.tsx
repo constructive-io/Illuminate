@@ -18,7 +18,8 @@ import {
   useProjectSecrets,
   useProjectUsers,
   useSessions,
-  useStore
+  useStore,
+  useTransfer
 } from '@/renderer/lib/use-wavegrid';
 import { AccessRoute } from '@/renderer/routes/access-route';
 import { ConfigRoute } from '@/renderer/routes/config-route';
@@ -128,6 +129,7 @@ export function App() {
   const { info: storeInfo, refresh: refreshStore, clear: clearStore } = useStore();
   const { target: oscTarget, refresh: refreshOsc, save: saveOsc } = useOscTarget(editingProject);
   const discovery = useDiscovery();
+  const { exportProject, importProject } = useTransfer(refresh);
 
   const onStart = React.useCallback(async () => {
     if (!activeProject) return;
@@ -335,6 +337,10 @@ export function App() {
           onCreate={onCreate}
           onRemove={(name) => void onRemove(name)}
           onEditConfig={onEditConfig}
+          onExport={(project, includeSecrets) =>
+            withBusy(() => exportProject(project, includeSecrets))
+          }
+          onImport={(req) => withBusy(() => importProject(req))}
           busy={busy}
         />
       )}

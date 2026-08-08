@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { AccessKeyInfo, BrainStatus, DeviceInfo, DiscoveredBrainInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, OscTarget, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { AccessKeyInfo, BrainStatus, DeviceInfo, DiscoveredBrainInfo, EditableConfig, ExportResult, ImportRequest, ImportSummary, LaserSyncState, LightMapView, NewProjectInput, OscTarget, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -24,7 +24,11 @@ const api: WavegridApi = {
     remove: (name) => ipcRenderer.invoke('projects:remove', name) as Promise<ProjectSummary[]>,
     getConfig: (project) => ipcRenderer.invoke('projects:getConfig', project) as Promise<EditableConfig | null>,
     saveConfig: (project, config: EditableConfig) =>
-      ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>
+      ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>,
+    exportToFile: (project, includeSecrets) =>
+      ipcRenderer.invoke('projects:exportToFile', project, includeSecrets) as Promise<ExportResult | null>,
+    importFromFile: (req: ImportRequest) =>
+      ipcRenderer.invoke('projects:importFromFile', req) as Promise<ImportSummary | null>
   },
   users: {
     list: (project) => ipcRenderer.invoke('users:list', project) as Promise<UserAccount[]>,

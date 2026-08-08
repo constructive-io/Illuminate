@@ -13,10 +13,12 @@ import {
   knownPresets,
   toEditable
 } from '@/main/project-config';
+import { exportProjectToFile, importProjectFromFile } from '@/main/transfer';
 import type {
   DeviceInfo,
   DiscoveredBrainInfo,
   EditableConfig,
+  ImportRequest,
   LightMapView,
   NewProjectInput,
   OscTarget,
@@ -269,6 +271,11 @@ export function registerAllIpc(): void {
     sendToBrain(project, { type: 'physical_preview_clear' });
     sendToBrain(project, { type: 'calibration_mode', enabled: false });
   });
+
+  ipcMain.handle('projects:exportToFile', (_e, project: string, includeSecrets: boolean) =>
+    exportProjectToFile(project, includeSecrets)
+  );
+  ipcMain.handle('projects:importFromFile', (_e, req: ImportRequest) => importProjectFromFile(req));
 
   ipcMain.handle('osc:get', (_e, project: string) => {
     const store = openStore();

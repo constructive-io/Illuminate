@@ -57,6 +57,34 @@ export interface EditableConfig {
   cannonCount: number;
 }
 
+/** Where a project bundle was written, and what travelled with it. */
+export interface ExportResult {
+  path: string;
+  project: string;
+  /** True when the shared receiverKey/jwtSecret are in the file. */
+  includeSecrets: boolean;
+  deviceCount: number;
+  userCount: number;
+}
+
+export interface ImportRequest {
+  /** Import under this name instead of the bundle's own. */
+  name?: string;
+  activate: boolean;
+  /** Replace an existing project of the same name (the store refuses otherwise). */
+  overwrite: boolean;
+}
+
+export interface ImportSummary {
+  project: string;
+  /** True when the bundle carried no secrets, so fresh ones were generated —
+   *  they will NOT match the brain until they are synced. */
+  generatedSecrets: boolean;
+  deviceCount: number;
+  userCount: number;
+  path: string;
+}
+
 /** How a project drives lasers — the same four choices as the CLI's
  *  `wavegrid projects osc` wizard, flattened for the editor. */
 export interface OscTarget {
@@ -255,6 +283,10 @@ export interface WavegridApi {
     remove(name: string): Promise<ProjectSummary[]>;
     getConfig(project: string): Promise<EditableConfig | null>;
     saveConfig(project: string, config: EditableConfig): Promise<EditableConfig | null>;
+    /** Write a portable bundle via a native save dialog. null when cancelled. */
+    exportToFile(project: string, includeSecrets: boolean): Promise<ExportResult | null>;
+    /** Read a portable bundle via a native open dialog. null when cancelled. */
+    importFromFile(req: ImportRequest): Promise<ImportSummary | null>;
   };
   users: {
     list(project: string): Promise<UserAccount[]>;

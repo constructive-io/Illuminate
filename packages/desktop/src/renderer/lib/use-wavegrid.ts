@@ -6,6 +6,9 @@ import type {
   DeviceInfo,
   DiscoveredBrainInfo,
   EditableConfig,
+  ExportResult,
+  ImportRequest,
+  ImportSummary,
   LightMapView,
   NewProjectInput,
   OscTarget,
@@ -137,6 +140,32 @@ export function useProjectConfig(project: string | null): {
   }, [refresh]);
 
   return { config, loading, refresh, save };
+}
+
+/** Export/import a project through native file dialogs. Both resolve null when
+ *  the operator cancels the dialog — a cancel is not an error. */
+export function useTransfer(onChanged: () => Promise<void>): {
+  exportProject: (project: string, includeSecrets: boolean) => Promise<ExportResult | null>;
+  importProject: (req: ImportRequest) => Promise<ImportSummary | null>;
+  } {
+  const exportProject = React.useCallback(
+    (project: string, includeSecrets: boolean) =>
+      window.wavegrid.projects.exportToFile(project, includeSecrets),
+    []
+  );
+
+  const importProject = React.useCallback(
+    async (req: ImportRequest) => {
+      const result = await window.wavegrid.projects.importFromFile(req);
+      // An import adds (or replaces) a project, so the registry the whole shell
+      // renders from has to be re-read before anything else is shown.
+      if (result) await onChanged();
+      return result;
+    },
+    [onChanged]
+  );
+
+  return { exportProject, importProject };
 }
 
 /** A project's laser output target (BEYOND / FB4 / routing file / none). */
