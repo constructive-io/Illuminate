@@ -1,3 +1,7 @@
+import { chmodSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
 import type { WavegridConfig } from '@wavegrid/layout';
 
 import {
@@ -6,7 +10,8 @@ import {
   checkShard,
   isSecureMode,
   overallStatus
-} from '../src/commands/doctor-checks';
+} from '../src/checks';
+import { dirWritable } from '../src/collect';
 
 function config(osc: WavegridConfig['osc']): WavegridConfig {
   return {
@@ -86,5 +91,26 @@ describe('overallStatus', () => {
       { name: 'a', status: 'warn', detail: '' },
       { name: 'b', status: 'fail', detail: '' }
     ])).toBe('fail');
+  });
+});
+
+describe('dirWritable', () => {
+  it('accepts an existing writable dir', () => {
+    expect(dirWritable(tmpdir())).toBe(true);
+  });
+
+  it('accepts a not-yet-created dir whose ancestor is writable (subdirs are lazy)', () => {
+    expect(dirWritable(join(tmpdir(), 'wg-doctor-does-not-exist', 'state'))).toBe(true);
+  });
+
+  it('rejects a dir under a read-only ancestor', () => {
+    const root = mkdtempSync(join(tmpdir(), 'wg-ro-'));
+    chmodSync(root, 0o500);
+    try {
+      expect(dirWritable(join(root, 'state'))).toBe(false);
+    } finally {
+      chmodSync(root, 0o700);
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

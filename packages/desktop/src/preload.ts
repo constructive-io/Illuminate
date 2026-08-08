@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { AccessKeyInfo, BrainStatus, DeviceInfo, DiscoveredBrainInfo, EditableConfig, ExportResult, ImportRequest, ImportSummary, LaserSyncState, LightMapView, NewProjectInput, OscTarget, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { AccessKeyInfo, BrainStatus, DeviceInfo, DiscoveredBrainInfo, DoctorReport, EditableConfig, ExportResult, ImportRequest, ImportSummary, LaserSyncState, LightMapView, NewProjectInput, OscTarget, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -9,11 +9,16 @@ const api: WavegridApi = {
     status: () => ipcRenderer.invoke('brain:status'),
     start: (project) => ipcRenderer.invoke('brain:start', project),
     stop: () => ipcRenderer.invoke('brain:stop'),
+    startReceiver: () => ipcRenderer.invoke('brain:startReceiver'),
+    stopReceiver: () => ipcRenderer.invoke('brain:stopReceiver'),
     onStatus: (cb: (status: BrainStatus) => void) => {
       const listener = (_e: unknown, payload: BrainStatus) => cb(payload);
       ipcRenderer.on('brain:status', listener);
       return () => ipcRenderer.removeListener('brain:status', listener);
     }
+  },
+  doctor: {
+    report: (project) => ipcRenderer.invoke('doctor:report', project) as Promise<DoctorReport | null>
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list') as Promise<ProjectSummary[]>,

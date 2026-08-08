@@ -56,6 +56,7 @@ pnpm build
 | `packages/ui` | `@wavegrid/ui` | Artist UI — Paint, Gradient, Drops, Motion, Scenes, Animations, Flags, Brightness, Audio |
 | `packages/layout` | `@wavegrid/layout` | Layout model — presets, fixture generators (grid/ring/filledRing), config resolution |
 | `packages/settings` | `@wavegrid/settings` | Centralized appstash store — projects, secrets, users, state, logs |
+| `packages/doctor` | `@wavegrid/doctor` | Diagnostics as data — the checks behind `wavegrid doctor` and the desktop Status screen |
 | `packages/cli` | `@wavegrid/cli` | `wavegrid` CLI — projects, settings, start, doctor |
 | `packages/receiver` | `@wavegrid/receiver` | Receiver brain — LP filter, sine fallback, pluggable adapter pattern |
 | `packages/osc` | `@wavegrid/osc` | OSC output adapters for BEYOND and FB4 laser hardware |

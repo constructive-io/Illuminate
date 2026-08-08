@@ -81,9 +81,10 @@ export function status(): BrainStatus {
       url: current.url,
       project: current.project,
       runMode: current.runMode,
+      receiverRunning: current.receiver != null,
       lanUrls: lanAddresses().map((ip) => `http://${ip}:${new URL(current!.url).port}`)
     }
-    : { running: false, url: null, project: null, runMode: null, lanUrls: [] };
+    : { running: false, url: null, project: null, runMode: null, receiverRunning: false, lanUrls: [] };
   runtime.lastStatus = s;
   return s;
 }
@@ -128,6 +129,37 @@ export async function startBrain(project: string): Promise<BrainStatus> {
     server,
     receiver
   };
+  return broadcast();
+}
+
+/** Whether this machine's in-process receiver is driving `project` right now. */
+export function receiverRunning(project: string): boolean {
+  return current?.project === project && current.receiver != null;
+}
+
+/**
+ * Start this machine's receiver against the already-running brain. Separate
+ * from `startBrain` so an operator can restart just the output stage — the
+ * receiver reads its OSC target, shard, and light map at startup, so a config
+ * change only takes effect on a restart, and the show's server/UI keep running.
+ */
+export async function startLocalReceiver(): Promise<BrainStatus> {
+  if (!current) throw new Error('Start the brain first — the receiver dials into it.');
+  if (current.receiver) return status();
+
+  const store = openStore();
+  applyReceiverEnv(store, current.project);
+  const { startReceiver } = await import('@wavegrid/receiver');
+  current.receiver = startReceiver(loadWavegridConfig());
+  return broadcast();
+}
+
+/** Stop this machine's receiver, leaving the brain (server + laser UI) up. */
+export function stopLocalReceiver(): BrainStatus {
+  if (current?.receiver) {
+    current.receiver.stop();
+    current.receiver = null;
+  }
   return broadcast();
 }
 

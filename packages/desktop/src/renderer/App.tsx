@@ -1,4 +1,4 @@
-import { Cog, Cpu, FolderKanban, Lightbulb, MonitorPlay, Radio, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Activity, Cog, Cpu, FolderKanban, Lightbulb, MonitorPlay, Radio, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import * as React from 'react';
 
 import { type AppLinkRenderer } from '@/components/ui/app-bar';
@@ -10,6 +10,7 @@ import {
   useBrainStatus,
   useDevices,
   useDiscovery,
+  useDoctor,
   useLightMap,
   useOscTarget,
   usePresets,
@@ -29,9 +30,11 @@ import { OutputRoute } from '@/renderer/routes/output-route';
 import { ProjectsRoute } from '@/renderer/routes/projects-route';
 import { SettingsRoute } from '@/renderer/routes/settings-route';
 import { ShowRoute } from '@/renderer/routes/show-route';
+import { StatusRoute } from '@/renderer/routes/status-route';
 
 type Route =
   | 'show'
+  | 'status'
   | 'projects'
   | 'config'
   | 'access'
@@ -42,6 +45,7 @@ type Route =
 
 const ROUTE_LABEL: Record<Route, string> = {
   show: 'Show',
+  status: 'Status',
   projects: 'Projects',
   config: 'Config',
   access: 'Users & Secrets',
@@ -53,6 +57,7 @@ const ROUTE_LABEL: Record<Route, string> = {
 
 const ROUTES: Route[] = [
   'show',
+  'status',
   'projects',
   'config',
   'access',
@@ -127,6 +132,12 @@ export function App() {
     identifyClear: identifyClearLights
   } = useLightMap(editingProject);
   const { info: storeInfo, refresh: refreshStore, clear: clearStore } = useStore();
+  const {
+    report: doctorReport,
+    loading: doctorLoading,
+    error: doctorError,
+    refresh: refreshDoctor
+  } = useDoctor(activeProject);
   const { target: oscTarget, refresh: refreshOsc, save: saveOsc } = useOscTarget(editingProject);
   const discovery = useDiscovery();
   const { exportProject, importProject } = useTransfer(refresh);
@@ -240,6 +251,13 @@ export function App() {
           isActive: route === 'show'
         },
         {
+          id: 'status',
+          label: 'Status',
+          href: '#status',
+          icon: Activity,
+          isActive: route === 'status'
+        },
+        {
           id: 'projects',
           label: 'Projects',
           href: '#projects',
@@ -307,7 +325,8 @@ export function App() {
     if (route === 'lights') void refreshLightMap();
     if (route === 'output') void refreshOsc();
     if (route === 'settings') void refreshStore();
-  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap, refreshOsc, refreshStore]);
+    if (route === 'status') void refreshDoctor();
+  }, [route, refresh, refreshDevices, refreshConfig, refreshUsers, refreshSessions, refreshKeys, refreshSecrets, refreshLightMap, refreshOsc, refreshStore, refreshDoctor]);
 
   return (
     <AppShell
@@ -326,6 +345,26 @@ export function App() {
           activeProject={activeProject}
           onStart={onStart}
           onStop={onStop}
+          busy={busy}
+        />
+      )}
+      {route === 'status' && (
+        <StatusRoute
+          project={activeProject}
+          report={doctorReport}
+          loading={doctorLoading}
+          error={doctorError}
+          onRefresh={() => void refreshDoctor()}
+          brainLive={status.running && status.project === activeProject}
+          receiverRunning={status.receiverRunning && status.project === activeProject}
+          onStartReceiver={() => void withBusy(async () => {
+            await window.wavegrid.brain.startReceiver();
+            await refreshDoctor();
+          })}
+          onStopReceiver={() => void withBusy(async () => {
+            await window.wavegrid.brain.stopReceiver();
+            await refreshDoctor();
+          })}
           busy={busy}
         />
       )}
