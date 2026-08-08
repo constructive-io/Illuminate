@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { AccessKeyInfo, BrainStatus, DeviceInfo, EditableConfig, LaserSyncState, LightMapView, NewProjectInput, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
+import type { AccessKeyInfo, BrainStatus, DeviceInfo, DiscoveredBrainInfo, EditableConfig, ExportResult, ImportRequest, ImportSummary, LaserSyncState, LightMapView, NewProjectInput, OscTarget, ProjectSummary, RequiredSecretInfo, SessionInfo, ShardRange, StoreClearResult, StoreInfo, UserAccount, UserRole, WavegridApi, WavegridLaser } from '@/types/ipc';
 
 // The single, narrow bridge exposed to the renderer. The renderer never imports
 // @wavegrid/settings or `fs`; everything goes through these typed calls.
@@ -24,7 +24,11 @@ const api: WavegridApi = {
     remove: (name) => ipcRenderer.invoke('projects:remove', name) as Promise<ProjectSummary[]>,
     getConfig: (project) => ipcRenderer.invoke('projects:getConfig', project) as Promise<EditableConfig | null>,
     saveConfig: (project, config: EditableConfig) =>
-      ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>
+      ipcRenderer.invoke('projects:saveConfig', project, config) as Promise<EditableConfig | null>,
+    exportToFile: (project, includeSecrets) =>
+      ipcRenderer.invoke('projects:exportToFile', project, includeSecrets) as Promise<ExportResult | null>,
+    importFromFile: (req: ImportRequest) =>
+      ipcRenderer.invoke('projects:importFromFile', req) as Promise<ImportSummary | null>
   },
   users: {
     list: (project) => ipcRenderer.invoke('users:list', project) as Promise<UserAccount[]>,
@@ -80,6 +84,15 @@ const api: WavegridApi = {
       ipcRenderer.invoke('lights:identify', project, physicalIndex) as Promise<boolean>,
     identifyClear: (project) =>
       ipcRenderer.invoke('lights:identifyClear', project) as Promise<void>
+  },
+  osc: {
+    get: (project) => ipcRenderer.invoke('osc:get', project) as Promise<OscTarget | null>,
+    set: (project, target: OscTarget) =>
+      ipcRenderer.invoke('osc:set', project, target) as Promise<OscTarget | null>
+  },
+  discovery: {
+    browse: (timeoutMs) =>
+      ipcRenderer.invoke('discovery:browse', timeoutMs) as Promise<DiscoveredBrainInfo[]>
   },
   store: {
     info: () => ipcRenderer.invoke('store:info') as Promise<StoreInfo>,

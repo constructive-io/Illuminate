@@ -11,7 +11,8 @@ import {
   EmptyTitle
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
-import type { DeviceInfo, ShardRange } from '@/types/ipc';
+import { BrainDiscovery } from '@/renderer/routes/brain-discovery';
+import type { DeviceInfo, DiscoveredBrainInfo, ShardRange } from '@/types/ipc';
 
 interface DevicesRouteProps {
   activeProject: string | null;
@@ -19,6 +20,12 @@ interface DevicesRouteProps {
   onRename: (idOrName: string, newName: string) => void;
   onAssignShard: (idOrName: string, shard: ShardRange | null) => void;
   busy: boolean;
+  discovery: {
+    brains: DiscoveredBrainInfo[];
+    scanning: boolean;
+    scanned: boolean;
+    onScan: () => void;
+  };
 }
 
 function relativeTime(ms?: number): string | null {
@@ -171,11 +178,18 @@ export function DevicesRoute({
   devices,
   onRename,
   onAssignShard,
-  busy
+  busy,
+  discovery
 }: DevicesRouteProps) {
+  // Discovery is project-independent (it browses the LAN, not the store), so it
+  // stays visible above every state — including "no devices yet", where it is
+  // the most useful: it tells you the brain a laptop should point at.
+  const scanner = <BrainDiscovery {...discovery} />;
+
   if (!activeProject) {
     return (
-      <div className='p-4'>
+      <div className='flex flex-col gap-2 p-4'>
+        {scanner}
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -191,7 +205,8 @@ export function DevicesRoute({
 
   if (devices.length === 0) {
     return (
-      <div className='p-4'>
+      <div className='flex flex-col gap-2 p-4'>
+        {scanner}
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -211,6 +226,7 @@ export function DevicesRoute({
 
   return (
     <div className='flex flex-col gap-2 p-4'>
+      {scanner}
       {devices.map((d) => (
         <DeviceCard
           key={d.id}

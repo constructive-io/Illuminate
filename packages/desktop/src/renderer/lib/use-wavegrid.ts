@@ -4,9 +4,14 @@ import type {
   AccessKeyInfo,
   BrainStatus,
   DeviceInfo,
+  DiscoveredBrainInfo,
   EditableConfig,
+  ExportResult,
+  ImportRequest,
+  ImportSummary,
   LightMapView,
   NewProjectInput,
+  OscTarget,
   ProjectSummary,
   RequiredSecretInfo,
   SessionInfo,
@@ -135,6 +140,85 @@ export function useProjectConfig(project: string | null): {
   }, [refresh]);
 
   return { config, loading, refresh, save };
+}
+
+/** Export/import a project through native file dialogs. Both resolve null when
+ *  the operator cancels the dialog — a cancel is not an error. */
+export function useTransfer(onChanged: () => Promise<void>): {
+  exportProject: (project: string, includeSecrets: boolean) => Promise<ExportResult | null>;
+  importProject: (req: ImportRequest) => Promise<ImportSummary | null>;
+  } {
+  const exportProject = React.useCallback(
+    (project: string, includeSecrets: boolean) =>
+      window.wavegrid.projects.exportToFile(project, includeSecrets),
+    []
+  );
+
+  const importProject = React.useCallback(
+    async (req: ImportRequest) => {
+      const result = await window.wavegrid.projects.importFromFile(req);
+      // An import adds (or replaces) a project, so the registry the whole shell
+      // renders from has to be re-read before anything else is shown.
+      if (result) await onChanged();
+      return result;
+    },
+    [onChanged]
+  );
+
+  return { exportProject, importProject };
+}
+
+/** A project's laser output target (BEYOND / FB4 / routing file / none). */
+export function useOscTarget(project: string | null): {
+  target: OscTarget | null;
+  refresh: () => Promise<void>;
+  save: (target: OscTarget) => Promise<void>;
+  } {
+  const [target, setTarget] = React.useState<OscTarget | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    setTarget(project ? await window.wavegrid.osc.get(project) : null);
+  }, [project]);
+
+  const save = React.useCallback(
+    async (next: OscTarget) => {
+      if (!project) return;
+      setTarget(await window.wavegrid.osc.set(project, next));
+    },
+    [project]
+  );
+
+  React.useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { target, refresh, save };
+}
+
+/** Brains advertising themselves on the LAN. Browsing takes a couple of seconds
+ *  and resolves empty when multicast is blocked, so it is explicitly triggered
+ *  (never on a timer) and reports whether a scan has ever completed. */
+export function useDiscovery(): {
+  brains: DiscoveredBrainInfo[];
+  scanning: boolean;
+  scanned: boolean;
+  scan: () => Promise<void>;
+  } {
+  const [brains, setBrains] = React.useState<DiscoveredBrainInfo[]>([]);
+  const [scanning, setScanning] = React.useState(false);
+  const [scanned, setScanned] = React.useState(false);
+
+  const scan = React.useCallback(async () => {
+    setScanning(true);
+    try {
+      setBrains(await window.wavegrid.discovery.browse());
+      setScanned(true);
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
+  return { brains, scanning, scanned, scan };
 }
 
 /** UI login users for a project (username + role — password hashes never leave

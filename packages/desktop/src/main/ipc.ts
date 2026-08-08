@@ -1,3 +1,4 @@
+import { browse } from '@wavegrid/discovery';
 import { autoMap, resolveLayout } from '@wavegrid/layout';
 import { openStore } from '@wavegrid/settings';
 import { ipcMain } from 'electron';
@@ -5,17 +6,22 @@ import { ipcMain } from 'electron';
 import { sendToBrain, startBrain, status, stopBrain } from '@/main/brain';
 import { type LaserSyncState, syncLaser } from '@/main/laser-view';
 import { buildLightMapView } from '@/main/light-map';
+import { applyOscTarget, toOscTarget } from '@/main/osc-target';
 import {
   applyEditable,
   configForNewProject,
   knownPresets,
   toEditable
 } from '@/main/project-config';
+import { exportProjectToFile, importProjectFromFile } from '@/main/transfer';
 import type {
   DeviceInfo,
+  DiscoveredBrainInfo,
   EditableConfig,
+  ImportRequest,
   LightMapView,
   NewProjectInput,
+  OscTarget,
   ProjectSummary,
   RequiredSecretInfo,
   ShardRange,
@@ -264,6 +270,39 @@ export function registerAllIpc(): void {
   ipcMain.handle('lights:identifyClear', (_e, project: string) => {
     sendToBrain(project, { type: 'physical_preview_clear' });
     sendToBrain(project, { type: 'calibration_mode', enabled: false });
+  });
+
+  ipcMain.handle('projects:exportToFile', (_e, project: string, includeSecrets: boolean) =>
+    exportProjectToFile(project, includeSecrets)
+  );
+  ipcMain.handle('projects:importFromFile', (_e, req: ImportRequest) => importProjectFromFile(req));
+
+  ipcMain.handle('osc:get', (_e, project: string) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    return toOscTarget(store.getProjectConfig(project));
+  });
+  ipcMain.handle('osc:set', (_e, project: string, target: OscTarget) => {
+    const store = openStore();
+    if (!store.hasProject(project)) return null;
+    // applyOscTarget validates the target and throws a user-facing message;
+    // the renderer surfaces it rather than persisting a half-set target.
+    store.saveProjectConfig(project, applyOscTarget(store.getProjectConfig(project), target));
+    return toOscTarget(store.getProjectConfig(project));
+  });
+
+  ipcMain.handle('discovery:browse', async (_e, timeoutMs?: number) => {
+    const brains = await browse(timeoutMs ? { timeoutMs } : {});
+    return brains.map<DiscoveredBrainInfo>((b) => ({
+      name: b.name,
+      project: b.project,
+      host: b.host,
+      port: b.port,
+      addresses: b.addresses,
+      deviceName: b.deviceName,
+      transient: b.transient,
+      serverUrl: `ws://${b.addresses[0] ?? b.host}:${b.port}`
+    }));
   });
 
   ipcMain.handle('store:info', () => storeInfo());
